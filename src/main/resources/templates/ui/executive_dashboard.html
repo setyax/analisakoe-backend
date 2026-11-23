@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<style>
+    /* CSS Khusus Executive Dashboard */
+    .exec-dashboard { font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; }
+    
+    /* KPI Cards */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px; }
+    .kpi-card { 
+        background: #ffffff; padding: 20px; border-radius: 8px; 
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03); 
+        border: 1px solid #e2e8f0; display: flex; flex-direction: column;
+    }
+    .kpi-label { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .kpi-value { font-size: 24px; font-weight: 700; color: #0f172a; letter-spacing: -0.5px; }
+    .kpi-value.sales { color: #10b981; }
+    .kpi-value.purchase { color: #f59e0b; }
+    .kpi-value.ar { color: #3b82f6; }
+    .kpi-value.ap { color: #ef4444; }
+    
+    /* Tabel Data Dense */
+    .dense-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .dense-table th { text-align: left; padding: 8px 12px; color: #64748b; font-weight: 600; border-bottom: 1px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.5px; }
+    .dense-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+    .dense-table tr:hover td { background-color: #f8fafc; }
+    
+    .section-title { font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 12px; margin-top: 30px; }
+</style>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="exec-dashboard">
+                <!-- Header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
+                        <h2 style="font-size: 18px; font-weight: 700; margin: 0;">Executive Dashboard</h2>
+                        <p style="font-size: 12px; color: #64748b; margin: 4px 0 0 0;">Ringkasan Kinerja Perusahaan - <span th:text="${#temporals.format(#temporals.createNow(), 'MMMM yyyy')}"></span></p>
+                    </div>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <span class="kpi-label">Penjualan Bulan Ini</span>
+                        <span class="kpi-value sales" th:text="'Rp ' + ${#numbers.formatDecimal(salesMonth, 1, 'POINT', 0, 'COMMA')}">Rp 0</span>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-label">Pembelian Bulan Ini</span>
+                        <span class="kpi-value purchase" th:text="'Rp ' + ${#numbers.formatDecimal(purchaseMonth, 1, 'POINT', 0, 'COMMA')}">Rp 0</span>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-label">Total Piutang (AR)</span>
+                        <span class="kpi-value ar" th:text="'Rp ' + ${#numbers.formatDecimal(totalAR, 1, 'POINT', 0, 'COMMA')}">Rp 0</span>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-label">Total Hutang (AP)</span>
+                        <span class="kpi-value ap" th:text="'Rp ' + ${#numbers.formatDecimal(totalAP, 1, 'POINT', 0, 'COMMA')}">Rp 0</span>
+                    </div>
+                </div>
+
+                                <!-- === GRAFIK TREND & AKTIVITAS === -->
+                <div id="erp-dashboard-charts" style="display:grid; grid-template-columns: 2fr 1fr; gap:15px; margin-bottom:25px;">
+                    <div style="background:#ffffff; border-radius:8px; border:1px solid #e2e8f0; padding:20px;">
+                        <h3 style="margin:0 0 15px 0; font-size:13px; font-weight:700; color:#0f172a; text-transform:uppercase; letter-spacing:0.5px;">📈 Tren Penjualan vs Pembelian (6 Bulan Terakhir)</h3>
+                        <canvas id="trendChart" height="100"></canvas>
+                    </div>
+                    <div style="background:#ffffff; border-radius:8px; border:1px solid #e2e8f0; padding:20px;">
+                        <h3 style="margin:0 0 15px 0; font-size:13px; font-weight:700; color:#0f172a; text-transform:uppercase; letter-spacing:0.5px;">📊 Total Transaksi per Modul</h3>
+                        <canvas id="activityChart" height="150"></canvas>
+                    </div>
+                </div>
+                <!-- === END GRAFIK === -->
+                <!-- Contoh Tabel Ringkasan -->
+                <div style="background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 20px;">
+                    <h3 class="section-title" style="margin-top: 0;">Aktivitas Terakhir</h3>
+                    <table class="dense-table">
+                        <thead>
+                            <tr>
+                                <th>Waktu</th>
+                                <th>Modul</th>
+                                <th>Keterangan</th>
+                                <th>User</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td th:text="${#temporals.format(#temporals.createNow(), 'dd MMM yyyy HH:mm')}"></td>
+                                <td>System</td>
+                                <td>Dashboard berhasil dimuat. Selamat bekerja!</td>
+                                <td th:text="${user.username}">Admin</td>
+                            </tr>
+                            <tr>
+                                <td th:text="${#temporals.format(#temporals.createNow(), 'dd MMM yyyy HH:mm')}"></td>
+                                <td>Demo Data</td>
+                                <td>Data contoh telah dimuat ke dalam sistem.</td>
+                                <td>System</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </section>
+    </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script th:inline="javascript">
+    // Tunggu Chart.js siap
+    document.addEventListener('DOMContentLoaded', function() {
+        // ====== Line Chart: Tren Penjualan vs Pembelian ======
+        const trendCtx = document.getElementById('trendChart');
+        if (trendCtx) {
+            const monthLabels   = /*[[${monthLabels}]]*/ [];
+            const salesTrend    = /*[[${salesTrend}]]*/ [];
+            const purchaseTrend = /*[[${purchaseTrend}]]*/ [];
+
+            new Chart(trendCtx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: monthLabels,
+                    datasets: [
+                        {
+                            label: 'Penjualan',
+                            data: salesTrend.map(v => Number(v) || 0),
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#10b981'
+                        },
+                        {
+                            label: 'Pembelian',
+                            data: purchaseTrend.map(v => Number(v) || 0),
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#f59e0b'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'top', labels: { font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let v = context.parsed.y || 0;
+                                    return context.dataset.label + ': Rp ' + v.toLocaleString('id-ID');
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                font: { size: 10 },
+                                callback: function(value) {
+                                    if (value >= 1000000) return 'Rp ' + (value/1000000).toFixed(0) + ' Jt';
+                                    if (value >= 1000) return 'Rp ' + (value/1000).toFixed(0) + ' Rb';
+                                    return 'Rp ' + value;
+                                }
+                            },
+                            grid: { color: '#f1f5f9' }
+                        },
+                        x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // ====== Bar Chart: Aktivitas per Modul ======
+        const activityCtx = document.getElementById('activityChart');
+        if (activityCtx) {
+            const activityLabels = /*[[${activityLabels}]]*/ [];
+            const activityData   = /*[[${activityData}]]*/ [];
+
+            new Chart(activityCtx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: activityLabels,
+                    datasets: [{
+                        label: 'Jumlah Dokumen',
+                        data: activityData.map(v => Number(v) || 0),
+                        backgroundColor: [
+                            '#3b82f6', '#8b5cf6', '#06b6d4', '#f59e0b',
+                            '#10b981', '#ec4899', '#ef4444'
+                        ],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y + ' dokumen';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { font: { size: 10 }, precision: 0 },
+                            grid: { color: '#f1f5f9' }
+                        },
+                        x: { ticks: { font: { size: 10, weight: 'bold' } }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+    });
+</script>
+</body>
+</html>

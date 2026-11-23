@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="max-width: 1000px; margin: 0 auto;">
+                
+                <h3 style="margin-top:0; text-align:center;">LAPORAN KEUANGAN KONSOLIDASI</h3>
+                <p style="text-align:center; color:#64748b; margin-bottom:30px;">Seluruh Entitas Anak Perusahaan</p>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                    
+                    <!-- KOLOM KIRI: NERACA (ASET) -->
+                    <div style="background:white; padding:20px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <h4 style="border-bottom:2px solid #1e293b; padding-bottom:10px; margin-top:0;">NERACA (ASET)</h4>
+                        <table style="width:100%; border-collapse:collapse; font-size:14px;">
+                            <tbody>
+                                <tr th:each="a : ${assets}">
+                                    <td style="padding:8px 0;" th:text="${a.code} + ' - ' + ${a.name}"></td>
+                                    <td style="padding:8px 0; text-align:right;" th:text="${#numbers.formatDecimal(a.amount, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+                                <tr style="border-top:1px solid #cbd5e1; font-weight:bold; color:#047857;">
+                                    <td style="padding:12px 0;">TOTAL ASET</td>
+                                    <td style="padding:12px 0; text-align:right;" th:text="${#numbers.formatDecimal(totalAssets, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- KOLOM KANAN: NERACA (KEWAJIBAN & EKUITAS) -->
+                    <div style="background:white; padding:20px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <h4 style="border-bottom:2px solid #1e293b; padding-bottom:10px; margin-top:0;">KEWAJIBAN & EKUITAS</h4>
+                        <table style="width:100%; border-collapse:collapse; font-size:14px;">
+                            <tbody>
+                                <tr><td colspan="2" style="padding:8px 0; font-weight:bold;">Kewajiban:</td></tr>
+                                <tr th:each="l : ${liabilities}">
+                                    <td style="padding:8px 0 8px 15px;" th:text="${l.code} + ' - ' + ${l.name}"></td>
+                                    <td style="padding:8px 0; text-align:right;" th:text="${#numbers.formatDecimal(l.amount, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+                                <tr style="border-top:1px solid #cbd5e1; font-weight:bold; color:#b91c1c;">
+                                    <td style="padding:12px 0;">Total Kewajiban</td>
+                                    <td style="padding:12px 0; text-align:right;" th:text="${#numbers.formatDecimal(totalLiabilities, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+
+                                <tr><td colspan="2" style="padding:15px 0 8px 0; font-weight:bold;">Ekuitas:</td></tr>
+                                <tr th:each="e : ${equity}">
+                                    <td style="padding:8px 0 8px 15px;" th:text="${e.code} + ' - ' + ${e.name}"></td>
+                                    <td style="padding:8px 0; text-align:right;" th:text="${#numbers.formatDecimal(e.amount, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:8px 0 8px 15px;">Laba (Rugi) Berjalan</td>
+                                    <td style="padding:8px 0; text-align:right;" th:text="${#numbers.formatDecimal(netIncome, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+                                <tr style="border-top:1px solid #cbd5e1; font-weight:bold; color:#047857;">
+                                    <td style="padding:12px 0;">Total Ekuitas</td>
+                                    <td style="padding:12px 0; text-align:right;" th:text="${#numbers.formatDecimal(totalEquity, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+
+                                <tr style="border-top:2px solid #1e293b; font-weight:bold; color:#0f172a; background:#f8fafc;">
+                                    <td style="padding:12px 0;">TOTAL KEWAJIBAN & EKUITAS</td>
+                                    <td style="padding:12px 0; text-align:right;" th:text="${#numbers.formatDecimal(totalLiabilities.add(totalEquity), 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- LABA RUGI (BAWAH) -->
+                    <div style="grid-column: 1 / -1; background:white; padding:20px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <h4 style="border-bottom:2px solid #1e293b; padding-bottom:10px; margin-top:0;">LAPORAN LABA RUGI KONSOLIDASI</h4>
+                        <table style="width:100%; border-collapse:collapse; font-size:14px;">
+                            <tbody>
+                                <tr><td colspan="2" style="padding:8px 0; font-weight:bold;">Pendapatan:</td></tr>
+                                <tr th:each="r : ${revenues}">
+                                    <td style="padding:8px 0 8px 15px;" th:text="${r.code} + ' - ' + ${r.name}"></td>
+                                    <td style="padding:8px 0; text-align:right;" th:text="${#numbers.formatDecimal(r.amount, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+                                <tr style="border-top:1px solid #cbd5e1; font-weight:bold;">
+                                    <td style="padding:12px 0;">Total Pendapatan</td>
+                                    <td style="padding:12px 0; text-align:right;" th:text="${#numbers.formatDecimal(totalRevenue, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+
+                                <tr><td colspan="2" style="padding:15px 0 8px 0; font-weight:bold;">Beban-beban:</td></tr>
+                                <tr th:each="ex : ${expenses}">
+                                    <td style="padding:8px 0 8px 15px;" th:text="${ex.code} + ' - ' + ${ex.name}"></td>
+                                    <td style="padding:8px 0; text-align:right;" th:text="${#numbers.formatDecimal(ex.amount, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+                                <tr style="border-top:1px solid #cbd5e1; font-weight:bold;">
+                                    <td style="padding:12px 0;">Total Beban</td>
+                                    <td style="padding:12px 0; text-align:right;" th:text="${#numbers.formatDecimal(totalExpense, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+
+                                <tr style="border-top:2px solid #1e293b; font-weight:bold; font-size:16px;" th:style="${netIncome.compareTo(new java.math.BigDecimal('0')) >= 0 ? 'color:#047857;' : 'color:#b91c1c;'}">
+                                    <td style="padding:15px 0;">LABA (RUGI) BERSIH</td>
+                                    <td style="padding:15px 0; text-align:right;" th:text="${#numbers.formatDecimal(netIncome, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

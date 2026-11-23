@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+
+<body>
+
+<div class="app-layout">
+
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <main class="app-main">
+
+        <header th:replace="~{fragments/header :: header}"></header>
+
+        <section class="app-content">
+
+            <div class="erp-container"
+                 style="padding:20px;background:#fff;border-radius:8px;">
+
+                <h3>[Master] Supplier Price List</h3>
+
+                <div th:if="${success}" class="success-msg"
+                     th:text="${success}" style="margin-bottom:10px;"></div>
+
+                <div th:if="${error}" class="error-msg"
+                     th:text="${error}" style="margin-bottom:10px;"></div>
+
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px;">
+
+                    <a th:href="@{/ui/purchasing/price-list/new}"
+                       style="background:#d97706;color:white;padding:8px 15px;text-decoration:none;border-radius:4px;">
+                        + Insert Price
+                    </a>
+
+                    <a th:href="@{/ui/purchasing/price-list/copy-wizard}"
+                       style="background:#2563eb;color:white;padding:8px 15px;text-decoration:none;border-radius:4px;font-weight:bold;">
+                        Wizard Copy Supplier Price
+                    </a>
+
+                </div>
+
+                <div style="overflow-x:auto;">
+
+                    <table class="erp-table"
+                           style="width:100%;border-collapse:collapse;">
+
+                        <thead>
+                            <tr style="background:#1e293b;color:white;">
+                                <th></th>
+                                <th>SUPPLIER</th>
+                                <th>ITEM</th>
+                                <th style="text-align:right;">PRICE</th>
+                                <th>PRICE UOM</th>
+                                <th>CURRENCY</th>
+                                <th>VALID FROM</th>
+                                <th>VALID TO</th>
+                                <th style="text-align:right;">MIN QTY</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            <tr th:if="${#lists.isEmpty(prices)}">
+                                <td colspan="9"
+                                    style="text-align:center;padding:20px;">
+                                    Belum ada data Price List.
+                                </td>
+                            </tr>
+
+                            <tr th:each="p : ${prices}"
+                                style="border-bottom:1px solid #eee;">
+
+                                <td style="text-align:center;">
+                                    <input type="radio"
+                                           name="selRow"
+                                           th:value="${p.id}">
+                                </td>
+
+                                <td th:text="${p.supplierName}"></td>
+
+                                <td>
+                                    <span th:text="${p.itemCode}"></span>
+                                    -
+                                    <span th:text="${p.itemName}"></span>
+                                </td>
+
+                                <td style="text-align:right;font-weight:bold;"
+                                    th:text="${p.price != null ? #numbers.formatDecimal(p.price,1,'POINT',2,'COMMA') : '0'}">
+                                </td>
+
+                                <td th:text="${p.uomCode}"></td>
+
+                                <td th:text="${p.currency}"></td>
+
+                                <td th:text="${p.validFrom != null ? #temporals.format(p.validFrom,'dd-MM-yyyy') : '-'}"></td>
+
+                                <td th:text="${p.validTo != null ? #temporals.format(p.validTo,'dd-MM-yyyy') : 'Selamanya'}"></td>
+
+                                <td style="text-align:right;"
+                                    th:text="${@qtyDisplay.format(p.minQty)}">
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+                <div style="margin-top:12px;color:#64748b;font-size:12px;">
+                    Pilih satu baris untuk Edit atau Delete.
+                    Wizard Copy digunakan untuk menyalin beberapa supplier sekaligus.
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:12px;">
+
+                    <button type="button"
+                            onclick="doPriceAction('edit')"
+                            style="background:#f59e0b;color:white;padding:7px 15px;border:0;border-radius:4px;">
+                        Edit
+                    </button>
+
+                    <button type="button"
+                            onclick="doPriceAction('delete')"
+                            style="background:#dc2626;color:white;padding:7px 15px;border:0;border-radius:4px;">
+                        Delete
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<script>
+function doPriceAction(action) {
+
+    const selected =
+        document.querySelector('input[name="selRow"]:checked');
+
+    if (!selected) {
+        alert("Pilih Price List terlebih dahulu.");
+        return;
+    }
+
+    const id = selected.value;
+
+    if (action === "edit") {
+        window.location.href =
+            "/ui/purchasing/price-list/" + id + "/edit";
+        return;
+    }
+
+    if (action === "delete") {
+
+        if (!confirm("Hapus Price Entry ini?")) return;
+
+        const form = document.createElement("form");
+
+        form.method = "POST";
+        form.action =
+            "/ui/purchasing/price-list/" + id + "/delete";
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+
+</body>
+</html>

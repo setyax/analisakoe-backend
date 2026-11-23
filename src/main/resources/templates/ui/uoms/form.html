@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+            <article>
+                <h2 th:text="${pageTitle}"></h2>
+                <form th:action="${isNew} ? @{/ui/uoms} : @{'/ui/uoms/' + ${uom.id}}" method="post">
+                    <label>Code <input type="text" name="code" th:value="${uom.code}" required maxlength="20"></label>
+                    <label>Name <input type="text" name="name" th:value="${uom.name}" required maxlength="100"></label>
+                    <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+                        <button type="submit" th:text="${isNew} ? 'Simpan' : 'Update'">Simpan</button>
+                        <a th:href="@{/ui/uoms}" role="button" class="secondary">Batal</a>
+                    </div>
+                </form>
+            </article>
+        </section>
+    </main>
+</div>
+</body>
+</html>

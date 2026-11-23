@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="margin: 0;">[HR] Attendance</h3>
+                    <!-- TOMBOL TAMBAH -->
+                    <a th:href="@{/ui/hr/attendance/new}" class="erp-btn erp-btn-primary" style="background:#3b82f6; color:white; text-decoration:none; padding: 8px 15px; border-radius:4px; font-weight:bold;">+ Input Attendance</a>
+                </div>
+
+                <!-- Flash Messages -->
+                <div th:if="${success}" style="background:#dcfce7; border:1px solid #16a34a; color:#14532d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${success}"></div>
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <table class="erp-table" style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                    <thead>
+                        <tr style="background-color:#1e293b; color:white; text-align:left;">
+                            <th style="padding: 12px; border-bottom: 1px solid #e2e8f0;">NIK</th>
+                            <th style="padding: 12px; border-bottom: 1px solid #e2e8f0;">NAMA KARYAWAN</th>
+                            <th style="padding: 12px; border-bottom: 1px solid #e2e8f0;">TANGGAL</th>
+                            <th style="padding: 12px; border-bottom: 1px solid #e2e8f0;">STATUS</th>
+                            <th style="padding: 12px; border-bottom: 1px solid #e2e8f0;">TERLAMBAT (MNT)</th>
+                            <th style="padding: 12px; border-bottom: 1px solid #e2e8f0;">REMARKS</th>
+                            <th style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align:center;">AKSI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="att : ${attendances}" style="border-bottom: 1px solid #eee;">
+                            
+                            <!-- Ambil data karyawan berdasarkan ID dari Map -->
+                            <td th:with="emp=${employeeMap[att.employeeId]}" style="padding: 12px; font-weight:bold;" th:text="${emp != null ? emp.nip : att.employeeId}">-</td>
+                            <td th:with="emp=${employeeMap[att.employeeId]}" style="padding: 12px;" th:text="${emp != null ? emp.name : '-'}">-</td>
+                            
+                            <td style="padding: 12px;" th:text="${@dateFmt.format(att.attDate)}">-</td>
+                            <td style="padding: 12px;">
+                                <span style="background:#e2e8f0; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:bold;" th:text="${att.status}">-</span>
+                            </td>
+                            <td style="padding: 12px;" th:text="${att.lateMinutes}">0</td>
+                            <td style="padding: 12px;" th:text="${att.remarks}">-</td>
+                            
+                            <!-- TOMBOL EDIT & HAPUS -->
+                            <td style="padding: 12px; text-align:center;">
+                                <a th:href="@{/ui/hr/attendance/{id}/edit(id=${att.id})}" style="background:#f59e0b; color:white; text-decoration:none; padding:5px 10px; border-radius:4px; font-size:12px; font-weight:bold; display:inline-block; margin-right: 3px;">Edit</a>
+                                
+                                <form th:action="@{/ui/hr/attendance/{id}/delete(id=${att.id})}" method="post" style="display:inline-block; margin:0;" onsubmit="return confirm('Yakin hapus data absensi ini?');">
+                                    <button type="submit" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">Hapus</button>
+                                </form>
+                            </td>
+                        </tr>
+                        <tr th:if="${attendances.isEmpty()}">
+                            <td colspan="7" style="padding: 20px; text-align: center; color: #64748b;">Belum ada data absensi.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

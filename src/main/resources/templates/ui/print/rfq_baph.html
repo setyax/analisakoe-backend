@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>BAPH - Berita Acara Perbandingan Harga</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 11px; padding: 20px; background:#f1f5f9; color:#000; }
+        .page { max-width: 900px; margin: 0 auto; background: white; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; border-bottom: 3px solid #1e293b; padding-bottom: 15px; margin-bottom: 20px; }
+        .company-name { font-size: 20px; font-weight: bold; }
+        .doc-title { text-align: right; }
+        .doc-title h1 { font-size: 18px; margin: 0; color: #1e293b; }
+        .info-box { background: #f8fafc; padding: 12px; border-left: 4px solid #1e293b; margin-bottom: 15px; }
+        .info-box table { width: 100%; }
+        .info-box td { padding: 3px 0; font-size: 11px; }
+        .info-box td:first-child { width: 120px; font-weight: bold; }
+        table.compare { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 10px; }
+        table.compare th, table.compare td { border: 1px solid #333; padding: 6px; }
+        table.compare th { background: #1e293b; color: white; text-align: center; }
+        table.compare td.right { text-align: right; }
+        .lowest { background: #dcfce7; font-weight: bold; color: #166534; }
+        .highest { background: #fee2e2; color: #991b1b; }
+        .total-row { background: #e2e8f0; font-weight: bold; font-size: 11px; }
+        .recommendation { background: #fef3c7; padding: 15px; border-left: 4px solid #b45309; border-radius: 4px; margin: 15px 0; }
+        .signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 40px; }
+        .sig-box { text-align: center; }
+        .sig-box .label { font-size: 11px; margin-bottom: 70px; }
+        .sig-box .line { border-top: 1px solid #000; padding-top: 5px; font-size: 11px; }
+        .footer { text-align: center; margin-top: 30px; padding-top: 10px; border-top: 1px solid #cbd5e1; color: #64748b; font-size: 10px; }
+        .print-btn { position: fixed; top: 20px; right: 20px; padding: 12px 24px; background: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; z-index: 100; }
+        @media print {
+            body { background: white; padding: 0; }
+            .page { box-shadow: none; padding: 0; max-width: 100%; }
+            .print-btn { display: none !important; }
+            @page { size: A4 landscape; margin: 15mm; }
+        }
+    </style>
+</head>
+<body>
+<button class="print-btn" onclick="window.print()">🖨️ Cetak BAPH</button>
+
+<div class="page">
+    <div class="header">
+        <div>
+            <div class="company-name" th:text="${company.name}">AnalisaKoe</div>
+            <div style="color:#64748b; font-size:10px; margin-top:3px;">Procurement Department</div>
+        </div>
+        <div class="doc-title">
+            <h1>BERITA ACARA PERBANDINGAN HARGA</h1>
+            <div style="font-size:11px; color:#64748b; margin-top:5px;">
+                No: BAPH/<span th:text="${rfqDocNo}"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="info-box">
+        <table>
+            <tr><td>No. RFQ</td><td>: <strong th:text="${rfqDocNo}"></strong></td>
+                <td>Tanggal RFQ</td><td>: <span th:text="${@dateFmt.format(rfqDate)}"></span></td></tr>
+            <tr><td>Batas Penawaran</td><td>: <span th:text="${@dateFmt.format(rfqDueDate)}"></span></td>
+                <td>Tanggal Cetak</td><td>: <span th:text="${#temporals.format(#temporals.createNow(), 'dd-MM-yyyy HH:mm')}"></span></td></tr>
+            <tr><td>Keterangan</td><td colspan="3">: <span th:text="${rfqRemarks != null ? rfqRemarks : '-'}"></span></td></tr>
+        </table>
+    </div>
+
+    <p style="font-size:11px; margin: 15px 0;">
+        Berdasarkan hasil evaluasi penawaran yang telah dilakukan, bersama ini kami sampaikan perbandingan harga dari 
+        <strong th:text="${suppliers.size()}"></strong> supplier yang mengikuti proses pengadaan ini:
+    </p>
+
+    <table class="compare">
+        <thead>
+            <tr>
+                <th rowspan="2" style="width:35px;">NO</th>
+                <th rowspan="2" style="text-align:left;">KODE / NAMA BARANG</th>
+                <th rowspan="2" style="width:70px;">QTY</th>
+                <th th:each="s : ${suppliers}" th:colspan="1" th:text="${s.supplierName}"></th>
+            </tr>
+            <tr>
+                <th th:each="s : ${suppliers}" style="font-size:9px;">Harga Satuan (Rp)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="it, st : ${items}">
+                <td style="text-align:center;" th:text="${st.count}"></td>
+                <td>
+                    <strong th:text="${it.itemCode}"></strong> - <span th:text="${it.itemName}"></span>
+                </td>
+                <td style="text-align:center;">
+                    <span th:text="${@qtyDisplay.format(#numbers.formatDecimal(it.qty, 1, 'POINT', 2, 'COMMA'))}"></span>
+                    <span th:text="${it.uomCode}"></span>
+                </td>
+                <td th:each="s : ${suppliers}" class="right">
+                    <span th:with="price=${s.prices[it.dtlId]}"
+                          th:classappend="${price != null and price > 0 ? (lowestPerItem[it.dtlId] != null and price == lowestPerItem[it.dtlId] ? 'lowest' : (highestPerItem[it.dtlId] != null and price == highestPerItem[it.dtlId] ? 'highest' : '')) : ''}"
+                          th:text="${price != null and price > 0 ? #numbers.formatDecimal(price, 1, 'POINT', 0, 'COMMA') : '-'}">
+                    </span>
+                </td>
+            </tr>
+            <tr class="total-row">
+                <td colspan="3" style="text-align:right;">TOTAL PENAWARAN</td>
+                <td th:each="s : ${suppliers}" class="right" 
+                    th:text="${#numbers.formatDecimal(s.totalAmount, 1, 'POINT', 0, 'COMMA')}"></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div style="font-size:10px; color:#64748b; margin-bottom:15px;">
+        <strong>Keterangan:</strong> 
+        <span style="background:#dcfce7; padding:2px 8px;">Hijau = Termurah</span> · 
+        <span style="background:#fee2e2; padding:2px 8px;">Merah = Termahal</span>
+    </div>
+
+    <div class="recommendation">
+        <strong>REKOMENDASI:</strong>
+        <p style="margin:8px 0 0 0; font-size:11px;">
+            Berdasarkan hasil perbandingan harga, kami merekomendasikan supplier dengan penawaran terendah sebagai berikut:
+        </p>
+        <div th:each="s : ${suppliers}" th:if="${s.supplierId == recommendedSupplierId or (recommendedSupplierId == 0 and s.rank == 1)}">
+            <p style="margin:8px 0; font-size:13px;">
+                <strong>🏆 <span th:text="${s.supplierName}"></span></strong> — 
+                Total Penawaran: <strong th:text="'Rp ' + ${#numbers.formatDecimal(s.totalAmount, 1, 'POINT', 2, 'COMMA')}"></strong>
+            </p>
+        </div>
+    </div>
+
+    <p style="font-size:11px; margin: 20px 0;">
+        Demikian Berita Acara Perbandingan Harga ini dibuat dengan sebenarnya untuk digunakan sebagaimana mestinya.
+    </p>
+
+    <div class="signatures">
+        <div class="sig-box">
+            <div class="label">Dibuat Oleh,<br>Purchasing Staff</div>
+            <div class="line">(.....................................)</div>
+        </div>
+        <div class="sig-box">
+            <div class="label">Diperiksa Oleh,<br>Purchasing Manager</div>
+            <div class="line">(.....................................)</div>
+        </div>
+        <div class="sig-box">
+            <div class="label">Disetujui Oleh,<br>Direktur / General Manager</div>
+            <div class="line">(.....................................)</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        Dicetak dari ERP AnalisaKoe · Dokumen ini sah tanpa tanda tangan basah untuk kebutuhan internal
+    </div>
+</div>
+</body>
+</html>

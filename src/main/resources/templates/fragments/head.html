@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:fragment="head(title)">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title} + ' - AnalisaKoe'">AnalisaKoe</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+    <link rel="stylesheet" th:href="@{/css/erp-style.css}">
+    <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+    <!-- CUSTOM ELEGANT THEME -->
+    <style>
+        /* Reset Layout agar tidak mengambang */
+        body, html { margin: 0; padding: 0; background-color: #f1f5f9 !important; }
+        .app-layout { display: flex; height: 100vh; overflow: hidden; padding: 0 !important; margin: 0 !important; background-color: #f1f5f9; }
+        .app-sidebar { margin: 0 !important; border-radius: 0 !important; }
+        
+        /* Area Konten Utama (ringkas) */
+        .app-main { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; overflow-y: auto; padding: 0 !important; }
+        .app-content { padding: 14px !important; flex-grow: 1; }
+        
+        /* Container Putih Bersih (ringkas) */
+        .erp-container { 
+            background: #ffffff !important; 
+            border-radius: 8px !important; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+            border: none !important;
+            padding: 14px !important;
+            margin: 0 !important;
+        }
+
+        /* Tabel Elegan (ringkas) */
+        .erp-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .erp-table th { 
+            background-color: #1e293b !important;
+            color: #ffffff !important; 
+            padding: 7px 10px !important; 
+            text-align: left; 
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .erp-table td { 
+            padding: 6px 10px !important; 
+            border-bottom: 1px solid #e2e8f0 !important; 
+            color: #334155;
+            font-size: 13px;
+        }
+        .erp-table tr:hover td { background-color: #f8fafc; }
+
+        /* Tombol Elegan (ringkas) */
+        .erp-btn { 
+            padding: 6px 12px !important; 
+            border-radius: 5px !important; 
+            font-weight: 600 !important; 
+            transition: all 0.2s; 
+            border: none !important; 
+            cursor: pointer;
+            font-size: 12px !important;
+        }
+        .erp-btn-primary { background-color: #3b82f6 !important; color: white !important; }
+        .erp-btn-primary:hover { background-color: #2563eb !important; }
+        
+        .erp-btn-sm { 
+            padding: 5px 12px !important; 
+            font-size: 12px !important; 
+            border-radius: 4px !important; 
+            border: none; 
+            cursor: pointer;
+        }
+
+        /* Form Grid */
+        .erp-form-grid { display: grid; grid-template-columns: 180px 1fr; gap: 12px; align-items: center; margin-bottom: 20px; }
+        .erp-form-grid label { font-weight: 600; color: #475569; font-size: 14px; }
+        .erp-form-grid input, .erp-form-grid select { 
+            padding: 7px 10px !important; 
+            border: 1px solid #cbd5e1 !important; 
+            border-radius: 5px !important; 
+            font-size: 13px !important;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .erp-form-grid input:focus, .erp-form-grid select:focus { outline: none; border-color: #3b82f6 !important; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+
+        /* Header Top Bar (ringkas) */
+        .app-header { 
+            background: #ffffff !important; 
+            padding: 10px 14px !important; 
+            border-bottom: 1px solid #e2e8f0 !important; 
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        }
+
+        /* ===================== SIDEBAR RINGKAS + COLLAPSE ===================== */
+        #appSidebar { width: 205px !important; min-width: 205px !important; transition: width .15s ease; }
+        #appSidebar .sidebar-brand { padding: 14px 14px !important; font-size: 16px !important; }
+        #appSidebar li[onclick] { padding: 9px 14px !important; font-size: 11px !important; }
+        #appSidebar ul li a { padding: 6px 12px 6px 32px !important; font-size: 12.5px !important; }
+        #appSidebar ul li a i { width: 17px !important; font-size: 12px !important; }
+        #appSidebar ul ul { margin-left: 0 !important; }
+
+        /* Mode sidebar disembunyikan */
+        body.sidebar-hidden #appSidebar { display: none !important; }
+
+        #sidebarToggle {
+            background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px;
+            padding: 5px 10px; cursor: pointer; font-size: 14px; color: #334155;
+            margin-right: 12px; line-height: 1;
+        }
+        #sidebarToggle:hover { background: #e2e8f0; }
+    </style>    <!-- === GLOBAL ROW SELECTION HIGHLIGHT === -->
+    <style>
+        /* Style untuk radio button agar tampil sebagai bulatan yang jelas */
+        table input[type="radio"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px !important;
+            height: 18px !important;
+            border: 2px solid #94a3b8;
+            border-radius: 50%;
+            background-color: #ffffff;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+            vertical-align: middle;
+            margin: 0;
+        }
+        table input[type="radio"]:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        table input[type="radio"]:checked {
+            border-color: #2563eb;
+            background-color: #2563eb;
+        }
+        table input[type="radio"]:checked::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #ffffff;
+        }
+        
+        /* Highlight baris yang dipilih */
+        tr.row-selected-highlight td {
+            background-color: #dbeafe !important;
+            border-top: 2px solid #3b82f6 !important;
+            border-bottom: 2px solid #3b82f6 !important;
+            font-weight: 600;
+        }
+        tr.row-selected-highlight td:first-child {
+            border-left: 2px solid #3b82f6 !important;
+        }
+        tr.row-selected-highlight td:last-child {
+            border-right: 2px solid #3b82f6 !important;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Delegasi event: setiap kali radio button diklik
+            document.addEventListener('click', function(e) {
+                if (e.target && e.target.type === 'radio' && e.target.name === 'selRow') {
+                    // Hapus highlight dari semua baris
+                    document.querySelectorAll('tr.row-selected-highlight').forEach(function(r) {
+                        r.classList.remove('row-selected-highlight');
+                    });
+                    // Tambahkan highlight ke baris yang dipilih
+                    var row = e.target.closest('tr');
+                    if (row) {
+                        row.classList.add('row-selected-highlight');
+                    }
+                }
+            });
+            
+            // Jika ada radio yang sudah checked saat load, highlight barisnya
+            document.querySelectorAll('input[name="selRow"]:checked').forEach(function(rb) {
+                var row = rb.closest('tr');
+                if (row) row.classList.add('row-selected-highlight');
+            });
+        });
+    </script>
+    <!-- === END GLOBAL ROW SELECTION HIGHLIGHT === -->
+<!-- INLINE-PAGINATION-START (tanpa CDN) -->
+<style>
+.erp-pagination-wrap { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; gap: 10px; flex-wrap: wrap; }
+.erp-pagination-wrap input.erp-search { padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; min-width: 240px; outline: none; background: #fff; }
+.erp-pagination-wrap input.erp-search:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+.erp-pagination-wrap select.erp-perpage { padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; background: #fff; cursor: pointer; }
+.erp-pagination-info { font-size: 12px; color: #64748b; }
+.erp-pagination-nav { display: flex; gap: 4px; list-style: none; padding: 0; margin: 0; }
+.erp-pagination-nav a { display: inline-block; padding: 5px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; text-decoration: none; color: #334155; background: #fff; cursor: pointer; }
+.erp-pagination-nav a:hover { background: #e2e8f0; border-color: #94a3b8; }
+.erp-pagination-nav a.active { background: #1e293b; color: #fff; border-color: #1e293b; }
+.erp-pagination-nav a.disabled { opacity: 0.4; cursor: not-allowed; }
+.erp-pagination-nav .ellipsis { display: inline-block; padding: 5px 8px; color: #64748b; font-size: 12px; }
+th.erp-sortable { cursor: pointer; user-select: none; }
+th.erp-sortable::after { content: ' ⇅'; opacity: 0.5; font-size: 10px; margin-left: 4px; }
+th.erp-sortable.sort-asc::after { content: ' ▲'; opacity: 1; }
+th.erp-sortable.sort-desc::after { content: ' ▼'; opacity: 1; }
+</style>
+<script>
+(function(){
+    function initPagination(){
+        document.querySelectorAll('table.erp-table:not([data-paginated])').forEach(function(table){
+            var tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            var allRows = Array.from(tbody.querySelectorAll('tr'));
+            if (allRows.length < 2) return;
+
+            // Skip if form table
+            var firstCell = allRows[0].querySelector('td');
+            if (!firstCell) return;
+            if (firstCell.querySelector('select, input[name="qty"], input[name="price"], input[name="itemId"]')) return;
+
+            // Skip empty-state table (1 row dengan colspan besar)
+            if (allRows.length === 1) {
+                var t = allRows[0].textContent.toLowerCase();
+                if (t.indexOf('belum ada') >= 0 || t.indexOf('tidak ada') >= 0) return;
+            }
+
+            table.setAttribute('data-paginated', 'true');
+            buildPagination(table, tbody, allRows);
+        });
+    }
+
+    function buildPagination(table, tbody, allRows){
+        var thead = table.querySelector('thead tr');
+        if (!thead) return;
+        var ths = Array.from(thead.querySelectorAll('th'));
+
+        var state = { page: 1, perPage: 10, sortCol: -1, sortDir: 'asc', filtered: allRows.slice() };
+
+        // ===== Top bar =====
+        var top = document.createElement('div');
+        top.className = 'erp-pagination-wrap';
+
+        var search = document.createElement('input');
+        search.type = 'text';
+        search.placeholder = '🔍 Cari data...';
+        search.className = 'erp-search';
+
+        var perPageLabel = document.createElement('div');
+        perPageLabel.style.cssText = 'display:flex; align-items:center; gap:5px; font-size:13px; color:#64748b;';
+        perPageLabel.appendChild(document.createTextNode('Tampilkan '));
+        var perPageSel = document.createElement('select');
+        perPageSel.className = 'erp-perpage';
+        [5,10,25,50,100].forEach(function(n){
+            var o = document.createElement('option');
+            o.value = n; o.text = n;
+            if (n === 10) o.selected = true;
+            perPageSel.appendChild(o);
+        });
+        perPageLabel.appendChild(perPageSel);
+        perPageLabel.appendChild(document.createTextNode(' data'));
+
+        top.appendChild(search);
+        top.appendChild(perPageLabel);
+        table.parentNode.insertBefore(top, table);
+
+        // ===== Bottom bar =====
+        var bottom = document.createElement('div');
+        bottom.className = 'erp-pagination-wrap';
+        var info = document.createElement('span');
+        info.className = 'erp-pagination-info';
+        var nav = document.createElement('ul');
+        nav.className = 'erp-pagination-nav';
+        bottom.appendChild(info);
+        bottom.appendChild(nav);
+        table.parentNode.insertBefore(bottom, table.nextSibling);
+
+        // ===== Sort handlers =====
+        ths.forEach(function(th, idx){
+            if (idx === 0) return;
+            if (th.querySelector('input')) return;
+            th.classList.add('erp-sortable');
+            th.addEventListener('click', function(){
+                if (state.sortCol === idx) {
+                    state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    state.sortCol = idx;
+                    state.sortDir = 'asc';
+                }
+                ths.forEach(function(t){ t.classList.remove('sort-asc','sort-desc'); });
+                th.classList.add(state.sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+                state.page = 1;
+                render();
+            });
+        });
+
+        // ===== Helpers =====
+        function applyFilter(){
+            var q = search.value.toLowerCase().trim();
+            state.filtered = q
+                ? allRows.filter(function(r){ return r.textContent.toLowerCase().indexOf(q) >= 0; })
+                : allRows.slice();
+        }
+
+        function applySort(){
+            if (state.sortCol < 0) return;
+            state.filtered.sort(function(a, b){
+                var aCells = a.querySelectorAll('td');
+                var bCells = b.querySelectorAll('td');
+                var aVal = aCells[state.sortCol] ? aCells[state.sortCol].textContent.trim() : '';
+                var bVal = bCells[state.sortCol] ? bCells[state.sortCol].textContent.trim() : '';
+                var aNum = parseFloat(aVal.replace(/[^\d.-]/g, ''));
+                var bNum = parseFloat(bVal.replace(/[^\d.-]/g, ''));
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return state.sortDir === 'asc' ? aNum - bNum : bNum - aNum;
+                }
+                return state.sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            });
+        }
+
+        function makeBtn(label, page, opts){
+            opts = opts || {};
+            var a = document.createElement('a');
+            a.textContent = label;
+            if (opts.active) a.className = 'active';
+            if (opts.disabled) a.className = 'disabled';
+            a.addEventListener('click', function(e){
+                e.preventDefault();
+                if (opts.disabled) return;
+                state.page = page;
+                render();
+            });
+            var li = document.createElement('li');
+            li.appendChild(a);
+            return li;
+        }
+
+        function render(){
+            applyFilter();
+            applySort();
+
+            var total = state.filtered.length;
+            var totalPages = Math.max(1, Math.ceil(total / state.perPage));
+            if (state.page > totalPages) state.page = totalPages;
+
+            // Hide all, then show current page
+            allRows.forEach(function(r){ r.style.display = 'none'; });
+            var startIdx = (state.page - 1) * state.perPage;
+            var endIdx = Math.min(startIdx + state.perPage, total);
+            for (var i = startIdx; i < endIdx; i++) {
+                state.filtered[i].style.display = '';
+                tbody.appendChild(state.filtered[i]);
+            }
+
+            // Info
+            info.textContent = total === 0
+                ? 'Tidak ada data'
+                : 'Menampilkan ' + (startIdx + 1) + ' - ' + endIdx + ' dari ' + total + ' data';
+
+            // Nav
+            nav.innerHTML = '';
+            if (totalPages > 1) {
+                nav.appendChild(makeBtn('« First', 1, {disabled: state.page === 1}));
+                nav.appendChild(makeBtn('‹ Prev', state.page - 1, {disabled: state.page === 1}));
+
+                var pages = [];
+                if (totalPages <= 7) {
+                    for (var p = 1; p <= totalPages; p++) pages.push(p);
+                } else if (state.page <= 4) {
+                    for (var p = 1; p <= 5; p++) pages.push(p);
+                    pages.push('...'); pages.push(totalPages);
+                } else if (state.page >= totalPages - 3) {
+                    pages.push(1); pages.push('...');
+                    for (var p = totalPages - 4; p <= totalPages; p++) pages.push(p);
+                } else {
+                    pages.push(1); pages.push('...');
+                    pages.push(state.page - 1); pages.push(state.page); pages.push(state.page + 1);
+                    pages.push('...'); pages.push(totalPages);
+                }
+                pages.forEach(function(p){
+                    if (p === '...') {
+                        var li = document.createElement('li');
+                        li.innerHTML = '<span class="ellipsis">...</span>';
+                        nav.appendChild(li);
+                    } else {
+                        nav.appendChild(makeBtn(String(p), p, {active: p === state.page}));
+                    }
+                });
+
+                nav.appendChild(makeBtn('Next ›', state.page + 1, {disabled: state.page === totalPages}));
+                nav.appendChild(makeBtn('Last »', totalPages, {disabled: state.page === totalPages}));
+            }
+        }
+
+        search.addEventListener('input', function(){ state.page = 1; render(); });
+        perPageSel.addEventListener('change', function(){ state.perPage = parseInt(perPageSel.value); state.page = 1; render(); });
+
+        render();
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+        setTimeout(initPagination, 300);
+    });
+})();
+</script>
+<!-- INLINE-PAGINATION-END -->
+<script>
+    /* Toggle hide/unhide sidebar — persist di localStorage */
+    (function(){
+        document.addEventListener('DOMContentLoaded', function(){
+            var btn = document.getElementById('sidebarToggle');
+            if (!btn) return;
+            if (localStorage.getItem('sidebar-hidden') === '1') {
+                document.body.classList.add('sidebar-hidden');
+            }
+            btn.addEventListener('click', function(){
+                var hidden = document.body.classList.toggle('sidebar-hidden');
+                localStorage.setItem('sidebar-hidden', hidden ? '1' : '0');
+            });
+        });
+    })();
+</script>
+</head>
+</html>

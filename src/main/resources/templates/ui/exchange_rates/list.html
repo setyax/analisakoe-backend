@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">[Master] Exchange Rates</h3>
+
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+
+                <div class="erp-action-bar" style="margin:0 0 12px; display:flex; gap:6px;">
+                    <a th:href="@{/ui/exchange-rates/new}" class="erp-btn-sm" style="text-decoration:none;">Insert</a>
+                </div>
+
+                <table class="erp-table" style="margin-bottom:15px;">
+                    <thead>
+                    <tr>
+                        <th style="width:55px;">No.</th>
+                        <th>From Currency</th>
+                        <th>To Currency</th>
+                        <th style="text-align:right;">Exchange Rate</th>
+                        <th>Effective Date</th>
+                        <th style="width:150px; text-align:center;">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:if="${rates == null || rates.isEmpty()}">
+                        <td colspan="6" class="center" style="padding:20px;">Belum ada data exchange rate.</td>
+                    </tr>
+                    <tr th:each="rate, stat : ${rates}">
+                        <td class="center" th:text="${stat.count}"></td>
+                        <td><strong th:text="${rate.fromCurrency}"></strong></td>
+                        <td th:text="${rate.toCurrency}"></td>
+                        <td style="text-align:right; font-weight:bold;"
+                            th:text="${rate.rate == null ? '-' : #numbers.formatDecimal(rate.rate, 1, 'POINT', 8, 'COMMA')}"></td>
+                        <td th:text="${rate.effectiveDate == null ? '-' : #temporals.format(rate.effectiveDate, 'dd-MM-yyyy')}"></td>
+                        <td style="text-align:center; white-space:nowrap;">
+                            <a class="erp-btn-sm"
+                               th:href="@{/ui/exchange-rates/{id}/edit(id=${rate.id})}"
+                               style="text-decoration:none;">Edit</a>
+                            <button type="button" class="erp-btn-sm"
+                                    th:attr="data-delete-url=@{/ui/exchange-rates/{id}(id=${rate.id})}"
+                                    onclick="deleteRate(this)"
+                                    style="background:#dc2626;">Delete</button>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+<script>
+    function deleteRate(button) {
+        const url = button.getAttribute('data-delete-url');
+        if (!url || !confirm('Hapus exchange rate ini?')) return;
+
+        fetch(url, { method: 'DELETE', credentials: 'same-origin' })
+            .then(response => {
+                if (!response.ok) throw new Error('Gagal menghapus exchange rate (HTTP ' + response.status + ')');
+                window.location.reload();
+            })
+            .catch(error => alert(error.message || 'Terjadi kesalahan saat menghapus exchange rate.'));
+    }
+</script>
+</body>
+</html>

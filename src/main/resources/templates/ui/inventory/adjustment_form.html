@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <main class="app-main">
+
+        <header th:replace="~{fragments/header :: header}"></header>
+
+        <section class="app-content">
+
+            <div class="erp-container">
+
+                <h3 style="margin-top:0; margin-bottom:10px;">
+                    [Inventory] Stock Adjustment (DB / CR)
+                </h3>
+
+                <div th:if="${success}" class="success-msg"
+                     th:text="${success}"></div>
+
+                <div th:if="${error}" class="error-msg"
+                     th:text="${error}"></div>
+
+                <form th:action="@{/ui/inventory/adjustment}"
+                      method="post"
+                      id="adjustmentForm"
+                      onsubmit="return validateAdjustmentForm();">
+
+                    <div class="erp-form-grid">
+
+                        <label>Tipe Adjustment:</label>
+
+                        <select name="adjType" required>
+                            <option value="DB">DB (Debit / Tambah Stok)</option>
+                            <option value="CR">CR (Credit / Kurangi Stok)</option>
+                        </select>
+
+                        <label>Tanggal:</label>
+
+                        <input type="date"
+                               name="docDate"
+                               th:value="${today}"
+                               required>
+
+                        <label>Gudang:</label>
+
+                        <select name="warehouseId" required>
+                            <option value="">-- Pilih Gudang --</option>
+                            <option th:each="w : ${warehouses}"
+                                    th:value="${w.id}"
+                                    th:text="|${w.code} - ${w.name}|">
+                            </option>
+                        </select>
+
+                    </div>
+
+                    <table class="erp-table"
+                           id="itemTable"
+                           style="width:100%; margin-bottom:15px;">
+
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>Item</th>
+                                <th>Qty</th>
+                                <th>Unit</th>
+                                <th>Harga Satuan</th>
+                                <th>Total</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            <tr>
+                                <td style="text-align:center;">1</td>
+
+                                <td>
+                                    <select name="itemId"
+                                            required
+                                            style="width:100%;">
+
+                                        <option value="">-- Pilih Item --</option>
+
+                                        <option th:each="i : ${items}"
+                                                th:value="${i.id}"
+                                                th:text="|${i.code} - ${i.name}|">
+                                        </option>
+
+                                    </select>
+                                </td>
+
+                                <td>
+                                    <input type="number"
+                                           name="qty"
+                                           step="0.0001"
+                                           min="0.0001"
+                                           required
+                                           style="width:100%; text-align:right;">
+                                </td>
+
+                                <td>
+                                    <select name="uomId"
+                                            required
+                                            style="width:100%;">
+
+                                        <option value="">-- Pilih UOM --</option>
+
+                                        <option th:each="u : ${uoms}"
+                                                th:value="${u.id}"
+                                                th:text="${u.code}">
+                                        </option>
+
+                                    </select>
+                                </td>
+
+                                <td>
+                                    <input type="number"
+                                           name="price"
+                                           step="0.0001"
+                                           min="0"
+                                           required
+                                           style="width:100%; text-align:right;">
+                                </td>
+
+                                <td>
+                                    <input type="text"
+                                           name="gross"
+                                           value="0,00"
+                                           readonly
+                                           style="width:100%; text-align:right; background:#f0f0f0;">
+                                </td>
+
+                                <td style="text-align:center;">
+                                    <button type="button"
+                                            class="erp-btn"
+                                            onclick="removeRow(this)">
+                                        X
+                                    </button>
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                    <button type="button"
+                            class="erp-btn"
+                            onclick="addRow()"
+                            style="margin-bottom:20px;">
+                        + Insert Baris
+                    </button>
+
+                    <div style="margin-bottom:20px;">
+
+                        <label>Alasan / Keterangan Adjustment:</label>
+
+                        <textarea name="remarks"
+                                  style="width:50%; height:60px;"
+                                  placeholder="Contoh: Barang rusak karena banjir">
+                        </textarea>
+
+                    </div>
+
+                    <div style="border-top:1px solid #a0a0a0; padding-top:15px;">
+
+                        <button type="submit"
+                                class="erp-btn erp-btn-primary"
+                                style="padding:8px 30px;">
+                            Simpan Adjustment
+                        </button>
+
+                        <a th:href="@{/ui/dashboard}"
+                           class="erp-btn"
+                           style="text-decoration:none; padding:8px 20px; margin-left:10px;">
+                            Batal
+                        </a>
+
+                    </div>
+
+                </form>
+
+                <!-- RIWAYAT ADJUSTMENT -->
+                <div style="margin-top:25px;">
+                    <h4 style="margin:0 0 12px 0;">Riwayat Adjustment (25 terakhir)</h4>
+                    <table class="erp-table" style="width:100%; table-layout:fixed;">
+                        <thead>
+                            <tr style="background:#1e293b; color:white;">
+                                <th style="width:120px;">DOKUMEN</th>
+                                <th style="width:90px;">TANGGAL</th>
+                                <th style="width:70px;">TIPE</th>
+                                <th style="width:130px;">GUDANG</th>
+                                <th>KETERANGAN</th>
+                                <th style="width:75px;">STATUS</th>
+                                <th style="width:130px; text-align:center;">AKSI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${#lists.isEmpty(history)}">
+                                <td colspan="7" style="text-align:center; padding:15px; color:#64748b;">Belum ada adjustment.</td>
+                            </tr>
+                            <tr th:each="h : ${history}" style="border-bottom:1px solid #e2e8f0;">
+                                <td style="font-family:monospace; font-size:12px;" th:text="${h.docNo}"></td>
+                                <td th:text="${@dateFmt.format(h.docDate)}"></td>
+                                <td>
+                                    <span th:if="${h.docType == 'IN'}" style="background:#dcfce7; color:#14532d; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold;">MASUK</span>
+                                    <span th:if="${h.docType == 'OUT'}" style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold;">KELUAR</span>
+                                </td>
+                                <td th:text="${h.warehouse != null ? h.warehouse : '-'}"></td>
+                                <td style="font-size:12px; color:#475569; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" th:text="${h.remarks}"></td>
+                                <td>
+                                    <span th:if="${h.status != 'VOID'}" style="background:#dcfce7; color:#14532d; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold;" th:text="${h.status}"></span>
+                                    <span th:if="${h.status == 'VOID'}" style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold;">VOID</span>
+                                </td>
+                                <td style="text-align:center; white-space:nowrap;">
+                                    <form th:if="${h.status != 'VOID'}" th:action="@{/ui/inventory/adjustment/{id}/void(id=${h.id})}" method="post" style="display:inline; margin:0;"
+                                          onsubmit="return confirm('VOID adjustment ini? Stok & jurnal akan dibalik otomatis.');">
+                                        <button type="submit" style="background:#f59e0b; color:white; border:none; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer; margin-right:3px;">Void</button>
+                                    </form>
+                                    <form th:if="${h.status == 'VOID'}" th:action="@{/ui/inventory/adjustment/{id}/delete(id=${h.id})}" method="post" style="display:inline; margin:0;"
+                                          onsubmit="return confirm('Hapus adjustment ini beserta dokumen penyeimbangnya?');">
+                                        <button type="submit" style="background:#ef4444; color:white; border:none; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">Hapus</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<script>
+    function addRow() {
+        const tbody = document.querySelector('#itemTable tbody');
+        const firstRow = tbody.querySelector('tr');
+
+        if (!firstRow) {
+            alert('Baris item tidak ditemukan.');
+            return;
+        }
+
+        const tr = firstRow.cloneNode(true);
+
+        tr.querySelectorAll('select').forEach(select => {
+            select.selectedIndex = 0;
+        });
+
+        tr.querySelectorAll('input').forEach(input => {
+            if (input.name === 'qty' || input.name === 'price') {
+                input.value = '';
+            }
+
+            if (input.name === 'gross') {
+                input.value = '0,00';
+            }
+        });
+
+        tbody.appendChild(tr);
+        updateNo();
+    }
+
+    function removeRow(button) {
+        const tbody = document.querySelector('#itemTable tbody');
+        const rows = tbody.querySelectorAll('tr');
+
+        if (rows.length <= 1) {
+            alert('Minimal harus ada satu item. Baris terakhir tidak dapat dihapus.');
+            return;
+        }
+
+        button.closest('tr').remove();
+        updateNo();
+    }
+
+    function updateNo() {
+        document.querySelectorAll('#itemTable tbody tr').forEach((row, index) => {
+            row.cells[0].innerText = index + 1;
+        });
+    }
+
+    function validateAdjustmentForm() {
+        const rows = document.querySelectorAll('#itemTable tbody tr');
+
+        if (rows.length === 0) {
+            alert('Tambahkan minimal satu item.');
+            return false;
+        }
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+
+            const item = row.querySelector('[name="itemId"]');
+            const uom = row.querySelector('[name="uomId"]');
+            const qty = row.querySelector('[name="qty"]');
+            const price = row.querySelector('[name="price"]');
+
+            if (!item || !item.value) {
+                alert('Pilih Item pada baris ' + (i + 1));
+                return false;
+            }
+
+            if (!uom || !uom.value) {
+                alert('Pilih UOM pada baris ' + (i + 1));
+                return false;
+            }
+
+            if (!qty || qty.value.trim() === '' ||
+                !Number.isFinite(Number(qty.value)) ||
+                Number(qty.value) <= 0) {
+
+                alert('Qty pada baris ' + (i + 1) + ' harus lebih besar dari nol.');
+                return false;
+            }
+
+            if (!price || price.value.trim() === '' ||
+                !Number.isFinite(Number(price.value)) ||
+                Number(price.value) < 0) {
+
+                alert('Harga pada baris ' + (i + 1) + ' tidak valid.');
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    updateNo();
+</script>
+
+</body>
+</html>

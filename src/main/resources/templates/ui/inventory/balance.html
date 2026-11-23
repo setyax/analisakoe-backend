@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <article>
+                <h2>Stock Balance</h2>
+                <p>Daftar sisa stok barang di setiap gudang saat ini.</p>
+                <table role="grid">
+                    <thead>
+                        <tr><th>Gudang</th><th>Kode Barang</th><th>Nama Barang</th><th style="text-align:right;">Qty On Hand</th></tr>
+                    </thead>
+                    <tbody>
+                    <tr th:if="${balances.isEmpty()}"><td colspan="4" style="text-align:center;">Belum ada stok.</td></tr>
+                    <tr th:each="b : ${balances}">
+                        <td th:text="${b.warehouseName}"></td>
+                        <td th:text="${b.itemCode}"></td>
+                        <td th:text="${b.itemName}"></td>
+                        <td style="text-align:right; font-weight:bold;" th:text="${@qtyDisplay.format(#numbers.formatInteger(b.qtyOnHand, 1, 'POINT'))}"></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </article>
+        </section>
+    </main>
+</div>
+</body>
+</html>

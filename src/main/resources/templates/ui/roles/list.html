@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <div style="display:flex; justify-content: space-between; margin-bottom: 15px; align-items:center;">
+                    <h3 style="margin:0;">Role &amp; Hak Akses</h3>
+                    <a th:href="@{/ui/roles/new}" class="erp-btn erp-btn-primary" style="background:#3b82f6; color:white; text-decoration:none;">+ Tambah Role</a>
+                </div>
+
+                <div th:if="${success}" style="background:#dcfce7; border:1px solid #16a34a; color:#14532d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${success}"></div>
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <p style="color:#64748b; font-size:12.5px; margin:0 0 12px;">
+                    Role menentukan permission (menu/hak akses) yang diberikan ke user melalui halaman
+                    <a th:href="@{/ui/users}" style="color:#3b82f6;">User Management</a>.
+                    Daftar lengkap permission tersedia di <a th:href="@{/ui/permissions}" style="color:#3b82f6;">Permissions</a>.
+                </p>
+
+                <table class="erp-table" style="width:100%;border-collapse:collapse;table-layout:fixed;">
+                    <thead>
+                        <tr style="background:#1e293b; color:white; text-align:left;">
+                            <th style="width:110px;">KODE</th>
+                            <th>NAMA ROLE</th>
+                            <th>DESKRIPSI</th>
+                            <th style="width:110px; text-align:center;">PERMISSION</th>
+                            <th style="width:80px; text-align:center;">DIPAKAI</th>
+                            <th style="width:130px; text-align:center;">AKSI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="r : ${roles}" style="border-bottom:1px solid #eee;">
+                            <td style="font-family:monospace; font-weight:bold;" th:text="${r.code}"></td>
+                            <td style="font-weight:600;" th:text="${r.name}"></td>
+                            <td style="color:#64748b;" th:text="${r.description != null and !r.description.isEmpty() ? r.description : '-'}"></td>
+                            <td style="text-align:center;">
+                                <span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold;" th:text="${r.permCount} + ' hak'"></span>
+                            </td>
+                            <td style="text-align:center;" th:text="${r.userCount} + ' user'"></td>
+                            <td style="text-align:center;">
+                                <a th:href="@{/ui/roles/{id}/edit(id=${r.id})}" style="background:#f59e0b; color:white; text-decoration:none; padding:4px 9px; border-radius:4px; font-size:11px; font-weight:bold; margin-right:3px;">Edit</a>
+                                <form th:action="@{/ui/roles/{id}/delete(id=${r.id})}" method="post" style="display:inline; margin:0;" onsubmit="return confirm('Hapus role ini? Role yang masih dipakai user tidak akan bisa dihapus.');">
+                                    <button type="submit" style="background:#ef4444; color:white; border:none; padding:4px 9px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">Hapus</button>
+                                </form>
+                            </td>
+                        </tr>
+                        <tr th:if="${roles == null or roles.isEmpty()}">
+                            <td colspan="6" style="padding:40px; text-align:center; color:#64748b;">Belum ada role.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

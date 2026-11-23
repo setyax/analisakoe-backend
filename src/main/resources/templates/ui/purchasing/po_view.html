@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${pageTitle}">View Purchase Order</title>
+    <link rel="stylesheet" th:href="@{/css/theme.css}"/>
+</head>
+<body style="display:flex; margin:0; font-family:system-ui,sans-serif; background:#f1f5f9;">
+    
+    <!-- Sidebar -->
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <!-- Konten Utama -->
+    <main style="flex:1; padding:32px;">
+        <h1 th:text="${pageTitle}" style="margin-bottom: 24px;">View Purchase Order</h1>
+
+        <!-- Kartu Informasi PO -->
+        <div style="background:#fff; padding:24px; border-radius:12px; margin-bottom:24px; box-shadow:0 1px 3px rgba(0,0,0,0.1);" th:if="${po != null}">
+            <h2 style="margin-top:0; font-size:18px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">Header Information</h2>
+            <table style="width:100%; max-width:600px; border-collapse:collapse;">
+                <tr>
+                    <td style="padding:8px 0; color:#64748b;">No. PO</td>
+                    <td style="padding:8px 0; font-weight:bold;" th:text="${po.docNo}">-</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px 0; color:#64748b;">Tanggal</td>
+                    <td style="padding:8px 0;" th:text="${@dateFmt.format(po.docDate)}">-</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px 0; color:#64748b;">Tipe PO</td>
+                    <td style="padding:8px 0;">
+                        <span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:bold;" 
+                              th:text="${po.poType}">DIRECT</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:8px 0; color:#64748b;">Status</td>
+                    <td style="padding:8px 0;" th:text="${po.status}">-</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px 0; color:#64748b;">Total Amount</td>
+                    <td style="padding:8px 0; font-weight:bold; color:#059669;" 
+                        th:text="${#numbers.formatCurrency(po.totalAmount, 'IDR')}">Rp 0</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Tabel Detail Barang -->
+        <div style="background:#fff; padding:24px; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.1);" th:if="${po != null}">
+            <h2 style="margin-top:0; font-size:18px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">Detail Items</h2>
+            
+            <table style="width:100%; border-collapse:collapse; margin-top:16px;">
+                <thead>
+                    <tr style="background:#f8fafc; text-align:left;">
+                        <th style="padding:12px; border-bottom:1px solid #e2e8f0;">Item ID</th>
+                        <th style="padding:12px; border-bottom:1px solid #e2e8f0;">Qty</th>
+                        <th style="padding:12px; border-bottom:1px solid #e2e8f0;">Harga</th>
+                        <th style="padding:12px; border-bottom:1px solid #e2e8f0;">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="d : ${details}">
+                        <td style="padding:12px; border-bottom:1px solid #e2e8f0;" th:text="${d.itemId}">-</td>
+                        <td style="padding:12px; border-bottom:1px solid #e2e8f0;" th:text="${@qtyDisplay.format(d.qty)}">-</td>
+                        <td style="padding:12px; border-bottom:1px solid #e2e8f0;" th:text="${#numbers.formatCurrency(d.price, 'IDR')}">-</td>
+                        <td style="padding:12px; border-bottom:1px solid #e2e8f0;" th:text="${#numbers.formatCurrency(d.subtotal, 'IDR')}">-</td>
+                    </tr>
+                    
+                    <!-- Jika data detail kosong -->
+                    <tr th:if="${#lists.isEmpty(details)}">
+                        <td colspan="4" style="padding:24px; text-align:center; color:#94a3b8;">
+                            Tidak ada detail item pada PO ini.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Error handling -->
+        <div th:if="${po == null}" style="background:#fee2e2; color:#991b1b; padding:16px; border-radius:8px;">
+            Purchase Order tidak ditemukan.
+        </div>
+
+    </main>
+</body>
+</html>

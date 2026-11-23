@@ -1,0 +1,42 @@
+app:
+  jwt:
+    secret: GANTI_DENGAN_NILAI_ASLI
+    expiration: 86400000
+server:
+  port: 8085
+  servlet:
+    context-path: /api
+
+spring:
+  main:
+    lazy-initialization: true
+  application:
+    name: AnalisaKoe
+  datasource:
+    url: jdbc:postgresql://localhost:5433/analisakoe
+    username: postgres
+    password: GANTI_DENGAN_NILAI_ASLI
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 10000
+      initialization-fail-timeout: 1
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: false
+    baseline-on-migrate: true
+
+
+
+logging:
+  file:
+    name: app.log
+  level:
+    root: INFO

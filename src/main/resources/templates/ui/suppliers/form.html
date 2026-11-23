@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+            <article>
+                <h2 th:text="${pageTitle}"></h2>
+                <form th:action="${isNew} ? @{/ui/suppliers} : @{'/ui/suppliers/' + ${supplier.id}}" method="post">
+                    <div class="grid">
+                        <label>Code
+                            <input type="text" name="code" th:value="${supplier.code}" required maxlength="20">
+                        </label>
+                        <label>Name
+                            <input type="text" name="name" th:value="${supplier.name}" required maxlength="255">
+                        </label>
+                    </div>
+                    <div class="grid">
+                        <label>Tax ID
+                            <input type="text" name="taxId" th:value="${supplier.taxId}" maxlength="50">
+                        </label>
+                        <label>Currency
+                            <select name="currency">
+                                <option value="">—</option>
+                                <option th:each="cur : ${currencies}"
+                                        th:value="${cur.code}"
+                                        th:text="${cur.code} + ' — ' + ${cur.name}"
+                                        th:selected="${supplier.currency == cur.code}">
+                                </option>
+                            </select>
+                        </label>
+                    </div>
+                    <label>Payment Term (hari)
+                        <input type="number" name="paymentTermDays" th:value="${supplier.paymentTermDays}" min="0">
+                    </label>
+                    <label>Status
+                        <select name="status">
+                            <option value="ACTIVE" th:selected="${supplier.status == 'ACTIVE'}">ACTIVE</option>
+                            <option value="INACTIVE" th:selected="${supplier.status == 'INACTIVE'}">INACTIVE</option>
+                            <option value="BLOCKED" th:selected="${supplier.status == 'BLOCKED'}">BLOCKED</option>
+                        </select>
+                    </label>
+                    <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+                        <button type="submit" th:text="${isNew} ? 'Simpan' : 'Update'">Simpan</button>
+                        <a th:href="@{/ui/suppliers}" role="button" class="secondary">Batal</a>
+                    </div>
+                </form>
+            </article>
+        </section>
+    </main>
+</div>
+</body>
+</html>

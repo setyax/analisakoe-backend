@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${pageTitle}">Purchase Order</title>
+    <link rel="stylesheet" th:href="@{/css/theme.css}"/>
+    <script>
+        // ==================================================
+        // KONSTANTA & UTILITAS HARGA (FORMAT INDONESIA)
+        // ==================================================
+        const TAX_RATE = 0.11;
+
+        function parseLocalPrice(value) {
+            let text = String(value ?? '').trim().replace(/\s/g, '');
+            if (text === '') return 0;
+
+            if (text.includes(',')) {
+                text = text.replace(/\./g, '').replace(',', '.');
+            } else if (/^-?\d{1,3}(\.\d{3})+$/.test(text)) {
+                text = text.replace(/\./g, '');
+            }
+
+            const number = Number(text);
+            return Number.isFinite(number) ? number : 0;
+        }
+
+        function formatRupiah(value) {
+            return 'Rp ' + Number(value || 0).toLocaleString('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function formatPriceDisplay(displayInput) {
+            if (!displayInput) return;
+            const row = displayInput.closest('tr');
+            const hiddenPrice = row ? row.querySelector('.price-input') : null;
+            if (!hiddenPrice) return;
+
+            if (hiddenPrice.value === '') {
+                displayInput.value = '';
+                return;
+            }
+
+            const value = Number(hiddenPrice.value);
+            displayInput.value = Number.isFinite(value)
+                ? value.toLocaleString('id-ID', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2
+                })
+                : '';
+        }
+
+        function handlePriceInput(displayInput) {
+            const row = displayInput.closest('tr');
+            const hiddenPrice = row ? row.querySelector('.price-input') : null;
+            if (!hiddenPrice) return;
+
+            hiddenPrice.value = displayInput.value.trim() === ''
+                ? ''
+                : String(parseLocalPrice(displayInput.value));
+
+            calculateTotal();
+        }
+
+        // Hilangkan nol desimal di belakang: 10.5000 -> 10.5
+        function normalizeQtyInput(input) {
+            if (!input) return;
+            let value = String(input.value || '').trim();
+            if (value === '') return;
+            value = value.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+            input.value = value;
+        }
+
+        // ==================================================
+        // AMBIL HARGA DARI PRICE LIST
+        // ==================================================
+        async function fetchPrice(supplierId, itemId, date, row) {
+            if (!row) return;
+
+            const uomSelect = row.querySelector('.uom-select');
+            const priceInput = row.querySelector('.price-input');
+            const priceDisplay = row.querySelector('.price-display');
+            if (!priceInput) return;
+
+            const uomId = uomSelect ? uomSelect.value : '';
+
+            if (!supplierId || !itemId || !uomId) {
+                priceInput.value = '';
+                if (priceDisplay) priceDisplay.value = '';
+                calculateTotal();
+                return;
+            }
+
+            try {
+                const params = new URLSearchParams({
+                    supplierId: String(supplierId),
+                    itemId: String(itemId),
+                    uomId: String(uomId),
+                    date: String(date || '')
+                });
+
+                const response = await fetch(
+                    '/api/ui/purchasing/api/get-price?' + params.toString()
+                );
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+
+                const data = await response.json();
+
+                if (data.found) {
+                    priceInput.value = String(data.price ?? '');
+                    if (priceDisplay) formatPriceDisplay(priceDisplay);
+                } else {
+                    // Tidak memakai harga UOM lain. Kosongkan dan beri tanda.
+                    priceInput.value = '';
+                    if (priceDisplay) priceDisplay.value = '';
+                    row.classList.add('no-price');
+                    console.warn('Harga tidak ditemukan di Price List untuk item', itemId);
+                }
+
+                if (data.found) row.classList.remove('no-price');
+                calculateTotal();
+
+            } catch (e) {
+                console.error('Gagal mengambil harga Price List:', e);
+                priceInput.value = '';
+                if (priceDisplay) priceDisplay.value = '';
+                calculateTotal();
+            }
+        }
+
+        function getHeaderValues() {
+            return {
+                supplierId: document.getElementById('supplierSelect').value,
+                date: document.querySelector('input[name="docDate"]').value
+            };
+        }
+
+        function handleItemChange(selectElement) {
+            const row = selectElement.closest('tr');
+            const { supplierId, date } = getHeaderValues();
+            fetchPrice(supplierId, selectElement.value, date, row);
+        }
+
+        function handleUomChange(selectElement) {
+            const row = selectElement.closest('tr');
+            const { supplierId, date } = getHeaderValues();
+            const itemSelect = row.querySelector('.item-select');
+            if (itemSelect && itemSelect.value) {
+                fetchPrice(supplierId, itemSelect.value, date, row);
+            }
+        }
+
+        function refreshAllPrices() {
+            const { supplierId, date } = getHeaderValues();
+            document.querySelectorAll('#itemTableBody .item-select').forEach(select => {
+                if (select.value) {
+                    fetchPrice(supplierId, select.value, date, select.closest('tr'));
+                }
+            });
+        }
+
+        // ==================================================
+        // MANAJEMEN BARIS TABEL
+        // ==================================================
+        function getTbody() {
+            return document.getElementById('itemTableBody');
+        }
+
+        // Tampilkan/sembunyikan baris "Belum ada item" sesuai isi tabel
+        function toggleEmptyRow() {
+            const tbody = getTbody();
+            const dataRows = tbody.querySelectorAll('tr.item-row').length;
+            let emptyRow = document.getElementById('emptyRow');
+
+            if (dataRows === 0) {
+                if (!emptyRow) {
+                    emptyRow = document.createElement('tr');
+                    emptyRow.id = 'emptyRow';
+                    emptyRow.innerHTML =
+                        '<td colspan="6" style="padding:12px; text-align:center; color:#94a3b8;">Belum ada item.</td>';
+                    tbody.appendChild(emptyRow);
+                }
+            } else if (emptyRow) {
+                emptyRow.remove();
+            }
+        }
+
+        // Membuat satu baris dari template
+        function createRow(itemId = '', qty = '1', price = '', uomId = '') {
+            const template = document.getElementById('itemRowTemplate');
+            const fragment = template.content.cloneNode(true);
+            const row = fragment.querySelector('tr');
+
+            row.classList.add('item-row');
+
+            const itemSelect = row.querySelector('.item-select');
+            const uomSelect = row.querySelector('.uom-select');
+            const qtyInput = row.querySelector('.qty-input');
+            const priceInput = row.querySelector('.price-input');
+            const priceDisplay = row.querySelector('.price-display');
+
+            if (itemId !== '') itemSelect.value = itemId;
+            if (uomId !== '') uomSelect.value = uomId;
+            qtyInput.value = qty;
+            normalizeQtyInput(qtyInput);
+            priceInput.value = price;
+            if (priceDisplay) formatPriceDisplay(priceDisplay);
+
+            return row;
+        }
+
+        function addRow() {
+            const tbody = getTbody();
+            tbody.appendChild(createRow());
+            toggleEmptyRow();
+        }
+
+        function addRowWithData(itemId, qty, price, uomId) {
+            const tbody = getTbody();
+            const row = createRow(itemId, qty, price, uomId);
+            tbody.appendChild(row);
+            toggleEmptyRow();
+            return row;
+        }
+
+        function removeRow(btn) {
+            btn.closest('tr').remove();
+            toggleEmptyRow();
+            calculateTotal();
+        }
+
+        function clearAllRows() {
+            getTbody().querySelectorAll('tr.item-row').forEach(r => r.remove());
+            toggleEmptyRow();
+            calculateTotal();
+        }
+
+        // ==================================================
+        // KALKULASI TOTAL
+        // ==================================================
+        function calculateTotal() {
+            let total = 0;
+
+            document.querySelectorAll('#itemTableBody tr.item-row').forEach(function (row) {
+                const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+                const price = parseFloat(row.querySelector('.price-input').value) || 0;
+                const subtotal = qty * price;
+
+                const subtotalCell = row.querySelector('.subtotal-cell');
+                if (subtotalCell) subtotalCell.innerText = formatRupiah(subtotal);
+
+                total += subtotal;
+            });
+
+            const taxSelect = document.getElementById('taxTypeSelect');
+            const taxType = taxSelect ? taxSelect.value : 'NO_TAX';
+
+            let dpp = total;
+            let tax = 0;
+            let grandTotal = total;
+
+            if (taxType === 'EXCLUDE') {
+                tax = total * TAX_RATE;
+                grandTotal = total + tax;
+            } else if (taxType === 'INCLUDE') {
+                dpp = total / (1 + TAX_RATE);
+                tax = total - dpp;
+                grandTotal = total;
+            }
+
+            const sub = document.getElementById('totalSubtotalDisplay');
+            if (sub) {
+                sub.innerText = formatRupiah(dpp);
+                document.getElementById('totalTaxDisplay').innerText = formatRupiah(tax);
+                document.getElementById('totalAkhirDisplay').innerText = formatRupiah(grandTotal);
+            }
+        }
+
+        // ==================================================
+        // SUMBER PO & LOAD PR
+        // ==================================================
+        function togglePrSelection() {
+            const source = document.getElementById('poSource').value;
+            const prDiv = document.getElementById('prSelectionDiv');
+
+            if (source === 'FROM_PR') {
+                prDiv.style.display = 'block';
+            } else {
+                prDiv.style.display = 'none';
+                if (!window.location.href.includes('/edit')) {
+                    clearAllRows();
+                }
+            }
+        }
+
+        async function loadPrDetails(prId) {
+            if (!prId) {
+                clearAllRows();
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/ui/purchasing/api/pr-details/' + encodeURIComponent(prId));
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+
+                const data = await res.json();
+
+                clearAllRows();
+
+                if (!data || data.length === 0) {
+                    toggleEmptyRow();
+                    const tbody = getTbody();
+                    const emptyRow = document.getElementById('emptyRow');
+                    if (emptyRow) {
+                        emptyRow.querySelector('td').textContent = 'PR ini tidak memiliki item sisa.';
+                    }
+                    return;
+                }
+
+                const { supplierId, date } = getHeaderValues();
+
+                data.forEach(item => {
+                    const row = addRowWithData(item.itemId, item.qty, '', item.uomId);
+                    if (supplierId) {
+                        fetchPrice(supplierId, item.itemId, date, row);
+                    }
+                });
+
+                calculateTotal();
+            } catch (e) {
+                console.error('Gagal load PR', e);
+                alert('Gagal memuat detail PR. Silakan coba lagi.');
+            }
+        }
+
+        // ==================================================
+        // VALIDASI SEBELUM SUBMIT
+        // ==================================================
+        function validateBeforeSubmit(e) {
+            const rows = document.querySelectorAll('#itemTableBody tr.item-row');
+            const messages = [];
+            const seen = new Set();
+
+            if (rows.length === 0) {
+                messages.push('Minimal harus ada 1 item.');
+            }
+
+            rows.forEach(function (row, idx) {
+                const itemId = row.querySelector('.item-select').value;
+                const uomId = row.querySelector('.uom-select').value;
+                const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+                const price = parseFloat(row.querySelector('.price-input').value);
+                const no = idx + 1;
+
+                row.style.background = '';
+
+                if (!itemId) {
+                    messages.push('Baris ' + no + ': barang belum dipilih.');
+                    row.style.background = '#fee2e2';
+                }
+                if (!uomId) {
+                    messages.push('Baris ' + no + ': UOM belum dipilih.');
+                    row.style.background = '#fee2e2';
+                }
+                if (qty <= 0) {
+                    messages.push('Baris ' + no + ': qty harus lebih dari 0.');
+                    row.style.background = '#fee2e2';
+                }
+                if (!Number.isFinite(price) || price <= 0) {
+                    messages.push('Baris ' + no + ': harga belum tersedia atau 0 (cek Price List).');
+                    row.style.background = '#fee2e2';
+                }
+
+                const key = itemId + '|' + uomId;
+                if (itemId && uomId) {
+                    if (seen.has(key)) {
+                        messages.push('Baris ' + no + ': barang & UOM duplikat dengan baris sebelumnya.');
+                        row.style.background = '#fee2e2';
+                    }
+                    seen.add(key);
+                }
+            });
+
+            if (messages.length > 0) {
+                e.preventDefault();
+                alert(messages.join('\n'));
+                return false;
+            }
+            return true;
+        }
+
+        // ==================================================
+        // INISIALISASI
+        // ==================================================
+        document.addEventListener('DOMContentLoaded', function () {
+            // Normalisasi qty yang sudah ada
+            document.querySelectorAll('.qty-input').forEach(normalizeQtyInput);
+
+            // Sembunyikan/tampilkan blok PR sesuai sumber
+            const poSource = document.getElementById('poSource');
+            if (poSource) togglePrSelection();
+
+            // Load PR jika sudah dipilih (mode new dengan prId)
+            const prSelect = document.querySelector('select[name="prId"]');
+            if (prSelect && prSelect.value) {
+                loadPrDetails(prSelect.value);
+            }
+
+            // Tampilkan emptyRow jika belum ada baris data
+            toggleEmptyRow();
+
+            // Hitung total awal
+            calculateTotal();
+
+            // Pasang validasi di form
+            const form = document.querySelector('form');
+            if (form) form.addEventListener('submit', validateBeforeSubmit);
+        });
+    </script>
+</head>
+<body style="display:flex; margin:0; font-family:system-ui,sans-serif; background:#f1f5f9;">
+
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <main style="flex:1; padding:32px;">
+
+        <!-- ========================================================= -->
+        <!-- MODE VIEW (HANYA BACA)                                    -->
+        <!-- ========================================================= -->
+        <div th:if="${isView != null and isView}">
+            <div style="background:#fff; padding:24px; border-radius:12px; margin-bottom:24px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                <h2 style="margin-top:0; font-size:18px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">Informasi PO</h2>
+                <table style="width:100%; max-width:600px; border-collapse:collapse;">
+                    <tr><td style="padding:8px 0; color:#64748b; width:150px;">No. PO</td><td style="font-weight:bold;" th:text="${poDocNo}">-</td></tr>
+                    <tr><td style="padding:8px 0; color:#64748b;">Tanggal</td><td th:text="${@dateFmt.format(poDate)}">-</td></tr>
+                    <tr><td style="padding:8px 0; color:#64748b;">Supplier</td><td th:text="${poSupplierName}">-</td></tr>
+                    <tr><td style="padding:8px 0; color:#64748b;">Status</td><td th:text="${poStatus}">-</td></tr>
+                    <tr><td style="padding:8px 0; color:#64748b;">Tipe Pajak</td><td th:text="${poTaxType}">-</td></tr>
+                    <tr><td style="padding:8px 0; color:#64748b;">Remarks</td><td th:text="${poRemarks}">-</td></tr>
+                </table>
+            </div>
+
+            <div style="background:#fff; padding:24px; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                <h2 style="margin-top:0; font-size:18px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">Detail Items</h2>
+                <table style="width:100%; border-collapse:collapse; margin-top:16px;">
+                    <thead>
+                        <tr style="background:#f8fafc; text-align:left;">
+                            <th style="padding:12px; border-bottom:1px solid #e2e8f0;">Kode</th>
+                            <th style="padding:12px; border-bottom:1px solid #e2e8f0;">Nama Barang</th>
+                            <th style="padding:12px; border-bottom:1px solid #e2e8f0; text-align:right;">Qty</th>
+                            <th style="padding:12px; border-bottom:1px solid #e2e8f0;">UOM</th>
+                            <th style="padding:12px; border-bottom:1px solid #e2e8f0; text-align:right;">Harga</th>
+                            <th style="padding:12px; border-bottom:1px solid #e2e8f0; text-align:right;">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="d : ${existingDetails}">
+                            <td style="padding:12px; border-bottom:1px solid #e2e8f0;" th:text="${d.itemCode}">-</td>
+                            <td style="padding:12px; border-bottom:1px solid #e2e8f0;" th:text="${d.itemName}">-</td>
+                            <td style="padding:12px; border-bottom:1px solid #e2e8f0; text-align:right;" th:text="${@qtyDisplay.format(d.qty)}">-</td>
+                            <td style="padding:12px; border-bottom:1px solid #e2e8f0;" th:text="${d.uomCode}">-</td>
+                            <td style="padding:12px; border-bottom:1px solid #e2e8f0; text-align:right;" th:text="'Rp ' + ${#numbers.formatDecimal(d.price, 1, 'COMMA', 0, 'POINT')}">-</td>
+                            <td style="padding:12px; border-bottom:1px solid #e2e8f0; text-align:right;" th:text="'Rp ' + ${#numbers.formatDecimal(d.subtotal, 1, 'COMMA', 0, 'POINT')}">-</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="5" style="padding:12px 12px 4px 12px; text-align:right; color:#64748b;">DPP (Subtotal):</td>
+                            <td style="padding:12px 12px 4px 12px; text-align:right; color:#64748b;" th:text="'Rp ' + ${#numbers.formatDecimal(poTotal - poTaxAmount, 1, 'COMMA', 0, 'POINT')}">-</td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" style="padding:4px 12px 12px 12px; text-align:right; color:#64748b;">PPN:</td>
+                            <td style="padding:4px 12px 12px 12px; text-align:right; color:#64748b;" th:text="'Rp ' + ${#numbers.formatDecimal(poTaxAmount, 1, 'COMMA', 0, 'POINT')}">-</td>
+                        </tr>
+                        <tr style="background:#f8fafc; font-weight:bold; border-top:1px solid #e2e8f0;">
+                            <td colspan="5" style="padding:12px; text-align:right;">Total Akhir:</td>
+                            <td style="padding:12px; color:#059669; text-align:right;" th:text="'Rp ' + ${#numbers.formatDecimal(poTotal, 1, 'COMMA', 0, 'POINT')}">-</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div style="margin-top:24px;">
+                <a th:href="@{/ui/purchasing/po}" style="padding:10px 24px; background:#64748b; color:#fff; text-decoration:none; border-radius:8px;">Kembali</a>
+            </div>
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- MODE EDIT / CREATE (FORM INPUT)                           -->
+        <!-- ========================================================= -->
+        <div th:if="${isView == null or !isView}">
+            <h2 style="margin-top:0;" th:text="${isNew != null and isNew} ? 'New Purchase Order' : 'Edit Purchase Order'">Form PO</h2>
+
+            <form th:action="${isNew != null and isNew} ? @{/ui/purchasing/po} : @{/ui/purchasing/po/{id}(id=${poId})}" method="post" style="background:#fff; padding:24px; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                    <!-- Sumber PO (khusus New) -->
+                    <div th:if="${isNew}">
+                        <label style="font-weight:600; color:#555;">Sumber PO:</label>
+                        <select name="poSource" id="poSource" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:4px; margin-top:4px;" onchange="togglePrSelection()">
+                            <option value="DIRECT" th:selected="${prId == null}">Direct PO (Tanpa PR)</option>
+                            <option value="FROM_PR" th:selected="${prId != null}">Dari Purchase Request (PR)</option>
+                        </select>
+                    </div>
+
+                    <!-- Pilihan PR -->
+                    <div id="prSelectionDiv" th:if="${isNew}" th:style="${prId != null} ? 'display:block;' : 'display:none;'">
+                        <label style="font-weight:600; color:#555;">Pilih PR:</label>
+                        <select name="prId" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:4px; margin-top:4px;" onchange="loadPrDetails(this.value)">
+                            <option value="">-- Pilih PR --</option>
+                            <option th:each="pr : ${availablePrs}" th:value="${pr.id}" th:text="${pr.docNo}" th:selected="${pr.id == prId}"></option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label style="font-weight:600; color:#555;">Supplier:</label>
+                        <select name="supplierId" id="supplierSelect" required style="width:100%; padding:10px; border:1px solid #ddd; border-radius:4px; margin-top:4px;" onchange="refreshAllPrices()">
+                            <option value="">-- Pilih Supplier --</option>
+                            <option th:each="s : ${suppliers}" th:value="${s.id}" th:text="${s.name}" th:selected="${!isNew and s.id == poSupplierId}"></option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-weight:600; color:#555;">Tanggal:</label>
+                        <input type="date" name="docDate" th:value="${isNew != null and isNew ? #temporals.format(today, 'yyyy-MM-dd') : #temporals.format(poDate, 'yyyy-MM-dd')}" required style="width:100%; padding:10px; border:1px solid #ddd; border-radius:4px; margin-top:4px;" onchange="refreshAllPrices()">
+                    </div>
+                    <div>
+                        <label style="font-weight:600; color:#555;">Mata Uang:</label>
+                        <select name="currency" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:4px; margin-top:4px;">
+                            <option value="IDR" th:selected="${isNew or poCurrency == 'IDR'}">IDR</option>
+                            <option value="USD" th:selected="${!isNew and poCurrency == 'USD'}">USD</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-weight:600; color:#555;">Tipe Pajak:</label>
+                        <select name="taxType" id="taxTypeSelect" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:4px; margin-top:4px;" onchange="calculateTotal()">
+                            <option value="NO_TAX" th:selected="${isNew or poTaxType == 'NO_TAX'}">Tanpa PPN (0%)</option>
+                            <option value="EXCLUDE" th:selected="${!isNew and poTaxType == 'EXCLUDE'}">PPN 11% (Exclude)</option>
+                            <option value="INCLUDE" th:selected="${!isNew and poTaxType == 'INCLUDE'}">PPN 11% (Include)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:16px;">
+                    <label style="font-weight:600; color:#555;">Remarks:</label>
+                    <textarea name="remarks" th:text="${isNew} ? '' : ${poRemarks}" style="width:100%; height:80px; padding:12px; border:1px solid #ddd; border-radius:4px; resize:vertical; margin-top:4px;"></textarea>
+                </div>
+
+                <!-- Tabel Input Barang -->
+                <h3>Detail Items</h3>
+                <button type="button" onclick="addRow()" style="margin-bottom:12px; padding:8px 16px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">+ Tambah Item (Direct)</button>
+                <table style="width:100%; border-collapse:collapse; margin-bottom:24px;">
+                    <thead>
+                        <tr style="background:#f8fafc; text-align:left;">
+                            <th style="padding:12px; border-bottom:1px solid #e2e8f0; width:35%;">Barang</th>
+                            <th style="padding:12px; border-bottom:1px solid #e2e8f0;">Qty</th>
+                            <th style="padding:12px; border-bottom:1px solid #e2e8f0;">UOM</th>
+                            <th style="padding:12px; border-bottom:1px solid #e2e8f0;">Harga</th>
+                            <th style="padding:12px; border-bottom:1px solid #e2e8f0;">Subtotal</th>
+                            <th style="padding:12px; border-bottom:1px solid #e2e8f0; width:50px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemTableBody">
+                        <!-- Baris existing (mode edit) -->
+                        <tr class="item-row" th:each="d : ${existingDetails}" th:if="${isView == null or !isView}">
+                            <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
+                                <select name="itemId" class="item-select" onchange="handleItemChange(this)" required style="width:100%; padding:6px;">
+                                    <option value="">-- Pilih Barang --</option>
+                                    <option th:each="i : ${items}" th:value="${i.id}" th:text="${i.code + ' - ' + i.name}" th:selected="${i.id == d.itemId}"></option>
+                                </select>
+                            </td>
+                            <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
+                                <input type="number" step="any" min="0" name="qty" class="qty-input" th:value="${d.qty}" onblur="normalizeQtyInput(this); calculateTotal()" oninput="calculateTotal()" required style="width:80px; padding:4px;">
+                            </td>
+                            <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
+                                <select name="uomId" class="uom-select" onchange="handleUomChange(this)" required style="padding:4px;">
+                                    <option value="">-- UOM --</option>
+                                    <option th:each="u : ${uoms}" th:value="${u.id}" th:text="${u.code}" th:selected="${u.id == d.uomId}"></option>
+                                </select>
+                            </td>
+                            <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
+                                <input type="hidden" name="price" class="price-input" th:value="${d.price}">
+                                <input type="text" class="price-display" inputmode="decimal" th:value="${#numbers.formatDecimal(d.price, 1, 'POINT', 2, 'COMMA')}" oninput="handlePriceInput(this)" onblur="formatPriceDisplay(this)" required style="width:145px; padding:4px; text-align:right;">
+                            </td>
+                            <td class="subtotal-cell" style="padding:12px; border-bottom:1px solid #e2e8f0;" th:text="'Rp ' + ${#numbers.formatDecimal(d.subtotal, 1, 'COMMA', 0, 'POINT')}">-</td>
+                            <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
+                                <button type="button" onclick="removeRow(this)" style="color:red; border:none; background:none; cursor:pointer;">✕</button>
+                            </td>
+                        </tr>
+                        <!-- Baris kosong ditangani JavaScript (toggleEmptyRow) -->
+                    </tbody>
+                </table>
+
+                <div style="display:flex; justify-content:flex-end; margin-bottom:24px;">
+                    <table style="width:300px; border-collapse:collapse;">
+                        <tr><td style="padding:8px; color:#64748b;">Total Subtotal (DPP):</td><td id="totalSubtotalDisplay" style="padding:8px; text-align:right;">Rp 0</td></tr>
+                        <tr><td style="padding:8px; color:#64748b;">Total PPN:</td><td id="totalTaxDisplay" style="padding:8px; text-align:right;">Rp 0</td></tr>
+                        <tr style="border-top:1px solid #e2e8f0; font-weight:bold;"><td style="padding:8px;">Total Akhir:</td><td id="totalAkhirDisplay" style="padding:8px; text-align:right; color:#059669;">Rp 0</td></tr>
+                    </table>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:16px; border-top:1px solid #e2e8f0; padding-top:24px;">
+                    <a th:href="@{/ui/purchasing/po}" style="padding:12px 24px; background:#64748b; color:#fff; text-decoration:none; border-radius:4px; font-weight:bold;">Cancel</a>
+                    <button type="submit" style="padding:12px 24px; background:#2563eb; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer;" th:text="${isNew} ? 'Save PO' : 'Update PO'">Save</button>
+                </div>
+            </form>
+        </div>
+
+    </main>
+
+    <!-- Template baris baru (dipakai createRow) -->
+    <template id="itemRowTemplate">
+        <tr>
+            <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
+                <select name="itemId" class="item-select" onchange="handleItemChange(this)" required style="width:100%; padding:6px;">
+                    <option value="">-- Pilih Barang --</option>
+                    <option th:each="i : ${items}" th:value="${i.id}" th:text="${i.code + ' - ' + i.name}"></option>
+                </select>
+            </td>
+            <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
+                <input type="number" step="any" min="0" name="qty" class="qty-input" value="1" onblur="normalizeQtyInput(this); calculateTotal()" oninput="calculateTotal()" required style="width:80px; padding:4px;">
+            </td>
+            <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
+                <select name="uomId" class="uom-select" onchange="handleUomChange(this)" required style="padding:4px;">
+                    <option value="">-- UOM --</option>
+                    <option th:each="u : ${uoms}" th:value="${u.id}" th:text="${u.code}"></option>
+                </select>
+            </td>
+            <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
+                <input type="hidden" name="price" class="price-input" value="">
+                <input type="text" class="price-display" value="" inputmode="decimal" oninput="handlePriceInput(this)" onblur="formatPriceDisplay(this)" required style="width:145px; padding:4px; text-align:right;">
+            </td>
+            <td class="subtotal-cell" style="padding:12px; border-bottom:1px solid #e2e8f0;">Rp 0</td>
+            <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
+                <button type="button" onclick="removeRow(this)" style="color:red; border:none; background:none; cursor:pointer;">✕</button>
+            </td>
+        </tr>
+    </template>
+</body>
+</html>

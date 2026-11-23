@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0714] Biaya Operasional</h3>
+
+                <div th:if="${success}" style="background:#dcfce7; border:1px solid #16a34a; color:#14532d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${success}"></div>
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <div style="margin-bottom:15px;">
+                    <a th:href="@{/ui/finance/expenses/new}" class="erp-btn" style="text-decoration:none; padding:8px 15px; display:inline-block; background:#dc2626; color:white; border-radius:4px; font-weight:bold;">+ New Expense</a>
+                </div>
+
+                <table class="erp-table" style="width:100%; border-collapse:collapse; table-layout:fixed;">
+                    <thead>
+                        <tr style="background-color:#1e293b; color:white;">
+                            <th style="width:95px;">TANGGAL</th>
+                            <th style="width:140px;">NO. BUKTI</th>
+                            <th>KETERANGAN</th>
+                            <th style="width:130px; text-align:right;">NOMINAL (Rp)</th>
+                            <th style="width:90px;">STATUS</th>
+                            <th style="width:125px; text-align:center;">AKSI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${expenses.isEmpty()}">
+                            <td colspan="6" style="text-align:center; padding:20px;">Belum ada pengeluaran.</td>
+                        </tr>
+                        <tr th:each="e : ${expenses}" style="border-bottom:1px solid #eee;">
+                            <td th:text="${@dateFmt.format(e.docDate)}">-</td>
+                            <td><strong th:text="${e.docNo}"></strong></td>
+                            <td th:text="${e.remarks}">-</td>
+                            <td style="text-align:right; font-weight:bold; color:#dc2626;" th:text="${#numbers.formatDecimal(e.amount, 1, 'POINT', 2, 'COMMA')}">0,00</td>
+                            <td>
+                                <span th:if="${e.status != 'VOID'}" style="background:#dcfce7; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold; color:#14532d;" th:text="${e.status}">-</span>
+                                <span th:if="${e.status == 'VOID'}" style="background:#fee2e2; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold; color:#991b1b;" th:text="${e.status}">-</span>
+                            </td>
+                            <td style="text-align:center; white-space:nowrap;">
+                                <form th:if="${e.status != 'VOID'}" th:action="@{/ui/finance/expenses/{id}/void(id=${e.id})}" method="post" style="display:inline; margin:0;"
+                                      onsubmit="return confirm('VOID expense ini? Jurnal akan dibalik otomatis.');">
+                                    <button type="submit" style="background:#f59e0b; color:white; border:none; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer; margin-right:3px;">Void</button>
+                                </form>
+                                <form th:if="${e.status == 'VOID'}" th:action="@{/ui/finance/expenses/{id}/delete(id=${e.id})}" method="post" style="display:inline; margin:0;"
+                                      onsubmit="return confirm('Hapus expense ini beserta jurnalnya?');">
+                                    <button type="submit" style="background:#ef4444; color:white; border:none; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">Hapus</button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

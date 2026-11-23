@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="max-width: 600px;">
+                <h3 style="margin-top:0;" th:text="${isNew} ? 'Tambah Company Baru' : 'Edit Company'"></h3>
+
+                <form th:action="@{/ui/master/companies/save}" method="post">
+                    <input type="hidden" name="id" th:if="${!isNew and c != null}" th:value="${c.id}"/>
+
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block; font-weight:bold; margin-bottom:5px;">Kode Company</label>
+                        <input type="text" name="code" required th:value="${!isNew and c != null ? c.code : ''}" placeholder="Contoh: JKT" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;"/>
+                    </div>
+
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block; font-weight:bold; margin-bottom:5px;">Nama Company</label>
+                        <input type="text" name="name" required th:value="${!isNew and c != null ? c.name : ''}" placeholder="PT. AnalisaKoe Jakarta" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;"/>
+                    </div>
+
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block; font-weight:bold; margin-bottom:5px;">Alamat</label>
+                        <textarea name="address" rows="3" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;" th:text="${!isNew and c != null ? c.address : ''}"></textarea>
+                    </div>
+
+                    <div style="margin-bottom:15px; display:flex; gap:15px;">
+                        <div style="flex:1;">
+                            <label style="display:block; font-weight:bold; margin-bottom:5px;">Telepon</label>
+                            <input type="text" name="phone" th:value="${!isNew and c != null ? c.phone : ''}" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;"/>
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block; font-weight:bold; margin-bottom:5px;">Email</label>
+                            <input type="email" name="email" th:value="${!isNew and c != null ? c.email : ''}" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;"/>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:15px; display:flex; gap:15px;">
+                        <div style="flex:1;">
+                            <label style="display:block; font-weight:bold; margin-bottom:5px;">Status</label>
+                            <select name="status" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                                <option value="ACTIVE" th:selected="${isNew or (c != null and c.status == 'ACTIVE')}">ACTIVE (bisa dipakai login &amp; modul)</option>
+                                <option value="SUSPENDED" th:selected="${!isNew and c != null and c.status == 'SUSPENDED'}">SUSPENDED (tidak muncul di pilihan cabang)</option>
+                                <option value="CLOSED" th:selected="${!isNew and c != null and c.status == 'CLOSED'}">CLOSED</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:25px;">
+                        <button type="submit" class="erp-btn erp-btn-primary" style="background:#10b981; color:white; padding:10px 20px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Simpan Data</button>
+                        <a th:href="@{/ui/master/companies}" style="text-decoration:none; padding:10px 20px; color:#64748b; margin-left:10px;">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

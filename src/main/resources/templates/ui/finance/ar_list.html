@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">[Finance] AR Collections (Pelunasan Piutang)</h3>
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+                <table class="erp-table" style="margin-bottom: 15px;">
+                    <thead><tr><th>No. Dokumen</th><th>Tanggal</th><th>Customer ID</th><th>Bank ID</th><th style="text-align:right;">Nominal</th><th>Status</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+                    <tbody>
+                        <tr th:if="${collections.isEmpty()}"><td colspan="6" class="center">Belum ada data pelunasan.</td></tr>
+                        <tr th:each="c : ${collections}">
+                            <td><strong th:text="${c.docNo}"></strong></td>
+                            <td th:text="${#temporals.format(c.docDate, 'dd-MM-yyyy')}"></td>
+                            <td th:text="${c.customerId}"></td>
+                            <td th:text="${c.bankId}"></td>
+                            <td style="text-align:right; font-weight:bold;" th:text="${#numbers.formatDecimal(c.amount, 1, 'POINT', 2, 'COMMA')}"></td>
+                            <td th:text="${c.remarks} ?: 'â€”'"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="background: #f0f0f0; padding: 10px; border: 1px solid #a0a0a0;">
+                    <a th:href="@{/ui/finance/ar/new}" class="erp-btn-sm" style="text-decoration:none;">+ Catat Pelunasan Piutang</a>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

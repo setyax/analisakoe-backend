@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">[Finance] Input Pelunasan Piutang</h3>
+                <form th:action="@{/ui/finance/ar}" method="post">
+                    <div class="erp-form-grid">
+                        <label>Tanggal Terima:</label>
+                        <input type="date" name="docDate" th:value="${today}" required>
+                        
+                        <label>Customer:</label>
+                        <select name="customerId" required>
+                            <option value="">-- Pilih Customer --</option>
+                            <option th:each="c : ${customers}" th:value="${c.id}" th:text="${c.code} + ' - ' + ${c.name}"></option>
+                        </select>
+
+                        <label>Masuk ke Bank/Kas:</label>
+                        <select name="bankId" required>
+                            <option th:each="b : ${banks}" th:value="${b.id}" th:text="${b.name}"></option>
+                        </select>
+
+                        <label>Nominal Pembayaran:</label>
+                        <input type="number" step="0.01" name="amount" required>
+                    </div>
+                    <label>Keterangan:</label>
+                    <textarea name="remarks" style="width: 50%; height: 60px;"></textarea>
+                    
+                    <div style="margin-top: 20px; border-top: 1px solid #a0a0a0; padding-top: 15px;">
+                        <button type="submit" class="erp-btn erp-btn-primary" style="padding: 8px 30px;">Simpan Pelunasan</button>
+                        <a th:href="@{/ui/finance/ar}" class="erp-btn" style="text-decoration:none; display:inline-block; padding: 8px 20px; margin-left: 10px;">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

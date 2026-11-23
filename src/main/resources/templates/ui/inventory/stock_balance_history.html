@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <div>
+                        <h3 style="margin:0 0 6px;">Historical Transaksi Inventory</h3>
+                        <div style="font-size:13px;color:#64748b;">
+                            <strong th:text="${itemCode}"></strong> â€” <span th:text="${itemName}"></span>
+                            <span> | UOM: </span><strong th:text="${uomCode}"></strong>
+                        </div>
+                    </div>
+                    <a class="erp-btn" th:href="@{/ui/inventory/stock-balance}" style="text-decoration:none;">Kembali ke Stock Balance</a>
+                </div>
+
+                <form method="get" th:action="@{/ui/inventory/stock-balance/history}"
+                      style="background:#f8fafc;padding:15px;border:1px solid #e2e8f0;border-radius:5px;margin:18px 0;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+                    <input type="hidden" name="itemId" th:value="${itemId}">
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:bold;margin-bottom:5px;">Dari Tanggal</label>
+                        <input type="date" name="startDate" th:value="${startDate}" style="padding:6px;border:1px solid #cbd5e1;border-radius:3px;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:bold;margin-bottom:5px;">Sampai Tanggal</label>
+                        <input type="date" name="endDate" th:value="${endDate}" style="padding:6px;border:1px solid #cbd5e1;border-radius:3px;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:bold;margin-bottom:5px;">Gudang</label>
+                        <select name="warehouseId" style="padding:7px;border:1px solid #cbd5e1;border-radius:3px;min-width:180px;">
+                            <option value="">-- Semua Gudang --</option>
+                            <option th:each="w : ${warehouses}" th:value="${w.id}" th:text="${w.code + ' - ' + w.name}" th:selected="${w.id == warehouseId}"></option>
+                        </select>
+                    </div>
+                    <button type="submit" class="erp-btn erp-btn-primary" style="padding:7px 14px;">Filter</button>
+                </form>
+
+                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+                    <div style="background:#ecfdf5;border:1px solid #a7f3d0;padding:10px 15px;border-radius:5px;min-width:145px;">
+                        <div style="font-size:11px;color:#047857;">Total Masuk</div>
+                        <strong style="font-size:18px;color:#047857;" th:text="${#numbers.formatDecimal(totalIn,1,'POINT',2,'COMMA')}"></strong>
+                    </div>
+                    <div style="background:#fef2f2;border:1px solid #fecaca;padding:10px 15px;border-radius:5px;min-width:145px;">
+                        <div style="font-size:11px;color:#b91c1c;">Total Keluar</div>
+                        <strong style="font-size:18px;color:#b91c1c;" th:text="${#numbers.formatDecimal(totalOut,1,'POINT',2,'COMMA')}"></strong>
+                    </div>
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:10px 15px;border-radius:5px;min-width:145px;">
+                        <div style="font-size:11px;color:#475569;">Net Movement pada filter</div>
+                        <strong style="font-size:18px;" th:text="${#numbers.formatDecimal(netMovement,1,'POINT',2,'COMMA')}"></strong>
+                    </div>
+                </div>
+
+                <div style="overflow-x:auto;">
+                    <table class="erp-table" style="width:100%;border-collapse:collapse;">
+                        <thead>
+                        <tr style="background:#f1f5f9;">
+                            <th>Tanggal</th>
+                            <th>Gudang</th>
+                            <th>No. Dokumen</th>
+                            <th>Jenis</th>
+                            <th>Arah</th>
+                            <th style="text-align:right;">Qty</th>
+                            <th style="text-align:right;">Harga Satuan</th>
+                            <th style="text-align:right;">Nilai</th>
+                            <th style="text-align:right;">Saldo Tercatat</th>
+                            <th>Keterangan</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(history)}">
+                            <td colspan="10" style="text-align:center;padding:20px;">Belum ada riwayat pergerakan untuk barang ini.</td>
+                        </tr>
+                        <tr th:each="h : ${history}">
+                            <td th:text="${@dateFmt.format(h.movementDate)}"></td>
+                            <td><span th:text="${h.warehouseCode}"></span> - <span th:text="${h.warehouseName}"></span></td>
+                            <td style="font-weight:bold;" th:text="${h.referenceNo}"></td>
+                            <td th:text="${h.referenceType}"></td>
+                            <td th:style="${h.direction == 'IN' ? 'color:#059669;font-weight:bold;' : 'color:#dc2626;font-weight:bold;'}" th:text="${h.direction}"></td>
+                            <td style="text-align:right;" th:text="${@qtyDisplay.format(#numbers.formatDecimal(h.qty,1,'POINT',2,'COMMA'))}"></td>
+                            <td style="text-align:right;" th:text="${h.unitCost == null ? '-' : #numbers.formatDecimal(h.unitCost,1,'POINT',2,'COMMA')}"></td>
+                            <td style="text-align:right;" th:text="${h.totalCost == null ? '-' : #numbers.formatDecimal(h.totalCost,1,'POINT',2,'COMMA')}"></td>
+                            <td style="text-align:right;" th:text="${@qtyDisplay.format(h.recordedBalance == null ? 'Tidak tersedia' : #numbers.formatDecimal(h.recordedBalance,1,'POINT',2,'COMMA'))}"></td>
+                            <td th:text="${h.remarks}"></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p style="font-size:11px;color:#64748b;margin-top:10px;">
+                    Saldo Tercatat berasal dari snapshot saat posting pada stock_movement. Untuk transaksi manual yang belum memiliki snapshot, ditampilkan sebagai Tidak tersedia. Riwayat ditampilkan berdasarkan event posting dan reversal, bukan status dokumen saat ini.
+                </p>
+                <a class="erp-btn" th:href="@{/ui/inventory/reports/movement}" style="text-decoration:none;">Buka Movement Report</a>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

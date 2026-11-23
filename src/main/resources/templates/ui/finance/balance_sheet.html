@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px;">
+                <h3 style="margin:0 0 15px 0;">[F0401] Neraca (Balance Sheet)</h3>
+
+                <div th:if="${error}" style="padding:10px; background:#fee2e2; color:#991b1b; border-radius:4px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <form method="get" action="/api/ui/finance/reports/balance-sheet" style="background:#f8fafc; padding:15px; border-radius:8px; margin-bottom:20px; display:flex; gap:10px; align-items:flex-end;">
+                    <div>
+                        <label style="display:block; font-weight:600; font-size:12px; margin-bottom:5px;">Per Tanggal:</label>
+                        <input type="date" name="asOfDate" th:value="${asOfDate}" required style="padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+                    <button type="submit" style="padding:9px 20px; background:#2563eb; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">🔍 Tampilkan</button>
+                    <button type="button" onclick="window.print()" style="padding:9px 20px; background:#059669; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; margin-left:auto;">🖨️ Print</button>
+                </form>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:30px;">
+                    <!-- ASET -->
+                    <div>
+                        <h4 style="background:#1e293b; color:white; padding:10px; margin:0;">ASET (ASSETS)</h4>
+                        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                            <tbody>
+                                <tr th:each="a : ${assets}" style="border-bottom:1px solid #eee;">
+                                    <td style="padding:8px;" th:text="${a.code + ' - ' + a.name}">Kode - Nama</td>
+                                    <td style="padding:8px; text-align:right;" th:text="${#numbers.formatDecimal(a.saldo, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                </tr>
+                                <tr style="background:#dbeafe; font-weight:bold;">
+                                    <td style="padding:10px;">TOTAL ASET</td>
+                                    <td style="padding:10px; text-align:right;" th:text="${#numbers.formatDecimal(totalAssets, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- LIABILITAS & EKUITAS -->
+                    <div>
+                        <h4 style="background:#1e293b; color:white; padding:10px; margin:0;">LIABILITAS & EKUITAS</h4>
+                        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                            <tbody>
+                                <tr><td colspan="2" style="padding:8px; background:#f1f5f9; font-weight:bold;">LIABILITAS</td></tr>
+                                <tr th:each="l : ${liabilities}" style="border-bottom:1px solid #eee;">
+                                    <td style="padding:8px;" th:text="${l.code + ' - ' + l.name}">Kode - Nama</td>
+                                    <td style="padding:8px; text-align:right;" th:text="${#numbers.formatDecimal(l.saldo, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                </tr>
+                                <tr style="background:#fee2e2;">
+                                    <td style="padding:8px; font-weight:bold;">Total Liabilitas</td>
+                                    <td style="padding:8px; text-align:right; font-weight:bold;" th:text="${#numbers.formatDecimal(totalLiabilities, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                </tr>
+                                <tr><td colspan="2" style="padding:8px; background:#f1f5f9; font-weight:bold;">EKUITAS</td></tr>
+                                <tr th:each="e : ${equity}" style="border-bottom:1px solid #eee;">
+                                    <td style="padding:8px;" th:text="${e.code + ' - ' + e.name}">Kode - Nama</td>
+                                    <td style="padding:8px; text-align:right;" th:text="${#numbers.formatDecimal(e.saldo, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                </tr>
+                                <tr style="background:#dcfce7;">
+                                    <td style="padding:8px; font-weight:bold;">Total Ekuitas</td>
+                                    <td style="padding:8px; text-align:right; font-weight:bold;" th:text="${#numbers.formatDecimal(totalEquity, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                </tr>
+                                <tr style="background:#1e293b; color:white; font-weight:bold; font-size:14px;">
+                                    <td style="padding:12px;">TOTAL LIABILITAS + EKUITAS</td>
+                                    <td style="padding:12px; text-align:right;" th:text="${#numbers.formatDecimal(totalLiabEq, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="margin-top:20px; padding:15px; background:#ecfdf5; border-left:4px solid #059669; border-radius:4px; text-align:center; font-weight:bold; font-size:15px;"
+                     th:styleappend="${totalAssets.compareTo(totalLiabEq) == 0 ? 'background:#ecfdf5; color:#047857; border-left-color:#059669;' : 'background:#fee2e2; color:#991b1b; border-left-color:#dc2626;'}">
+                    <span th:if="${totalAssets.compareTo(totalLiabEq) == 0}">✅ BALANCE — Aset = Liabilitas + Ekuitas</span>
+                    <span th:unless="${totalAssets.compareTo(totalLiabEq) == 0}">⚠️ TIDAK BALANCE — Selisih: <span th:text="${#numbers.formatDecimal(totalAssets.subtract(totalLiabEq), 1, 'POINT', 2, 'COMMA')}"></span></span>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${pageTitle}">Buat Direct PO</title>
+    <link rel="stylesheet" th:href="@{/css/theme.css}"/>
+</head>
+<body style="display:flex; margin:0; font-family:system-ui,sans-serif; background:#f1f5f9;">
+<aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+<main style="flex:1; padding:32px;">
+    <h1 th:text="${pageTitle}">Buat Direct PO</h1>
+
+    <div th:if="${error}" th:text="${error}"
+         style="background:#fee2e2; color:#991b1b; padding:12px;
+                border-radius:8px; margin:16px 0;"></div>
+
+    <form th:action="@{/ui/purchasing/po/create-direct}" method="post"
+          style="max-width:700px;">
+
+        <label style="display:block; margin-bottom:12px;">
+            Supplier
+            <select name="supplierId" required
+                    style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px;">
+                <option value="">— Pilih —</option>
+                <option th:each="s : ${suppliers}"
+                        th:value="${s.id}"
+                        th:text="${s.code + ' — ' + s.name}"></option>
+            </select>
+        </label>
+
+        <label style="display:block; margin-bottom:12px;">
+            Tanggal
+            <input type="date" name="docDate" required
+                   th:value="${#temporals.format(#temporals.createNow(), 'yyyy-MM-dd')}"
+                   style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px;"/>
+        </label>
+
+        <label style="display:block; margin-bottom:12px;">
+            Total
+            <input type="number" step="0.01" name="totalAmount" required
+                   id="totalAmount" onblur="checkPolicy()"
+                   style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px;"/>
+        </label>
+
+        <label style="display:block; margin-bottom:12px;">
+            Mata Uang
+            <select name="currency"
+                    style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px;">
+                <option value="IDR" selected>IDR</option>
+                <option value="USD">USD</option>
+            </select>
+        </label>
+
+        <label style="display:block; margin-bottom:12px;">
+            Remarks
+            <textarea name="remarks" rows="2"
+                      style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px;"></textarea>
+        </label>
+
+        <div id="policy-warning"
+             style="display:none; background:#fef3c7; color:#78350f; padding:16px;
+                    border-radius:8px; margin:16px 0; border:1px solid #fbbf24;">
+            ⚠️ <strong>PO ini wajib melalui PR.</strong>
+            Isi alasan bypass di bawah — akan diteruskan ke manager.
+            <textarea name="bypassReason" rows="3"
+                      style="width:100%; margin-top:8px; padding:8px;
+                             border:1px solid #fbbf24; border-radius:6px;"></textarea>
+        </div>
+
+        <input type="hidden" name="isNewSupplier" value="false"/>
+
+        <button type="submit"
+                style="padding:10px 24px; background:#2563eb; color:#fff;
+                       border:none; border-radius:8px; cursor:pointer;">
+            Simpan PO
+        </button>
+        <a th:href="@{/ui/purchasing/po}" style="margin-left:8px;">Batal</a>
+    </form>
+</main>
+
+<script>
+async function checkPolicy() {
+    const total = parseFloat(document.getElementById('totalAmount').value) || 0;
+    if (total <= 0) return;
+    try {
+        const res = await fetch('/api/ui/purchasing/po/check-policy', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({totalAmount: total, isNewSupplier: false})
+        });
+        const data = await res.json();
+        document.getElementById('policy-warning').style.display =
+            data.requiresPr ? 'block' : 'none';
+    } catch (e) {
+        console.error(e);
+    }
+}
+</script>
+</body>
+</html>

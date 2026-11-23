@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0104] Sales Invoice List</h3>
+
+                <div th:if="${success}" style="background:#dcfce7; border:1px solid #16a34a; color:#14532d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${success}"></div>
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <table class="erp-table" style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                    <thead>
+                        <tr style="background-color:#1e293b; color:white;">
+                            <th style="width:40px;"></th>
+                            <th>DOC NO</th>
+                            <th>DATE</th>
+                            <th>CUSTOMER</th>
+                            <th>REMARKS</th>
+                            <th>CURRENCY</th>
+                            <th style="text-align:right;">TOTAL AMOUNT</th>
+                            <th>STATUS</th>
+                            <th>SALESPERSON</th>
+                            <th style="text-align:center;">AKSI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${invoices.isEmpty()}">
+                            <td colspan="10" style="text-align:center; padding:20px;">Belum ada data.</td>
+                        </tr>
+                        <tr th:each="o : ${invoices}" onclick="selectRow(this)" style="cursor:pointer;">
+                            <td style="text-align:center;"><input type="radio" name="selRow" th:value="${o.id}" style="width:18px; height:18px;"></td>
+                            <td><strong th:text="${o.docNo}">-</strong></td>
+                            <td th:text="${o.invoiceDate}">-</td>
+                            <td th:text="${o.customerName}">-</td>
+                            <td th:text="${o.remarks}">-</td>
+                            <td th:text="${o.currency}">IDR</td>
+                            <td style="text-align:right; font-weight:bold;" th:text="${#numbers.formatDecimal(o.totalAmount, 1, 'POINT', 2, 'COMMA')}">0</td>
+                            <td>
+                                <span style="background:#e2e8f0; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:bold;" th:text="${o.status}">-</span>
+                            </td>
+                            <td th:text="${o.salesperson != null ? o.salesperson : '-'}">-</td>
+                            <td style="text-align:center; white-space:nowrap;">
+                                <a th:href="@{/ui/print/si/{id}(id=${o.id})}" target="_blank" style="background:#0ea5e9; color:white; padding:4px 10px; border-radius:3px; text-decoration:none; font-size:11px; font-weight:bold;">🖨️ Print</a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="background:#e2e8f0; padding:10px; border-radius:5px; display:flex; gap:10px;">
+                    <a th:href="@{/ui/sales/invoices/new}" class="erp-btn erp-btn-primary" style="text-decoration:none; padding:8px 15px; display:inline-block; background:#d97706;">+ New Invoice</a>
+                    <button type="button" style="background:#94a3b8; color:white; padding:5px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="actionSelected('edit')">Change</button>
+                    <button type="button" style="background:#94a3b8; color:white; padding:5px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="actionSelected('confirm')">Confirm</button>
+                    <button type="button" style="background:#fcd34d; color:white; padding:5px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="actionSelected('unconfirm')">Unconfirm</button>
+                    <button type="button" style="background:#f87171; color:white; padding:5px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="actionSelected('void')">Void</button>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<style>
+    tr.row-selected-highlight td { background-color: #dbeafe !important; font-weight: 600; }
+</style>
+
+<script>
+    function selectRow(tr) {
+        var radio = tr.querySelector('input[type="radio"]');
+        if (radio) radio.checked = true;
+        document.querySelectorAll('tr.row-selected-highlight').forEach(function(r) {
+            r.classList.remove('row-selected-highlight');
+        });
+        tr.classList.add('row-selected-highlight');
+    }
+
+    function actionSelected(action) {
+        var selected = document.querySelector('input[name="selRow"]:checked');
+        if (!selected) {
+            alert('Pilih invoice terlebih dahulu!');
+            return;
+        }
+        var id = selected.value;
+
+        if (action === 'edit') {
+            window.location.href = '/api/ui/sales/invoices/' + id + '/edit';
+        } else if (action === 'confirm') {
+            if (confirm('Confirm invoice ini?')) submitForm('/api/ui/sales/invoices/' + id + '/confirm');
+        } else if (action === 'unconfirm') {
+            if (confirm('Unconfirm invoice ini?')) submitForm('/api/ui/sales/invoices/' + id + '/unconfirm');
+        } else if (action === 'void') {
+            if (confirm('Void invoice ini?')) submitForm('/api/ui/sales/invoices/' + id + '/void');
+        }
+    }
+
+    function submitForm(url) {
+        var f = document.createElement('form');
+        f.method = 'POST';
+        f.action = url;
+        document.body.appendChild(f);
+        f.submit();
+    }
+	
+	
+</script>
+
+</body>
+</html>

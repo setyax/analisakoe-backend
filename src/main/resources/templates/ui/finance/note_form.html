@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;" th:text="${note != null ? '[Finance] Edit Debit / Credit Note — ' + note.docNo : '[Finance] New Debit / Credit Note'}"></h3>
+                <form th:action="@{${note != null ? '/ui/finance/notes/' + note.id + '/update' : '/ui/finance/notes'}}" th:method="post">
+                    <input type="hidden" name="id" th:if="${note != null}" th:value="${note.id}"/>
+                    <div class="erp-form-grid">
+                        <label>Tanggal:</label>
+                        <input type="date" name="docDate" required th:value="${note != null ? note.docDate : today}">
+                        
+                        <label>Tipe Note:</label>
+                        <select name="noteType" id="noteTypeSelect" onchange="togglePartner()" required
+                                th:data-selected="${note != null ? note.noteType : ''}">
+                            <option value="AR_DN">AR Debit Note (Tagihan Tambah)</option>
+                            <option value="AR_CN">AR Credit Note (Tagihan Kurang)</option>
+                            <option value="AP_DN">AP Debit Note (Hutang Kurang)</option>
+                            <option value="AP_CN">AP Credit Note (Hutang Tambah)</option>
+                        </select>
+
+                        <label id="lblPartner">Customer:</label>
+                        <select name="partnerId" id="partnerId" required
+                                th:data-selected="${note != null ? note.partnerId : ''}">
+                            <!-- Diisi via JS -->
+                        </select>
+
+                        <label>Nominal:</label>
+                        <input type="number" step="0.01" name="totalAmount" required th:value="${note != null ? note.totalAmount : ''}">
+                    </div>
+                    <label>Keterangan:</label>
+                    <textarea name="remarks" style="width: 50%; height: 60px;" th:text="${note != null and note.remarks != null ? note.remarks : ''}"></textarea>
+                    
+                    <div style="margin-top: 20px; border-top: 1px solid #a0a0a0; padding-top: 15px;">
+                        <button type="submit" class="erp-btn erp-btn-primary" style="padding: 8px 30px;">Simpan Note</button>
+                        <a th:href="@{/ui/finance/notes}" class="erp-btn" style="text-decoration:none; padding: 8px 20px; margin-left:10px;">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+<script th:inline="javascript">
+    const customers = /*[[${customers}]]*/ [];
+    const suppliers = /*[[${suppliers}]]*/ [];
+
+    function togglePartner() {
+        const type = document.getElementById('noteTypeSelect').value;
+        const isAR = type.startsWith('AR');
+        const select = document.getElementById('partnerId');
+        const label = document.getElementById('lblPartner');
+        
+        label.innerText = isAR ? 'Customer:' : 'Supplier:';
+        select.innerHTML = '<option value="">-- Pilih --</option>';
+        
+        const data = isAR ? customers : suppliers;
+        data.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.id;
+            opt.text = item.code + ' - ' + item.name;
+            select.appendChild(opt);
+        });
+    }
+    
+    document.addEventListener('DOMContentLoaded', function(){
+        togglePartner();
+        // Prefill untuk mode edit
+        var sel = document.getElementById('noteTypeSelect');
+        var partner = document.getElementById('partnerId');
+        if (sel.dataset.selected) {
+            sel.value = sel.dataset.selected;
+            togglePartner();
+        }
+        if (partner.dataset.selected) {
+            partner.value = partner.dataset.selected;
+        }
+    });
+</script>
+</body>
+</html>

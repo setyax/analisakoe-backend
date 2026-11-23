@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">[Finance] Debit & Credit Notes</h3>
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+                
+                <table class="erp-table" style="margin-bottom: 15px; table-layout: fixed;">
+                    <thead><tr><th style="width:130px;">No. Dokumen</th><th style="width:90px;">Tanggal</th><th style="width:70px;">Tipe</th><th style="width:70px;">Partner</th><th style="width:110px; text-align:right;">Amount</th><th style="width:80px;">Status</th><th style="width:210px; text-align:center;">Aksi</th></tr></thead>
+                    <tbody>
+                        <tr th:if="${notes.isEmpty()}"><td colspan="7" class="center">Belum ada data.</td></tr>
+                        <tr th:each="n : ${notes}">
+                            <td style="overflow:hidden; text-overflow:ellipsis;"><strong th:text="${n.docNo}"></strong></td>
+                            <td th:text="${#temporals.format(n.docDate, 'dd-MM-yyyy')}"></td>
+                            <td><span class="badge" th:text="${n.noteType}"></span></td>
+                            <td th:text="${n.partnerId}"></td>
+                            <td style="text-align:right; font-weight:bold;" th:text="${#numbers.formatDecimal(n.totalAmount, 1, 'POINT', 2, 'COMMA')}"></td>
+                            <td><span class="badge" th:style="${n.status == 'POSTED'} ? 'background:#10b981; color:white;' : 'background:#f59e0b; color:white;'" th:text="${n.status}"></span></td>
+                            <td style="text-align:center; white-space:nowrap;">
+                                <form th:if="${n.status == 'DRAFT'}" th:action="@{/ui/finance/notes/{id}/post(id=${n.id})}" method="post" style="display:inline-block; margin:0;" onsubmit="return confirm('Posting note ini?')">
+                                    <button type="submit" style="background:#10b981; color:white; border:none; cursor:pointer; padding:3px 7px; font-size:10px; font-weight:600; border-radius:4px;">Post</button>
+                                </form>
+                                <a th:if="${n.status == 'DRAFT'}" th:href="@{/ui/finance/notes/{id}/edit(id=${n.id})}" style="background:#f59e0b; color:white; text-decoration:none; padding:3px 7px; font-size:10px; font-weight:600; border-radius:4px; display:inline-block;">Edit</a>
+                                <form th:if="${n.status == 'POSTED'}" th:action="@{/ui/finance/notes/{id}/unpost(id=${n.id})}" method="post" style="display:inline-block; margin:0;" onsubmit="return confirm('Unpost note ini? Jurnal posting akan dihapus dan note kembali ke DRAFT.')">
+                                    <button type="submit" style="background:#64748b; color:white; border:none; cursor:pointer; padding:3px 7px; font-size:10px; font-weight:600; border-radius:4px;">Unpost</button>
+                                </form>
+                                <form th:if="${n.status == 'DRAFT'}" th:action="@{/ui/finance/notes/{id}/delete(id=${n.id})}" method="post" style="display:inline-block; margin:0;" onsubmit="return confirm('Hapus note ini?')">
+                                    <button type="submit" style="background:#ef4444; color:white; border:none; cursor:pointer; padding:3px 7px; font-size:10px; font-weight:600; border-radius:4px;">Hapus</button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="background: #f0f0f0; padding: 10px; border: 1px solid #a0a0a0;">
+                    <a th:href="@{/ui/finance/notes/new}" class="erp-btn-sm" style="text-decoration:none;">+ Buat Note Baru</a>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

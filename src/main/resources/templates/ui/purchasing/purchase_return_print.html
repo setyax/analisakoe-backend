@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Print Purchase Return</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 30px; color: #1e293b; }
+        .header { text-align: center; border-bottom: 3px double #1e293b; padding-bottom: 15px; margin-bottom: 25px; }
+        .header h2 { margin: 0; font-size: 22px; }
+        .header p { margin: 4px 0; color: #64748b; }
+        .info { display: flex; justify-content: space-between; margin-bottom: 25px; }
+        .info div { line-height: 1.8; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
+        th { background: #f1f5f9; font-weight: bold; }
+        td.num { text-align: right; }
+        .total-box { text-align: right; font-size: 18px; font-weight: bold; margin-top: 15px; padding: 15px; background: #f8fafc; border: 2px solid #1e293b; }
+        .signature { display: flex; justify-content: space-between; margin-top: 60px; text-align: center; }
+        .signature div { width: 200px; }
+        .signature div p:last-child { border-top: 1px solid #1e293b; padding-top: 8px; }
+        @media print { .no-print { display: none; } body { padding: 0; } }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="margin-bottom: 20px; text-align: right;">
+        <button onclick="window.print()" style="padding: 10px 20px; background: #0ea5e9; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">🖨️ Cetak Sekarang</button>
+        <a href="javascript:window.close()" style="padding: 10px 20px; background: #ef4444; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; margin-left: 10px;">Tutup</a>
+    </div>
+
+    <div class="header">
+        <h2 th:text="${header.companyName}">PT. ANALISAKOE</h2>
+        <p>BUKTI RETUR PEMBELIAN</p>
+    </div>
+
+    <div class="info">
+        <div>
+            <strong>No. Dokumen:</strong> <span th:text="${header.docNo}">-</span><br/>
+            <strong>Tanggal:</strong> <span th:text="${@dateFmt.format(header.docDate)}">-</span><br/>
+        </div>
+        <div style="text-align: right;">
+            <strong>Supplier:</strong> <span th:text="${header.supplierName}">-</span><br/>
+            <strong>Status:</strong> POSTED<br/>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 40px;">#</th>
+                <th>Kode</th>
+                <th>Nama Item</th>
+                <th style="text-align:right;">Qty</th>
+                <th>UOM</th>
+                <th style="text-align:right;">Harga</th>
+                <th style="text-align:right;">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="d, stat : ${details}">
+                <td th:text="${stat.count}">1</td>
+                <td th:text="${d[1]}">-</td>
+                <td th:text="${d[2]}">-</td>
+                <td class="num" th:text="${d[3]}">0</td>
+                <td th:text="${d[4]}">-</td>
+                <td class="num" th:text="${#numbers.formatDecimal(d[5], 1, 'POINT', 2, 'COMMA')}">0</td>
+                <td class="num" th:text="${#numbers.formatDecimal(d[6], 1, 'POINT', 2, 'COMMA')}">0</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="total-box">
+        TOTAL: <span th:text="'Rp ' + ${#numbers.formatDecimal(header.totalAmount, 1, 'POINT', 2, 'COMMA')}">Rp 0</span>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <strong>Catatan:</strong>
+        <p th:text="${header.remarks} ?: '-'"></p>
+    </div>
+
+    <div class="signature">
+        <div>
+            <p>Dibuat Oleh,</p>
+            <br/><br/><br/>
+            <p>(............................)</p>
+        </div>
+        <div>
+            <p>Disetujui Oleh,</p>
+            <br/><br/><br/>
+            <p>(............................)</p>
+        </div>
+    </div>
+</body>
+</html>

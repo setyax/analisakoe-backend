@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="margin:0;">RFQ: <span th:text="${rfqDocNo}"></span></h3>
+                    <span th:styleappend="${rfqStatus == 'CLOSED' ? 'background:#dcfce7; color:#166534;' : (rfqStatus == 'VOID' ? 'background:#fee2e2; color:#991b1b;' : (rfqStatus == 'QUOTED' ? 'background:#dbeafe; color:#1e40af;' : 'background:#e2e8f0; color:#475569;'))}"
+                          style="padding:5px 15px; border-radius:12px; font-weight:bold;" th:text="${rfqStatus}"></span>
+                </div>
+
+                <div th:if="${success}" style="margin-bottom:10px; padding:10px; background:#dcfce7; color:#166534; border-radius:4px;" th:text="${success}"></div>
+                <div th:if="${error}" style="margin-bottom:10px; padding:10px; background:#fee2e2; color:#991b1b; border-radius:4px;" th:text="${error}"></div>
+
+                <div style="background:#f8fafc; padding:15px; border-radius:6px; margin-bottom:20px;">
+                    <p><strong>Tanggal:</strong> <span th:text="${@dateFmt.format(rfqDate)}"></span></p>
+                    <p><strong>Batas Penawaran:</strong> <span th:text="${@dateFmt.format(rfqDueDate)}"></span></p>
+                    <p><strong>Remarks:</strong> <span th:text="${rfqRemarks != null ? rfqRemarks : '-'}"></span></p>
+                </div>
+
+                <!-- FORM INPUT HARGA -->
+                <h4 style="color:#1e293b;">Input Harga Penawaran Supplier</h4>
+                <form th:if="${rfqStatus == 'DRAFT' or rfqStatus == 'QUOTED'}" th:action="@{/ui/purchasing/rfq/{id}/response(id=${rfqId})}" method="post">
+                    <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:4px; margin-bottom:15px;">
+                        <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:800px;">
+                            <thead>
+                                <tr style="background-color:#1e293b; color:white;">
+                                    <th style="padding:10px; text-align:left; width:200px;">ITEM</th>
+                                    <th style="padding:10px; width:80px;">QTY</th>
+                                    <th th:each="s : ${suppliers}" style="padding:10px; text-align:center;" th:text="${s.supplierName}"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="it : ${items}" style="border-bottom:1px solid #eee;">
+                                    <td style="padding:8px;">
+                                        <strong th:text="${it.itemCode}"></strong> - <span th:text="${it.itemName}"></span>
+                                    </td>
+                                    <td style="padding:8px; text-align:right;">
+                                        <span th:text="${@qtyDisplay.format(#numbers.formatDecimal(it.qty, 1, 'POINT', 2, 'COMMA'))}"></span>
+                                        <span th:text="${it.uomCode}"></span>
+                                    </td>
+                                    <td th:each="s : ${suppliers}" style="padding:8px;">
+                                        <input type="number" 
+                                               th:name="|price_${s.rfqSupplierId}_${it.dtlId}|"
+                                               th:value="${s.prices[it.dtlId]}"
+                                               placeholder="Harga"
+                                               step="0.01" min="0"
+                                               style="width:100%; padding:6px; text-align:right; border:1px solid #ddd; border-radius:4px;">
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <button type="submit" style="background:#2563eb; color:white; padding:8px 20px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;" th:disabled="${rfqStatus == 'CLOSED' or rfqStatus == 'VOID'}">
+                        💾 Simpan Harga
+                    </button>
+                </form>
+				
+				                <!-- PANEL SUBMIT & APPROVAL -->
+                                <!-- PANEL SUBMIT & APPROVAL MULTI-LEVEL -->
+                <div style="margin-top:30px; border-top:2px solid #e2e8f0; padding-top:20px;">
+
+                    <!-- STEP 1: QUOTED — Pilih Winner & Submit -->
+                    <div th:if="${rfqStatus == 'QUOTED'}">
+                        <h4 style="color:#1e3a8a;">🎯 Pilih Supplier Pemenang & Ajukan Approval</h4>
+                        <form th:action="@{/ui/purchasing/rfq/{id}/submit(id=${rfqId})}" method="post"
+                              onsubmit="return confirm('Ajukan RFQ ini untuk approval?');">
+                            <div style="background:#eff6ff; padding:15px; border-radius:6px; margin-bottom:15px; display:flex; gap:15px; align-items:flex-end;">
+                                <div style="flex:1;">
+                                    <label style="font-weight:600; display:block; margin-bottom:5px;">Supplier Pemenang:</label>
+                                    <select name="recommendedSupplierId" required style="width:100%; padding:10px; border:1px solid #ddd; border-radius:4px;">
+                                        <option value="">-- Pilih Pemenang --</option>
+                                        <option th:each="s : ${suppliers}" th:value="${s.supplierId}" th:text="${s.supplierName}"></option>
+                                    </select>
+                                </div>
+                                <div style="width:200px;">
+                                    <label style="font-weight:600; display:block; margin-bottom:5px;">Total Nilai (Rp):</label>
+                                    <input type="number" name="recommendedAmount" required min="0" step="1000"
+                                           style="width:100%; padding:10px; border:1px solid #ddd; border-radius:4px; text-align:right;">
+                                </div>
+								<div style="margin: 15px 0; text-align: right;">
+    <a th:href="@{/ui/purchasing/rfq/{id}/comparison(id=${rfqId})}" 
+       style="background:#8b5cf6; color:white; padding:10px 20px; border-radius:4px; text-decoration:none; font-weight:bold; display:inline-block;">
+        📊 Lihat Comparison
+    </a>
+</div>
+                                <button type="submit" style="background:#f59e0b; color:white; padding:10px 25px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">
+                                    📤 Submit for Approval
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- STEP 2: PENDING_APPROVAL — Show Current Level + Approve/Reject -->
+                    <div th:if="${rfqStatus == 'PENDING_APPROVAL'}">
+                        <div style="background:#fffbeb; padding:15px; border-left:4px solid #f59e0b; border-radius:4px; margin-bottom:15px;">
+                            <strong style="color:#b45309;">⏳ Menunggu Approval</strong><br>
+                            <span style="font-size:13px; color:#92400e;">
+                                Level <span th:text="${currentLevel}"></span>
+                                dari <span th:text="${totalLevel}"></span> — 
+                                Menunggu: <strong th:text="${requiredRole}"></strong>
+                            </span>
+                        </div>
+                        <form th:action="@{/ui/purchasing/rfq/{id}/approve(id=${rfqId})}" method="post" style="display:inline-block; margin-right:10px;">
+                            <input type="text" name="remarks" placeholder="Remarks (opsional)" style="padding:8px; border:1px solid #ddd; border-radius:4px; margin-right:8px;">
+                            <button type="submit" style="background:#10b981; color:white; padding:10px 25px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;" onclick="return confirm('Setujui?');">
+                                ✅ Approve
+                            </button>
+                        </form>
+                        <form th:action="@{/ui/purchasing/rfq/{id}/reject(id=${rfqId})}" method="post" style="display:inline-block;">
+                            <input type="text" name="remarks" placeholder="Alasan reject" required style="padding:8px; border:1px solid #ddd; border-radius:4px; margin-right:8px;">
+                            <button type="submit" style="background:#dc2626; color:white; padding:10px 25px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;" onclick="return confirm('Tolak RFQ ini?');">
+                                ❌ Reject
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- STEP 3: APPROVED — Ready Convert to PO -->
+                    <div th:if="${rfqStatus == 'APPROVED'}">
+                        <div style="background:#ecfdf5; padding:15px; border-left:4px solid #10b981; border-radius:4px; margin-bottom:15px;">
+                            <strong style="color:#047857;">✅ RFQ FULLY APPROVED</strong><br>
+                            <span style="font-size:13px;">Semua level approval sudah setuju. Silakan convert ke PO.</span>
+                        </div>
+                        <form th:action="@{/ui/purchasing/rfq/{id}/convert-to-po(id=${rfqId})}" method="post" onsubmit="return confirm('Convert ke PO?');">
+                            <input type="hidden" name="winningSupplierId" th:value="${recommendedSupplierId}">
+                            <input type="hidden" name="poDate" th:value="${#temporals.format(#temporals.createNow(), 'yyyy-MM-dd')}">
+                            <button type="submit" style="background:#059669; color:white; padding:10px 25px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">
+                                🎯 Convert ke PO
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- APPROVAL HISTORY TIMELINE -->
+                <div th:if="${approvalHistory != null and !approvalHistory.isEmpty()}" style="margin-top:25px; border-top:2px solid #e2e8f0; padding-top:20px;">
+                    <h4 style="color:#1e293b;">📜 Riwayat Approval</h4>
+                    <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                        <thead>
+                            <tr style="background:#f1f5f9;">
+                                <th style="padding:8px; text-align:left;">Waktu</th>
+                                <th style="padding:8px;">Level</th>
+                                <th style="padding:8px; text-align:left;">Approver</th>
+                                <th style="padding:8px;">Role</th>
+                                <th style="padding:8px;">Action</th>
+                                <th style="padding:8px; text-align:left;">Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="h : ${approvalHistory}" style="border-bottom:1px solid #eee;">
+                                <td style="padding:8px;" th:text="${h.date}"></td>
+                                <td style="padding:8px; text-align:center;" th:text="${h.level == 0 ? '-' : h.level}"></td>
+                                <td style="padding:8px;" th:text="${h.username}"></td>
+                                <td style="padding:8px; text-align:center;" th:text="${h.role != null ? h.role : '-'}"></td>
+                                <td style="padding:8px; text-align:center;">
+                                    <span th:styleappend="${h.action == 'APPROVE' ? 'background:#dcfce7; color:#166534;' : (h.action == 'REJECT' ? 'background:#fee2e2; color:#991b1b;' : 'background:#e2e8f0; color:#475569;')}"
+                                          style="padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold;"
+                                          th:text="${h.action}"></span>
+                                </td>
+                                <td style="padding:8px;" th:text="${h.remarks != null ? h.remarks : '-'}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                    
+                   
+                    <!-- Jika Status PENDING_APPROVAL: Tampilkan tombol Approve/Reject -->
+                    <div th:if="${rfqStatus == 'PENDING_APPROVAL'}">
+                        <div style="background:#fffbeb; padding:15px; border-left:4px solid #f59e0b; border-radius:4px; margin-bottom:15px;">
+                            <strong>⏳ Menunggu Persetujuan Atasan</strong><br>
+                            <span style="font-size:12px; color:#b45309;">Dokumen ini terkunci sementara. Hubungi Manager untuk melakukan approval.</span>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <form th:action="@{/ui/purchasing/rfq/{id}/approve(id=${rfqId})}" method="post" onsubmit="return confirm('Setujui RFQ ini?');">
+                                <button type="submit" style="background:#10b981; color:white; padding:10px 25px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">
+                                    ✅ Approve (Setujui)
+                                </button>
+                            </form>
+                            <form th:action="@{/ui/purchasing/rfq/{id}/reject(id=${rfqId})}" method="post" onsubmit="return confirm('Tolak RFQ ini? Status akan kembali ke QUOTED.');">
+                                <button type="submit" style="background:#dc2626; color:white; padding:10px 25px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">
+                                    ❌ Reject (Tolak)
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+				
+                <!-- COMPARE & CONVERT TO PO -->
+                <div th:if="${rfqStatus == 'APPROVED'}" style="..."><h4 style="color:#1e3a8a;">🏆 Pilih Supplier Pemenang & Convert ke PO</h4>
+                    <h4 style="color:#1e3a8a;">🏆 Pilih Supplier Pemenang & Convert ke PO</h4>
+                    <form th:action="@{/ui/purchasing/rfq/{id}/convert-to-po(id=${rfqId})}" method="post" onsubmit="return confirm('Convert ke PO? Pastikan supplier pemenang sudah benar.');">
+                        <div style="background:#eff6ff; padding:15px; border-radius:6px; margin-bottom:15px; display:flex; gap:15px; align-items:flex-end;">
+                            <div style="flex:1;">
+                                <label style="font-weight:600; display:block; margin-bottom:5px;">Supplier Pemenang:</label>
+                                <select name="winningSupplierId" required style="width:100%; padding:10px; border:1px solid #ddd; border-radius:4px;">
+                                    <option value="">-- Pilih Pemenang --</option>
+                                    <option th:each="s : ${suppliers}" th:value="${s.supplierId}" th:text="${s.supplierName}"></option>
+                                </select>
+                            </div>
+                            <div style="width:200px;">
+                                <label style="font-weight:600; display:block; margin-bottom:5px;">Tanggal PO:</label>
+                                <input type="date" name="poDate" th:value="${#temporals.format(#temporals.createNow(), 'yyyy-MM-dd')}" required style="width:100%; padding:10px; border:1px solid #ddd; border-radius:4px;">
+                            </div>
+                            <button type="submit" style="background:#059669; color:white; padding:10px 25px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">
+                                🎯 Convert ke PO
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div style="margin-top:20px; text-align:right;">
+                    <a th:href="@{/ui/purchasing/rfq}" style="background:#64748b; color:white; padding:8px 20px; border-radius:4px; text-decoration:none; font-weight:bold;">← Kembali</a>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

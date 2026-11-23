@@ -1,0 +1,334 @@
+﻿<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;"
+                    th:text="${isNew} ? '[Master] New Price Entry' : '[Master] Edit Price Entry'">Price Entry</h3>
+
+                <div th:if="${error}" class="error-msg" th:text="${error}" style="margin-bottom:10px;"></div>
+
+                <form th:action="@{/ui/purchasing/price-list}" method="post" style="max-width:700px;">
+                    <input type="hidden" name="id" th:if="${!isNew}" th:value="${priceEntry.id}">
+
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:130px; font-weight:bold;">Supplier:</label>
+                            <select name="supplierId" required style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                                <option value="">-- Pilih Supplier --</option>
+                                <option th:each="s : ${suppliers}" th:value="${s.id}" th:text="${s.name}"
+                                        th:selected="${!isNew and s.id == priceEntry.supplierId}"></option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:130px; font-weight:bold;">Item:</label>
+                            <select name="itemId" required style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                                <option value="">-- Pilih Item --</option>
+                                <option th:each="i : ${items}" th:value="${i.id}"
+                                        th:text="${i.code} + ' - ' + ${i.name}"
+                                        th:selected="${!isNew and i.id == priceEntry.itemId}"></option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:130px; font-weight:bold;">Price UOM:</label>
+                            <select name="uomId" required style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                                <option value="">-- Pilih UOM Harga --</option>
+                                <option th:each="u : ${uoms}" th:value="${u.id}"
+                                        th:text="${u.code} + ' - ' + ${u.name}"
+                                        th:selected="${!isNew and priceEntry.uomId != null and u.id == priceEntry.uomId}"></option>
+                            </select>
+                        </div>                        <div style="display:flex; align-items:center;">
+                            <label style="width:130px; font-weight:bold;">Price:</label>
+                            <div style="flex:1;">
+    <input type="text"
+           id="priceDisplay"
+           inputmode="decimal"
+           autocomplete="off"
+           required
+           placeholder="Contoh: 1.500.000,50"
+           th:attr="data-raw=${isNew ? '' : priceEntry.price}"
+           style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #ccc; border-radius:4px; text-align:right;">
+
+    <input type="hidden" name="price" id="priceValue">
+
+    <small style="display:block; margin-top:4px; color:#64748b;">
+        Gunakan titik untuk ribuan dan koma untuk desimal.
+    </small>
+</div>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:130px; font-weight:bold;">Currency:</label>
+                            <select name="currency" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                                <option value="IDR" th:selected="${isNew or priceEntry.currency == 'IDR'}">IDR</option>
+                                <option value="USD" th:selected="${!isNew and priceEntry.currency == 'USD'}">USD</option>
+                                <option value="SGD" th:selected="${!isNew and priceEntry.currency == 'SGD'}">SGD</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:130px; font-weight:bold;">Valid From:</label>
+                            <input type="date" name="validFrom" required
+                                   th:value="${isNew} ? ${today} : ${priceEntry.validFrom}"
+                                   style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:130px; font-weight:bold;">Valid To:</label>
+                            <input type="date" name="validTo"
+                                   th:value="${isNew or priceEntry.validTo == null} ? '' : ${priceEntry.validTo}"
+                                   style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                            <span style="margin-left:8px; color:#64748b; font-size:12px;">(kosongkan jika berlaku selamanya)</span>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:130px; font-weight:bold;">Min Qty:</label>
+                            <div style="flex:1;">
+    <input type="text"
+           id="minQtyDisplay"
+           inputmode="decimal"
+           autocomplete="off"
+           required
+           placeholder="Contoh: 1.000 atau 1,5"
+           th:attr="data-raw=${isNew ? '1' : priceEntry.minQty}"
+           style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #ccc; border-radius:4px; text-align:right;">
+
+    <input type="hidden"
+           name="minQty"
+           id="minQtyValue">
+
+    <small style="display:block; margin-top:4px; color:#64748b;">
+        Minimal kuantitas harga.
+    </small>
+</div>
+                            <span style="margin-left:8px; color:#64748b; font-size:12px;">(harga berlaku untuk qty â‰¥ nilai ini)</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:25px; border-top:1px solid #eee; padding-top:20px;">
+                        <button type="submit" style="background:#2563eb; color:white; padding:10px 25px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">
+                            Save
+                        </button>
+                        <a th:href="@{/ui/purchasing/price-list}" style="background:#64748b; color:white; padding:10px 25px; border-radius:4px; text-decoration:none; font-weight:bold; margin-left:10px;">
+                            Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+<!-- price-format-id-ID: format ribuan untuk tampilan, nilai asli tetap dikirim ke BigDecimal -->
+<script>
+(function () {
+    "use strict";
+
+    const display = document.getElementById("priceDisplay");
+    const hidden = document.getElementById("priceValue");
+    if (!display || !hidden) return;
+
+    function groupThousands(digits) {
+        const clean = String(digits || "").replace(/\D/g, "");
+        if (!clean) return "";
+        return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    // Nilai dari Java BigDecimal memakai titik desimal, misalnya 1500000.50.
+    function initializeFromRaw(raw) {
+        if (raw === null || raw === undefined || String(raw).trim() === "") {
+            hidden.value = "";
+            display.value = "";
+            return;
+        }
+
+        const value = String(raw).trim().replace(/,/g, ".");
+        const pieces = value.split(".");
+        const integerPart = (pieces.shift() || "0").replace(/\D/g, "") || "0";
+        const decimalPart = pieces.join("").replace(/\D/g, "");
+
+        hidden.value = integerPart + (decimalPart.length ? "." + decimalPart : "");
+        display.value = groupThousands(integerPart) + (decimalPart.length ? "," + decimalPart : "");
+    }
+
+    // Input Indonesia: 1.500.000,50. Hidden value: 1500000.50.
+    function syncValue() {
+        const typed = display.value || "";
+        const hasDecimalSeparator = typed.indexOf(",") >= 0;
+        const parts = typed.split(",");
+        const integerPart = (parts.shift() || "").replace(/\D/g, "");
+        const decimalPart = parts.join("").replace(/\D/g, "");
+
+        display.value = groupThousands(integerPart) +
+            (hasDecimalSeparator ? "," + decimalPart : "");
+
+        const rawInteger = integerPart || "0";
+        hidden.value = rawInteger +
+            (hasDecimalSeparator && decimalPart.length ? "." + decimalPart : "");
+    }
+
+    display.addEventListener("input", function () {
+        display.setCustomValidity("");
+        syncValue();
+    });
+
+    display.addEventListener("blur", function () {
+        if (display.value.endsWith(",")) {
+            display.value = display.value.slice(0, -1);
+        }
+        syncValue();
+    });
+
+    initializeFromRaw(display.getAttribute("data-raw"));
+
+    const form = display.closest("form");
+    if (form) {
+        form.addEventListener("submit", function (event) {
+            syncValue();
+
+            if (!display.value.trim() || !hidden.value) {
+                event.preventDefault();
+                display.setCustomValidity("Price wajib diisi.");
+                display.reportValidity();
+                return;
+            }
+
+            const numericValue = Number(hidden.value);
+            if (!Number.isFinite(numericValue) || numericValue < 0) {
+                event.preventDefault();
+                display.setCustomValidity("Price harus berupa angka nol atau lebih.");
+                display.reportValidity();
+                return;
+            }
+
+            display.setCustomValidity("");
+        });
+    }
+})();
+</script>
+<!-- price-minqty-trim-zeros -->
+<script>
+(function () {
+    "use strict";
+
+    function groupThousands(value) {
+        return value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    function fromRaw(raw) {
+        let value = String(raw || "").trim().replace(/,/g, ".");
+        let parts = value.split(".");
+        let integer = (parts.shift() || "0").replace(/\D/g, "") || "0";
+        let decimal = parts.join("").replace(/\D/g, "");
+
+        // Hapus nol desimal yang tidak bermakna.
+        decimal = decimal.replace(/0+$/, "");
+
+        return { integer, decimal };
+    }
+
+    function setFromRaw(display, hidden, raw) {
+        const v = fromRaw(raw);
+
+        display.value = groupThousands(v.integer) +
+            (v.decimal ? "," + v.decimal : "");
+
+        hidden.value = v.integer +
+            (v.decimal ? "." + v.decimal : "");
+    }
+
+    function normalize(display, hidden) {
+        let value = display.value || "";
+        let hasComma = value.includes(",");
+        let parts = value.split(",");
+
+        let integer = (parts.shift() || "").replace(/\D/g, "") || "0";
+        let decimal = parts.join("").replace(/\D/g, "");
+
+        // Hilangkan nol di belakang hanya saat blur atau submit.
+        decimal = decimal.replace(/0+$/, "");
+
+        display.value = groupThousands(integer) +
+            (decimal ? "," + decimal : "");
+
+        hidden.value = integer + (decimal ? "." + decimal : "");
+    }
+
+    function bind(displayId, hiddenId, minimum) {
+        const display = document.getElementById(displayId);
+        const hidden = document.getElementById(hiddenId);
+
+        if (!display || !hidden) return;
+
+        setFromRaw(display, hidden, display.getAttribute("data-raw"));
+
+        display.addEventListener("input", function () {
+            const parts = display.value.split(",");
+            const integer = (parts.shift() || "").replace(/\D/g, "");
+            const decimal = parts.join("").replace(/\D/g, "");
+            const hasComma = display.value.includes(",");
+
+            display.value = groupThousands(integer) +
+                (hasComma ? "," + decimal : "");
+
+            hidden.value = (integer || "0") +
+                (decimal ? "." + decimal : "");
+
+            display.setCustomValidity("");
+        });
+
+        display.addEventListener("blur", function () {
+            normalize(display, hidden);
+        });
+
+        display.addEventListener("change", function () {
+            normalize(display, hidden);
+        });
+
+        return { display, hidden, minimum };
+    }
+
+    const price = bind("priceDisplay", "priceValue", 0);
+    const minQty = bind("minQtyDisplay", "minQtyValue", 1);
+
+    const form = document.getElementById("priceDisplay")
+        ? document.getElementById("priceDisplay").closest("form")
+        : null;
+
+    if (form) {
+        form.addEventListener("submit", function (event) {
+            if (event.defaultPrevented) return;
+
+            if (price) {
+                normalize(price.display, price.hidden);
+
+                const amount = Number(price.hidden.value);
+                if (!Number.isFinite(amount) || amount < 0) {
+                    event.preventDefault();
+                    price.display.setCustomValidity("Price tidak valid.");
+                    price.display.reportValidity();
+                    return;
+                }
+            }
+
+            if (minQty) {
+                normalize(minQty.display, minQty.hidden);
+
+                const qty = Number(minQty.hidden.value);
+                if (!Number.isFinite(qty) || qty < 1) {
+                    event.preventDefault();
+                    minQty.display.setCustomValidity(
+                        "Min Qty harus minimal 1."
+                    );
+                    minQty.display.reportValidity();
+                    return;
+                }
+            }
+        });
+    }
+})();
+</script>
+</body>
+</html>
+
+

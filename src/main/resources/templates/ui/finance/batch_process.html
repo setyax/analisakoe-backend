@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="max-width: 900px; margin: 0 auto;">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0708] Batch Process Jurnal</h3>
+
+                <div th:if="${success}" style="background:#dcfce7; border:1px solid #16a34a; color:#14532d; padding:15px; border-radius:6px; margin-bottom:20px; font-weight:bold;" th:text="${success}"></div>
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:15px; border-radius:6px; margin-bottom:20px; font-weight:bold;" th:text="${error}"></div>
+
+                <!-- SECTION 1: BATCH POST -->
+                <div style="background:#f0fdf4; border:1px solid #86efac; border-left:5px solid #16a34a; padding:20px 25px; border-radius:8px; margin-bottom:20px;">
+                    <h4 style="margin-top:0; color:#14532d;">✅ Batch POST</h4>
+                    <p style="color:#365314; font-size:14px; margin-bottom:15px;">
+                        Ubah transaksi berstatus <strong>CONFIRMED</strong> menjadi <strong>POSTED</strong> 
+                        dan buat jurnal otomatis.
+                    </p>
+                    <form th:action="@{/ui/finance/batch-process/run}" method="post" 
+                          onsubmit="return confirm('Post semua transaksi CONFIRMED ke POSTED?');">
+                        <button type="submit" style="background:#16a34a; color:white; padding:10px 25px; border:none; border-radius:6px; font-size:14px; font-weight:bold; cursor:pointer;">
+                            ✅ Jalankan Batch POST
+                        </button>
+                    </form>
+                </div>
+
+                <!-- SECTION 2: BATCH UNPOST -->
+                <div style="background:#fef2f2; border:1px solid #fca5a5; border-left:5px solid #dc2626; padding:20px 25px; border-radius:8px; margin-bottom:20px;">
+                    <h4 style="margin-top:0; color:#7f1d1d;">↩️ Batch UNPOST (Cancel Jurnal + Revert Status)</h4>
+                    <p style="color:#991b1b; font-size:14px; margin-bottom:15px;">
+                        Ubah transaksi berstatus <strong>POSTED</strong> kembali menjadi <strong>CONFIRMED</strong> 
+                        dan <strong>hapus</strong> jurnal otomatisnya.
+                    </p>
+                    <!-- Tombol Unpost (Reverse jurnal) -->
+<form th:action="@{/ui/finance/batch-process/unpost}" method="post" 
+      style="display:inline-block; margin-left:10px;"
+      onsubmit="return confirm('⚠️ Unpost semua jurnal? Jurnal akan ditandai VOID dan status transaksi dikembalikan ke CONFIRMED.');">
+    <button type="submit" style="background:#f59e0b; color:white; padding:10px 20px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">
+        ↩️ Unpost Batch
+    </button>
+</form>
+                </div>
+
+                <!-- SECTION 3: DELETE JOURNALS ONLY -->
+                <div style="background:#fefce8; border:1px solid #fde047; border-left:5px solid #ca8a04; padding:20px 25px; border-radius:8px;">
+                    <h4 style="margin-top:0; color:#713f12;">🗑️ Hapus Jurnal Auto (Khusus Jurnal)</h4>
+                    <p style="color:#854d0e; font-size:14px; margin-bottom:15px;">
+                        Hanya <strong>menghapus jurnal otomatis</strong> tanpa mengubah status dokumen SI/PI.
+                    </p>
+                    <!-- Tombol Hapus Semua Jurnal (Untuk Testing) -->
+<form th:action="@{/ui/finance/batch-process/delete-journals}" method="post" 
+      style="margin-top: 20px;"
+      onsubmit="return confirm('⚠️ PERINGATAN: Hapus SEMUA jurnal? Status transaksi akan dikembalikan ke CONFIRMED.');">
+    <button type="submit" style="background:#dc2626; color:white; padding:10px 20px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">
+        🗑️ Hapus Semua Jurnal (Reset Testing)
+    </button>
+</form>
+                </div>
+
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

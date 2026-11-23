@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0;">[Inventory] Stock Opname</h3>
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+                <a th:href="@{/ui/inventory/opname/new}" class="erp-btn erp-btn-primary" style="text-decoration:none; display:inline-block; margin-bottom:15px;">+ New Stock Opname</a>
+                <table class="erp-table" style="width:100%; table-layout:fixed;">
+                    <thead><tr><th style="width:130px;">No. Opname</th><th style="width:90px;">Tanggal</th><th>Gudang</th><th style="width:80px;">Status</th><th style="width:150px; text-align:center;">Aksi</th></tr></thead>
+                    <tbody>
+                        <tr th:if="${#lists.isEmpty(opnames)}"><td colspan="5" style="text-align:center;">Belum ada data.</td></tr>
+                        <tr th:each="o : ${opnames}">
+                            <td><strong th:text="${o.docNo}"></strong></td>
+                            <td th:text="${o.docDate != null ? #temporals.format(o.docDate, 'dd-MM-yyyy') : '-'}"></td>
+                            <td th:text="${o.warehouse}"></td>
+                            <td>
+                                <span th:if="${o.status != 'VOID'}" class="badge" style="background:#dcfce7; color:#14532d;" th:text="${o.status}"></span>
+                                <span th:if="${o.status == 'VOID'}" class="badge" style="background:#fee2e2; color:#991b1b;" th:text="${o.status}"></span>
+                            </td>
+                            <td style="text-align:center; white-space:nowrap;">
+                                <form th:if="${o.status != 'VOID'}" th:action="@{/ui/inventory/opname/{id}/void(id=${o.id})}" method="post" style="display:inline; margin:0;"
+                                      onsubmit="return confirm('VOID opname ini? Stok dikembalikan ke system qty sebelum opname.');">
+                                    <button type="submit" style="background:#f59e0b; color:white; border:none; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer; margin-right:3px;">Void</button>
+                                </form>
+                                <form th:if="${o.status == 'VOID'}" th:action="@{/ui/inventory/opname/{id}/delete(id=${o.id})}" method="post" style="display:inline; margin:0;"
+                                      onsubmit="return confirm('Hapus opname ini?');">
+                                    <button type="submit" style="background:#ef4444; color:white; border:none; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">Hapus</button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0203] Goods Receipt List (GRN)</h3>
+
+                <div th:if="${success}" class="success-msg" th:text="${success}" style="margin-bottom:10px;"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}" style="margin-bottom:10px;"></div>
+
+                <table class="erp-table" id="grnTable" style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                    <thead>
+                        <tr style="background-color:#1e293b; color:white; text-align:left;">
+                            <th style="padding:10px; width:30px;"></th>
+                            <th style="padding:10px;">DATE</th>
+                            <th style="padding:10px;">DOC NO</th>
+                            <th style="padding:10px;">SUPPLIER</th>
+                            <th style="padding:10px;">PO NO</th>
+                            <th style="padding:10px;">REMARKS</th>
+                            <th style="padding:10px;">STATUS</th>
+                            <th style="padding:10px; width:90px;">ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${#lists.isEmpty(grns)}">
+                            <td colspan="8" style="text-align:center; padding:20px;">Belum ada data.</td>
+                        </tr>
+                        <tr th:each="g : ${grns}" style="border-bottom:1px solid #eee;">
+                            <td style="padding:10px; text-align:center;">
+                                <input type="radio" name="selRow" th:value="${g.id}" th:attr="data-status=${g.status}">
+                            </td>
+                            <td style="padding:10px;" th:text="${g.docDate != null ? #temporals.format(g.docDate, 'dd-MM-yyyy') : '-'}">-</td>
+                            <td style="padding:10px; font-weight:bold;" th:text="${g.docNo}">-</td>
+                            <td style="padding:10px;" th:text="${g.supplierName}">-</td>
+                            <td style="padding:10px;" th:text="${g.poNumber}">-</td>
+                            <td style="padding:10px;" th:text="${g.remarks} ?: ''"></td>
+                            <td style="padding:10px;">
+                                <span style="background:#e2e8f0; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:bold;" th:text="${g.status}">-</span>
+                            </td>
+                            <td style="padding:10px; text-align:center;">
+                                <a th:href="@{/ui/purchasing/grn/{id}/view(id=${g.id})}"
+                                   style="background:#3b82f6; color:white; padding:4px 10px; border-radius:3px; text-decoration:none; font-size:11px; font-weight:bold;">View</a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="background:#e2e8f0; padding:10px; border-radius:5px; display:flex; gap:8px; flex-wrap:wrap;">
+                    <a th:href="@{/ui/purchasing/grn/new}" style="background:#d97706; color:white; padding:6px 15px; border-radius:3px; text-decoration:none; font-weight:bold;">Insert</a>
+                    <button type="button" style="background:#3b82f6; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('edit')">Change</button>
+                    <button type="button" style="background:#10b981; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('confirm')">Confirm</button>
+                    <button type="button" style="background:#f59e0b; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('unconfirm')">Unconfirm</button>
+                    <button type="button" style="background:#dc2626; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('void')">Void</button>
+                    <button type="button" style="background:#6b7280; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('delete')">Delete</button>
+                </div>
+
+                <div style="margin-top:10px; font-size:12px; color:#64748b;">
+                    Pilih baris dengan menekan bulatan di kolom kiri, lalu klik tombol aksi.
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script>
+function doAction(action) {
+    const selected = document.querySelector('input[name="selRow"]:checked');
+    if (!selected) { alert('Pilih data terlebih dahulu dengan menekan bulatan di kolom kiri!'); return; }
+    const id = selected.value;
+    const status = selected.getAttribute('data-status');
+    const baseUrl = '/api/ui/purchasing/grn/' + id;
+
+    if (action === 'edit' && status !== 'DRAFT') { alert('Hanya GRN berstatus DRAFT yang bisa diedit. Status: ' + status); return; }
+    if (action === 'confirm' && status !== 'DRAFT') { alert('Hanya GRN berstatus DRAFT yang bisa di-confirm. Status: ' + status); return; }
+    if (action === 'unconfirm' && status !== 'CONFIRMED') { alert('Hanya GRN berstatus CONFIRMED yang bisa di-unconfirm. Status: ' + status); return; }
+    if (action === 'void' && status === 'VOID') { alert('GRN ini sudah berstatus VOID.'); return; }
+    if (action === 'delete' && status !== 'DRAFT') { alert('Hanya GRN berstatus DRAFT yang bisa dihapus. Status: ' + status); return; }
+
+    if (action === 'delete') { if (!confirm('Hapus GRN ini? Aksi ini tidak bisa dibatalkan.')) return; }
+    else if (action === 'confirm') { if (!confirm('Confirm GRN ini? Stok akan bertambah.')) return; }
+    else if (action === 'unconfirm') { if (!confirm('Unconfirm GRN ini? Stok akan dikurangi kembali.')) return; }
+    else if (action === 'void') { if (!confirm('Void GRN ini? Status akan menjadi VOID.')) return; }
+
+    if (action === 'edit') { window.location.href = baseUrl + '/edit'; }
+    else { submitForm(baseUrl + '/' + action); }
+}
+function submitForm(url) {
+    const form = document.createElement('form');
+    form.method = 'POST'; form.action = url;
+    document.body.appendChild(form); form.submit();
+}
+</script>
+</body>
+</html>

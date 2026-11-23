@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;" th:text="${isNew ? '[Master] New Bank Account' : '[Master] Edit Bank Account'}"></h3>
+
+                <form th:action="@{${isNew ? '/ui/master/banks' : '/ui/master/banks/' + bank.id}}" method="post">
+                    <div class="erp-form-grid">
+                        <label>Nama Bank / Kas:</label>
+                        <input type="text" name="name" required th:value="${isNew ? '' : bank.name}" placeholder="misal: Bank BCA, Kas Kecil">
+
+                        <label>No. Rekening:</label>
+                        <input type="text" name="accountNo" th:value="${isNew ? '' : bank.accountNo}">
+
+                        <label>Bank Code:</label>
+                        <input type="text" name="bankCode" th:value="${isNew ? '' : bank.bankCode}" placeholder="misal: BCA, MANDIRI">
+
+                        <label>Currency:</label>
+                        <input type="text" name="currency" th:value="${isNew ? 'IDR' : bank.currency}">
+
+                        <label>Cabang Bank:</label>
+                        <input type="text" name="branch" th:value="${isNew ? '' : bank.branch}">
+
+                        <label>COA (Giro/Kas):</label>
+                        <select name="coaId">
+                            <option value="">-- Tidak ada --</option>
+                            <option th:each="c : ${coas}" th:value="${c[0]}" th:text="${c[1]}"
+                                    th:selected="${!isNew && bank.coaId != null && bank.coaId == c[0]}"></option>
+                        </select>
+
+                        <label>Saldo Awal:</label>
+                        <input type="number" step="0.01" name="openingBalance" th:value="${isNew ? 0 : bank.openingBalance}" style="text-align:right;">
+
+                        <label th:if="${!isNew}">Status:</label>
+                        <select th:if="${!isNew}" name="status">
+                            <option value="ACTIVE" th:selected="${bank.status == 'ACTIVE'}">ACTIVE</option>
+                            <option value="SUSPENDED" th:selected="${bank.status == 'SUSPENDED'}">SUSPENDED</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-top:20px;">
+                        <button type="submit" class="erp-btn erp-btn-primary">Save</button>
+                        <a th:href="@{/ui/master/banks}" class="erp-btn" style="text-decoration:none; display:inline-block; padding:8px 20px; margin-left:10px;">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0301] Recalculate Inventory per Periode</h3>
+
+                <div th:if="${success}" style="margin-bottom:10px; padding:10px; background:#dcfce7; color:#166534; border-radius:4px;" th:text="${success}"></div>
+                <div th:if="${error}" style="margin-bottom:10px; padding:10px; background:#fee2e2; color:#991b1b; border-radius:4px;" th:text="${error}"></div>
+
+                <!-- FORM TRIGGER -->
+                <div style="background:#f8fafc; padding:20px; border-radius:8px; margin-bottom:25px; border:1px solid #e2e8f0;">
+                    <h4 style="margin-top:0;">Jalankan Recalculate</h4>
+                    <p style="font-size:12px; color:#64748b; margin-bottom:15px;">
+                        Sistem akan <strong>replay</strong> semua pergerakan stok (GRN, DO, ADJ) secara kronologis dengan metode <em>moving average</em>,
+                        lalu menyimpan snapshot <em>Begin / In / Out / End</em> per item untuk periode yang dipilih.
+                        Data di <code>inv.stock_balance</code> tidak akan berubah — ini hanya menghasilkan laporan snapshot.
+                    </p>
+                    <form th:action="@{/ui/inventory/recalculate/run}" method="post" style="display:flex; gap:15px; align-items:flex-end;">
+                        <div>
+                            <label style="display:block; font-weight:600; margin-bottom:5px;">Periode (YYYY-MM):</label>
+                            <input type="month" name="period" th:value="${currentMonth}" required
+                                   style="padding:8px; border:1px solid #ddd; border-radius:4px;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-weight:600; margin-bottom:5px;">Warehouse ID:</label>
+                            <input type="number" name="warehouseId" value="1" min="1"
+                                   style="padding:8px; border:1px solid #ddd; border-radius:4px; width:100px;">
+                        </div>
+                        <button type="submit" style="padding:9px 25px; background:#2563eb; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">
+                            ⚙️ Recalculate
+                        </button>
+                    </form>
+                </div>
+
+                <!-- HASIL SNAPSHOT -->
+                <h4 style="color:#1e293b;">Riwayat Snapshot (50 terbaru)</h4>
+                <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:4px;">
+                    <table style="width:100%; border-collapse:collapse; min-width:1600px; font-size:12px;">
+                        <thead>
+                            <tr style="background-color:#1e293b; color:white; text-align:center;">
+                                <th style="padding:8px;">PERIODE</th>
+                                <th style="padding:8px;">KODE</th>
+                                <th style="padding:8px;">ITEM</th>
+                                <th colspan="3" style="padding:8px; background:#0f766e;">BEGIN</th>
+                                <th colspan="2" style="padding:8px; background:#1e40af;">IN</th>
+                                <th colspan="3" style="padding:8px; background:#b91c1c;">OUT</th>
+                                <th colspan="3" style="padding:8px; background:#7c3aed;">END</th>
+                                <th style="padding:8px;">RECALC AT</th>
+                            </tr>
+                            <tr style="background-color:#334155; color:white; text-align:center; font-size:11px;">
+                                <th></th><th></th><th></th>
+                                <th>QTY</th><th>AVG COST</th><th>VALUE</th>
+                                <th>QTY</th><th>VALUE</th>
+                                <th>QTY</th><th>VALUE (COGS)</th><th>AVG</th>
+                                <th>QTY</th><th>AVG COST</th><th>VALUE</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${#lists.isEmpty(snapshots)}">
+                                <td colspan="16" style="text-align:center; padding:20px; color:#94a3b8;">
+                                    Belum ada snapshot. Jalankan recalculate dulu.
+                                </td>
+                            </tr>
+                            <tr th:each="s : ${snapshots}" style="border-bottom:1px solid #eee;">
+                                <td style="padding:6px; text-align:center; font-weight:bold;" th:text="${s.period}"></td>
+                                <td style="padding:6px;" th:text="${s.itemCode}"></td>
+                                <td style="padding:6px;" th:text="${s.itemName}"></td>
+                                <td style="padding:6px; text-align:right; background:#f0fdfa;" th:text="${@qtyDisplay.format(#numbers.formatDecimal(s.beginQty, 1, 'POINT', 2, 'COMMA'))}">0</td>
+                                <td style="padding:6px; text-align:right; background:#f0fdfa;" th:text="${#numbers.formatDecimal(s.beginAvgCost, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                <td style="padding:6px; text-align:right; background:#f0fdfa;" th:text="${#numbers.formatDecimal(s.beginValue, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                <td style="padding:6px; text-align:right; background:#eff6ff;" th:text="${@qtyDisplay.format(#numbers.formatDecimal(s.inQty, 1, 'POINT', 2, 'COMMA'))}">0</td>
+                                <td style="padding:6px; text-align:right; background:#eff6ff;" th:text="${#numbers.formatDecimal(s.inValue, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                <td style="padding:6px; text-align:right; background:#fef2f2;" th:text="${@qtyDisplay.format(#numbers.formatDecimal(s.outQty, 1, 'POINT', 2, 'COMMA'))}">0</td>
+                                <td style="padding:6px; text-align:right; background:#fef2f2; font-weight:bold; color:#991b1b;" th:text="${#numbers.formatDecimal(s.cogs, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                <td style="padding:6px; text-align:right; background:#fef2f2;" th:text="${#numbers.formatDecimal(s.endAvgCost, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                <td style="padding:6px; text-align:right; background:#f5f3ff;" th:text="${@qtyDisplay.format(#numbers.formatDecimal(s.endQty, 1, 'POINT', 2, 'COMMA'))}">0</td>
+                                <td style="padding:6px; text-align:right; background:#f5f3ff;" th:text="${#numbers.formatDecimal(s.endAvgCost, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                <td style="padding:6px; text-align:right; background:#f5f3ff; font-weight:bold; color:#7c3aed;" th:text="${#numbers.formatDecimal(s.endValue, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                <td style="padding:6px; text-align:center; color:#64748b; font-size:11px;" th:text="${s.recalcAt}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

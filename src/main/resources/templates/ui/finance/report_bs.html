@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">[Finance] Balance Sheet (Neraca)</h3>
+                
+                <form th:action="@{/ui/finance/reports/balance-sheet}" method="get" style="margin-bottom: 20px;">
+                    <label style="display:inline-block; margin-right:15px;">Per Tanggal: <input type="date" name="end" th:value="${end}"></label>
+                    <button type="submit" class="erp-btn">Tampilkan</button>
+                </form>
+
+                <div class="grid">
+                    <!-- KOLOM KIRI: ASET -->
+                    <article>
+                        <table class="erp-table">
+                            <tbody>
+                                <tr><td colspan="2" style="background:#f0f0f0; font-weight:bold; font-size:16px;">ASET</td></tr>
+                                <tr th:each="a : ${assets}">
+                                    <td th:text="${a.accountCode} + ' - ' + ${a.accountName}"></td>
+                                    <td style="text-align:right;" th:text="${#numbers.formatDecimal(a.balance, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+                                <tr style="font-weight:bold; background:#e6f7ff; border-top:2px solid #000;">
+                                    <td>TOTAL ASET</td>
+                                    <td style="text-align:right;" th:text="${#numbers.formatDecimal(totalAsset, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </article>
+
+                    <!-- KOLOM KANAN: KEWAJIBAN & EKUITAS -->
+                    <article>
+                        <table class="erp-table">
+                            <tbody>
+                                <tr><td colspan="2" style="background:#f0f0f0; font-weight:bold; font-size:16px;">KEWAJIBAN (LIABILITIES)</td></tr>
+                                <tr th:each="l : ${liabilities}">
+                                    <td th:text="${l.accountCode} + ' - ' + ${l.accountName}"></td>
+                                    <td style="text-align:right;" th:text="${#numbers.formatDecimal(l.balance, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+                                <tr style="font-weight:bold;">
+                                    <td>Total Kewajiban</td>
+                                    <td style="text-align:right;" th:text="${#numbers.formatDecimal(totalLiability, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+
+                                <tr><td colspan="2" style="background:#f0f0f0; font-weight:bold; font-size:16px; padding-top:20px;">EKUITAS (EQUITY)</td></tr>
+                                <tr th:each="e : ${equity}">
+                                    <td th:text="${e.accountCode} + ' - ' + ${e.accountName}"></td>
+                                    <td style="text-align:right;" th:text="${#numbers.formatDecimal(e.balance, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+                                <tr style="font-weight:bold;">
+                                    <td>Total Ekuitas</td>
+                                    <td style="text-align:right;" th:text="${#numbers.formatDecimal(totalEquity, 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+
+                                <tr style="font-weight:bold; background:#e6f7ff; border-top:2px solid #000;">
+                                    <td>TOTAL KEWAJIBAN + EKUITAS</td>
+                                    <td style="text-align:right;" th:text="${#numbers.formatDecimal(totalLiability.add(totalEquity), 1, 'POINT', 2, 'COMMA')}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

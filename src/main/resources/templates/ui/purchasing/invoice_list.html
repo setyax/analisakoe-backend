@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0204] Purchase Invoice List</h3>
+
+                <!-- Notifikasi -->
+                <div th:if="${success}" class="success-msg" th:text="${success}"
+                     style="margin-bottom:10px; padding:10px; background:#dcfce7; color:#166534; border-radius:4px;"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"
+                     style="margin-bottom:10px; padding:10px; background:#fee2e2; color:#991b1b; border-radius:4px;"></div>
+
+                <table class="erp-table" id="piTable" style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                    <thead>
+                        <tr style="background-color:#1e293b; color:white; text-align:left;">
+                            <th style="padding:10px; width:30px;"></th>
+                            <th style="padding:10px;">TANGGAL PI</th>
+                            <th style="padding:10px;">NO. PI</th>
+                            <th style="padding:10px;">SUPPLIER</th>
+                            <th style="padding:10px;">CURRENCY</th>
+                            <th style="padding:10px; text-align:right;">AMOUNT</th>
+                            <th style="padding:10px; text-align:right;">PAJAK</th>
+                            <th style="padding:10px;">JATUH TEMPO</th>
+                            <th style="padding:10px;">FAKTUR SUPPLIER</th>
+                            <th style="padding:10px;">STATUS</th>
+                            <th style="padding:10px; width:130px; text-align:center;">AKSI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${#lists.isEmpty(invoices)}">
+                            <td colspan="11" style="text-align:center; padding:20px;">Belum ada data.</td>
+                        </tr>
+                        <tr th:each="i : ${invoices}" style="border-bottom:1px solid #eee;">
+                            <td style="padding:10px; text-align:center;">
+                                <input type="radio" name="selRow" th:value="${i.id}" th:attr="data-status=${i.status}">
+                            </td>
+                            <td style="padding:10px;"
+                                th:text="${i.invoiceDate != null ? #temporals.format(i.invoiceDate, 'dd-MM-yyyy') : '-'}">-</td>
+                            <td style="padding:10px; font-weight:bold;" th:text="${i.docNo}">-</td>
+                            <td style="padding:10px;" th:text="${i.supplierName}">-</td>
+                            <td style="padding:10px;" th:text="${i.currency}">IDR</td>
+                            <td style="padding:10px; text-align:right; font-weight:bold;"
+                                th:text="${i.totalAmount != null ? #numbers.formatDecimal(i.totalAmount, 1, 'POINT', 2, 'COMMA') : '0,00'}">0,00</td>
+                            <td style="padding:10px; text-align:right; color:#64748b;"
+                                th:text="${i.taxAmount != null ? #numbers.formatDecimal(i.taxAmount, 1, 'POINT', 2, 'COMMA') : '0,00'}">0,00</td>
+                            <td style="padding:10px;"
+                                th:text="${i.dueDate != null ? #temporals.format(i.dueDate, 'dd-MM-yyyy') : '-'}">-</td>
+                            <td style="padding:10px;" th:text="${i.fakturSupplier}">-</td>
+                            <td style="padding:10px;">
+                                <span style="padding:3px 10px; border-radius:12px; font-size:12px; font-weight:bold;"
+                                      th:styleappend="${i.status == 'DRAFT' ? 'background:#e2e8f0; color:#475569;' : ((i.status == 'CONFIRMED' or i.status == 'POSTED') ? 'background:#dcfce7; color:#166534;' : 'background:#fee2e2; color:#991b1b;')}"
+                                      th:text="${i.status}">-</span>
+                            </td>
+                            <td style="padding:10px; text-align:center; white-space:nowrap;">
+                                <button type="button"
+                                        style="background:#3b82f6; color:white; padding:4px 10px; border:none; border-radius:3px; font-size:11px; cursor:pointer; margin-bottom:2px;"
+                                        th:onclick="|selectRowById(${i.id})|">Pilih</button>
+                                <a th:href="@{/ui/purchasing/invoices/{id}/view(id=${i.id})}"
+                                   style="background:#64748b; color:white; padding:4px 10px; border-radius:3px; text-decoration:none; font-size:11px; font-weight:bold; display:inline-block; margin-bottom:2px;">👁 View</a>
+                                <a th:href="@{/ui/print/pi/{id}(id=${i.id})}" target="_blank"
+                                   style="background:#0ea5e9; color:white; padding:4px 10px; border-radius:3px; text-decoration:none; font-size:11px; font-weight:bold; display:inline-block;">🖨️ Print</a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- ACTION BUTTONS -->
+                <div style="background:#e2e8f0; padding:10px; border-radius:5px; display:flex; gap:8px; flex-wrap:wrap;">
+                    <a th:href="@{/ui/purchasing/invoices/new}"
+                       style="background:#d97706; color:white; padding:6px 15px; border-radius:3px; text-decoration:none; font-weight:bold;">Insert</a>
+                    <button type="button"
+                            style="background:#3b82f6; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;"
+                            onclick="doAction('edit')">Change</button>
+                    <button type="button"
+                            style="background:#10b981; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;"
+                            onclick="doAction('confirm')">Confirm</button>
+                    <button type="button"
+                            style="background:#f59e0b; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;"
+                            onclick="doAction('unconfirm')">Unconfirm</button>
+                    <button type="button"
+                            style="background:#dc2626; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;"
+                            onclick="doAction('void')">Void</button>
+                    <button type="button"
+                            style="background:#6b7280; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;"
+                            onclick="doAction('delete')">Delete</button>
+                </div>
+
+                <div style="margin-top:10px; font-size:12px; color:#64748b;">
+                    Pilih baris dengan menekan bulatan di kolom kiri, lalu klik tombol aksi.
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<!-- =========================================================
+     JAVASCRIPT dengan CONTEXT_PATH (/api) otomatis
+     ========================================================= -->
+<script th:inline="javascript">
+    // Thymeleaf akan mengganti ini dengan '/api/' (sesuai context-path di application.yml)
+    const CONTEXT_PATH = /*[[@{/}]]*/ '/';
+
+    function selectRowById(id) {
+        document.querySelectorAll('input[name="selRow"]').forEach(function (r) {
+            if (r.value == id) {
+                r.checked = true;
+                r.dispatchEvent(new Event('click', {bubbles: true}));
+            }
+        });
+    }
+
+    function doAction(action) {
+        const selected = document.querySelector('input[name="selRow"]:checked');
+        if (!selected) {
+            alert('Pilih data terlebih dahulu dengan menekan bulatan di kolom kiri!');
+            return;
+        }
+
+        const id = selected.value;
+        const status = selected.getAttribute('data-status');
+        // baseUrl otomatis menjadi '/api/ui/purchasing/invoices/8' dsb.
+        const baseUrl = CONTEXT_PATH + 'ui/purchasing/invoices/' + id;
+
+        // === VALIDASI STATUS ===
+        if (action === 'edit' && status !== 'DRAFT') {
+            alert('Hanya Invoice berstatus DRAFT yang bisa diedit. Status saat ini: ' + status);
+            return;
+        }
+        if (action === 'confirm' && status !== 'DRAFT') {
+            alert('Hanya Invoice berstatus DRAFT yang bisa di-confirm. Status saat ini: ' + status);
+            return;
+        }
+        if (action === 'unconfirm' && status !== 'POSTED' && status !== 'CONFIRMED') {
+            alert('Hanya Invoice berstatus POSTED yang bisa di-unconfirm. Status saat ini: ' + status);
+            return;
+        }
+        if (action === 'void' && status === 'VOID') {
+            alert('Invoice sudah VOID.');
+            return;
+        }
+        if (action === 'delete' && status !== 'DRAFT') {
+            alert('Hanya Invoice berstatus DRAFT yang bisa dihapus. Status saat ini: ' + status);
+            return;
+        }
+
+        // === KONFIRMASI ===
+        if (action === 'delete') {
+            if (!confirm('Hapus Invoice ini?')) return;
+        } else if (action === 'confirm') {
+            if (!confirm('Confirm Invoice ini? Hutang akan diakui.')) return;
+        } else if (action === 'unconfirm') {
+            if (!confirm('Unconfirm Invoice ini? Status akan kembali ke DRAFT.')) return;
+        } else if (action === 'void') {
+            if (!confirm('Void Invoice ini? Tindakan ini tidak bisa dibatalkan.')) return;
+        }
+
+        // === EKSEKUSI ===
+        if (action === 'edit') {
+            window.location.href = baseUrl + '/edit';
+        } else {
+            submitForm(baseUrl + '/' + action);
+        }
+    }
+
+    function submitForm(url) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = url;
+        document.body.appendChild(form);
+        form.submit();
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0701] General Journal</h3>
+
+                <div th:if="${success}" style="background:#dcfce7; border:1px solid #16a34a; color:#14532d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${success}"></div>
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <table class="erp-table" style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                    <thead>
+                        <tr style="background-color:#1e293b; color:white;">
+                            <th style="width:40px;"></th>
+                            <th>NO JURNAL</th>
+                            <th>TANGGAL</th>
+                            <th>TIPE</th>
+                            <th>KETERANGAN</th>
+                            <th>STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${journals.isEmpty()}">
+                            <td colspan="6" style="text-align:center; padding:20px;">Belum ada data.</td>
+                        </tr>
+                        <tr th:each="j : ${journals}" onclick="selectRow(this)" style="cursor: pointer;">
+                            <td style="text-align:center;"><input type="radio" name="selRow" th:value="${j.id}" style="width:18px; height:18px;"></td>
+                            <td><strong th:text="${j.docNo}">-</strong></td>
+                            <td th:text="${@dateFmt.format(j.docDate)}">-</td>
+                            <td th:text="${j.journalType}">-</td>
+                            <td th:text="${j.remarks}">-</td>
+                            <td>
+                                <span style="background:#e2e8f0; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:bold;" th:text="${j.status}">-</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="background:#e2e8f0; padding:10px; border-radius:5px; display:flex; gap:10px; align-items:center;">
+                    <a th:href="@{/ui/finance/journals/new}" style="background:#2563eb; color:white; padding:8px 15px; border-radius:4px; text-decoration:none; font-weight:bold; font-size:13px;">+ New Journal</a>
+                    <button type="button" style="background:#0ea5e9; color:white; padding:8px 15px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:13px;" onclick="viewJournal()">👁 View</button>
+                    <button type="button" style="background:#8b5cf6; color:white; padding:8px 15px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:13px;" onclick="doJournalAction('post')">Post</button>
+                    <button type="button" style="background:#f97316; color:white; padding:8px 15px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:13px;" onclick="doJournalAction('unpost')">Unpost</button>
+                    <button type="button" style="background:#dc2626; color:white; padding:8px 15px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:13px;" onclick="doJournalAction('delete')">Delete</button>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<style>
+    tr.row-selected-highlight td { background-color: #dbeafe !important; font-weight: 600; }
+</style>
+
+<script>
+    function selectRow(tr) {
+        var radio = tr.querySelector('input[type="radio"]');
+        if(radio) radio.checked = true;
+        document.querySelectorAll('tr.row-selected-highlight').forEach(function(r){ r.classList.remove('row-selected-highlight'); });
+        tr.classList.add('row-selected-highlight');
+    }
+
+    function viewJournal() {
+        var selected = document.querySelector('input[name="selRow"]:checked');
+        if (!selected) { alert('Pilih jurnal terlebih dahulu!'); return; }
+        window.location.href = '/api/ui/finance/journals/' + selected.value + '/view';
+    }
+
+    function doJournalAction(action) {
+        var selected = document.querySelector('input[name="selRow"]:checked');
+        if (!selected) { alert('Pilih jurnal terlebih dahulu!'); return; }
+        var id = selected.value;
+        if (!id) return;
+
+        var actionLabel = (action === 'post') ? 'POSTING' : (action === 'unpost') ? 'UNPOSTING' : 'MENGHAPUS';
+        if (!confirm('Lanjutkan ' + actionLabel + ' jurnal #' + id + '?')) return;
+
+        var f = document.createElement('form');
+        f.method = 'POST';
+        f.action = '/api/ui/finance/journals/' + id + '/' + action;
+        document.body.appendChild(f);
+        f.submit();
+    }
+</script>
+</body>
+</html>

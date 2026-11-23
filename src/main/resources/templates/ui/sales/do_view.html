@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">Delivery Order <span th:text="${docNo}">-</span></h3>
+                    <span style="padding:4px 12px; border-radius:12px; font-size:12px; font-weight:bold;"
+                          th:styleappend="${status == 'DRAFT' ? 'background:#fef3c7; color:#92400e;' : (status == 'CONFIRMED' ? 'background:#dcfce7; color:#14532d;' : (status == 'VOID' ? 'background:#fee2e2; color:#991b1b;' : 'background:#e2e8f0; color:#0f172a;'))}"
+                          th:text="${status}">-</span>
+                </div>
+
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <div class="erp-form-grid">
+                    <label>Tanggal Kirim:</label>
+                    <input type="text" readonly style="background:#f1f5f9;"
+                           th:value="${docDate != null ? #temporals.format(docDate, 'dd-MM-yyyy') : '-'}">
+                    <label>Customer:</label>
+                    <input type="text" readonly style="background:#f1f5f9;" th:value="${customerName}">
+                    <label>No. Sales Order:</label>
+                    <input type="text" readonly style="background:#f1f5f9;" th:value="${soNo}">
+                    <label>Keterangan:</label>
+                    <input type="text" readonly style="background:#f1f5f9;" th:value="${remarks != null and !remarks.isEmpty() ? remarks : '-'}">
+                </div>
+
+                <h4 style="margin-top:20px; margin-bottom:10px;">Rincian Barang Dikirim</h4>
+                <table class="erp-table" style="table-layout: fixed;">
+                    <thead>
+                        <tr>
+                            <th style="width:45px; text-align:center;">NO</th>
+                            <th style="width:110px;">KODE</th>
+                            <th>NAMA BARANG</th>
+                            <th style="width:110px; text-align:right;">QTY KIRIM</th>
+                            <th style="width:80px; text-align:center;">UNIT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${items.isEmpty()}"><td colspan="5" class="center" style="padding:20px;">Tidak ada item.</td></tr>
+                        <tr th:each="it, st : ${items}">
+                            <td style="text-align:center;" th:text="${st.count}"></td>
+                            <td style="overflow:hidden; text-overflow:ellipsis; font-weight:bold;" th:text="${it.code}"></td>
+                            <td style="overflow:hidden; text-overflow:ellipsis;" th:text="${it.name}"></td>
+                            <td style="text-align:right; font-weight:bold;" th:text="${it.qty}"></td>
+                            <td style="text-align:center;" th:text="${it.uom}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="display:flex; justify-content:flex-end; margin-top:12px; font-size:13px;">
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:10px 16px;">
+                        <strong th:text="${totalLines}"></strong> baris item ·
+                        Total Qty: <strong th:text="${totalQty}"></strong>
+                    </div>
+                </div>
+
+                <div style="margin-top:20px; display:flex; gap:8px;">
+                    <a th:href="@{/ui/sales/do/{id}/print(id=${id})}" target="_blank" class="erp-btn" style="background:#64748b; color:white; text-decoration:none;">🖨 Print Surat Jalan</a>
+                    <a th:href="@{/ui/sales/do}" class="erp-btn" style="text-decoration:none;">Kembali ke List</a>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

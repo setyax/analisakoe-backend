@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">[F0204] Purchase Invoice <span th:text="${docNo}">-</span></h3>
+                    <span style="padding:4px 12px; border-radius:12px; font-size:12px; font-weight:bold;"
+                          th:styleappend="${status == 'DRAFT' ? 'background:#e2e8f0; color:#475569;' : (status == 'CONFIRMED' ? 'background:#dcfce7; color:#166534;' : 'background:#fee2e2; color:#991b1b;')}"
+                          th:text="${status}">-</span>
+                </div>
+
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <div class="erp-form-grid">
+                    <label>Tanggal Invoice:</label>
+                    <input type="text" readonly style="background:#f1f5f9;"
+                           th:value="${invoiceDate != null ? #temporals.format(invoiceDate, 'dd-MM-yyyy') : '-'}">
+                    <label>Jatuh Tempo:</label>
+                    <input type="text" readonly style="background:#f1f5f9;"
+                           th:value="${dueDate != null ? #temporals.format(dueDate, 'dd-MM-yyyy') : '-'}">
+                    <label>Supplier:</label>
+                    <input type="text" readonly style="background:#f1f5f9;" th:value="${supplierName}">
+                    <label>No. Faktur Supplier:</label>
+                    <input type="text" readonly style="background:#f1f5f9;" th:value="${fakturSupplier != null ? fakturSupplier : '-'}">
+                    <label>Pajak:</label>
+                    <input type="text" readonly style="background:#f1f5f9;" th:value="${taxLabel}">
+                    <label>Keterangan:</label>
+                    <input type="text" readonly style="background:#f1f5f9;" th:value="${remarks != null ? remarks : '-'}">
+                </div>
+
+                <h4 style="margin-top:20px; margin-bottom:10px;">Rincian Item</h4>
+                <table class="erp-table" style="table-layout: fixed;">
+                    <thead>
+                        <tr>
+                            <th style="width:40px; text-align:center;">NO</th>
+                            <th>KODE</th>
+                            <th>NAMA BARANG</th>
+                            <th style="width:90px; text-align:right;">QTY</th>
+                            <th style="width:70px; text-align:center;">UNIT</th>
+                            <th style="width:130px; text-align:right;">HARGA</th>
+                            <th style="width:140px; text-align:right;">JUMLAH</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${lines.isEmpty()}"><td colspan="7" class="center" style="padding:20px;">Tidak ada item.</td></tr>
+                        <tr th:each="l, st : ${lines}">
+                            <td style="text-align:center;" th:text="${st.count}"></td>
+                            <td style="overflow:hidden; text-overflow:ellipsis;" th:text="${l.itemCode}"></td>
+                            <td style="overflow:hidden; text-overflow:ellipsis;" th:text="${l.itemName}"></td>
+                            <td style="text-align:right;" th:text="${l.qty}"></td>
+                            <td style="text-align:center;" th:text="${l.uomCode}"></td>
+                            <td style="text-align:right;" th:text="${#numbers.formatDecimal(l.price, 1, 'POINT', 2, 'COMMA')}"></td>
+                            <td style="text-align:right; font-weight:bold;" th:text="${#numbers.formatDecimal(l.total, 1, 'POINT', 2, 'COMMA')}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="display:flex; justify-content:flex-end; margin-top:15px;">
+                    <table style="width:320px; border-collapse:collapse; font-size:13px;">
+                        <tr>
+                            <td style="padding:6px 10px; color:#475569;">Subtotal</td>
+                            <td style="padding:6px 10px; text-align:right;" th:text="${currency} + ' ' + ${#numbers.formatDecimal(subtotal, 1, 'POINT', 2, 'COMMA')}"></td>
+                        </tr>
+                        <tr th:if="${taxType != 'NO_TAX'}">
+                            <td style="padding:6px 10px; color:#475569;" th:text="${taxLabel}"></td>
+                            <td style="padding:6px 10px; text-align:right;" th:text="${currency} + ' ' + ${#numbers.formatDecimal(taxAmount != null ? taxAmount : 0, 1, 'POINT', 2, 'COMMA')}"></td>
+                        </tr>
+                        <tr style="background:#1e293b; color:white; font-weight:bold;">
+                            <td style="padding:10px;">TOTAL</td>
+                            <td style="padding:10px; text-align:right;" th:text="${currency} + ' ' + ${#numbers.formatDecimal(totalAmount != null ? totalAmount : 0, 1, 'POINT', 2, 'COMMA')}"></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div style="margin-top:20px; display:flex; gap:8px;">
+                    <a th:href="@{/ui/print/pi/{id}(id=${id})}" target="_blank" class="erp-btn" style="background:#0ea5e9; color:white; text-decoration:none;">🖨 Print</a>
+                    <a th:href="@{/ui/purchasing/invoices}" class="erp-btn" style="text-decoration:none;">Kembali ke List</a>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="max-width: 1000px;">
+                <h3 style="margin-top:0;">New Purchase Return</h3>
+
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <form th:action="@{/ui/purchasing/returns}" method="post" id="returnForm">
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:20px;">
+                        <div>
+                            <label style="display:block; font-weight:bold; margin-bottom:5px;">No. Dokumen Retur</label>
+                            <input type="text" name="docNo" required th:value="${nextDocNo}" readonly style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px; background:#f1f5f9;"/>
+                        </div>
+                        <div>
+                            <label style="display:block; font-weight:bold; margin-bottom:5px;">Tanggal Retur</label>
+                            <input type="date" name="docDate" required th:value="${today}" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;"/>
+                        </div>
+                        <div>
+                            <label style="display:block; font-weight:bold; margin-bottom:5px;">Supplier</label>
+                            <select name="supplierId" id="supplierSelect" required style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;" onchange="updateAllRows()">
+                                <option value="">-- Pilih Supplier --</option>
+                                <option th:each="s : ${suppliers}" th:value="${s[0]}" th:text="${s[1]}"></option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block; font-weight:bold; margin-bottom:5px;">Catatan</label>
+                            <input type="text" name="remarks" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;"/>
+                        </div>
+                    </div>
+
+                    <h4 style="border-bottom:2px solid #1e293b; padding-bottom:8px;">Detail Barang yang Diretur</h4>
+                    
+                    <table style="width:100%; border-collapse:collapse; margin-bottom:10px;" id="detailTable">
+                        <thead>
+                            <tr style="background:#f1f5f9;">
+                                <th style="padding:8px; border:1px solid #cbd5e1; text-align:left;">ITEM</th>
+                                <th style="padding:8px; border:1px solid #cbd5e1; width:90px;">QTY</th>
+                                <th style="padding:8px; border:1px solid #cbd5e1; width:100px;">UNIT</th>
+                                <th style="padding:8px; border:1px solid #cbd5e1; width:130px;">HARGA</th>
+                                <th style="padding:8px; border:1px solid #cbd5e1; width:130px;">SUBTOTAL</th>
+                                <th style="padding:8px; border:1px solid #cbd5e1; width:40px;">X</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding:5px; border:1px solid #cbd5e1;">
+                                    <select name="itemIds" required style="width:100%; padding:6px; border:none;" onchange="updateRow(this)">
+                                        <option value="">-- Pilih Item --</option>
+                                        <option th:each="i : ${items}" th:value="${i[0]}" th:text="${i[1]} + ' - ' + ${i[2]}"></option>
+                                    </select>
+                                </td>
+                                <td style="padding:5px; border:1px solid #cbd5e1;">
+                                    <input type="number" step="0.01" min="0.01" name="qtys" required style="width:100%; padding:6px; border:none; text-align:right;" oninput="updateRow(this)"/>
+                                </td>
+                                <td style="padding:5px; border:1px solid #cbd5e1;">
+                                    <select name="uomIds" required style="width:100%; padding:6px; border:none;">
+                                        <option value="">-- UOM --</option>
+                                        <option th:each="u : ${uoms}" th:value="${u[0]}" th:text="${u[1]}"></option>
+                                    </select>
+                                </td>
+                                <td style="padding:5px; border:1px solid #cbd5e1;">
+                                    <input type="number" step="0.01" min="0" name="prices" required style="width:100%; padding:6px; border:none; text-align:right;" oninput="updateRow(this)"/>
+                                </td>
+                                <td style="padding:5px; border:1px solid #cbd5e1; text-align:right; background:#f8fafc;">
+                                    <span class="subtotal">0</span>
+                                </td>
+                                <td style="padding:5px; border:1px solid #cbd5e1; text-align:center;">
+                                    <button type="button" onclick="removeRow(this)" style="color:red; border:none; background:none; cursor:pointer;">✖</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <button type="button" onclick="addRow()" style="background:#e2e8f0; color:#0f172a; border:1px solid #cbd5e1; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; margin-bottom:20px;">+ Tambah Item</button>
+
+                    <div style="margin-top:20px;">
+                        <button type="submit" style="background:#10b981; color:white; padding:10px 20px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;" onclick="return confirm('Simpan retur ini? Stok akan berkurang dan hutang dipotong.');">Simpan Retur</button>
+                        <a th:href="@{/ui/purchasing/returns}" style="text-decoration:none; padding:10px 20px; color:#64748b; margin-left:10px;">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+
+<!-- SATU BLOK SCRIPT UNTUK SEMUA -->
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    var priceMap = /*[[${priceMap}]]*/ {};
+    var uomMap = /*[[${uomMap}]]*/ {};
+
+    // Fungsi untuk update harga dan subtotal per baris
+    function updateRow(element) {
+        var row = element.closest('tr');
+        var supplierId = document.getElementById('supplierSelect').value;
+        var itemId = row.querySelector('select[name="itemIds"]').value;
+        var qty = parseFloat(row.querySelector('input[name="qtys"]').value) || 0;
+        
+        var priceInput = row.querySelector('input[name="prices"]');
+        var uomSelect = row.querySelector('select[name="uomIds"]');
+        var subtotalSpan = row.querySelector('.subtotal');
+
+        // 1. Auto-fill harga dan UOM jika Item baru dipilih
+        if (element.name === 'itemIds' && supplierId && itemId) {
+            var key = supplierId + "-" + itemId;
+            
+            if (priceMap[key] !== undefined && priceMap[key] !== null) {
+                priceInput.value = priceMap[key];
+            } else {
+                priceInput.value = '';
+            }
+            
+            if (uomMap[key] !== undefined && uomMap[key] !== null) {
+                uomSelect.value = uomMap[key];
+            } else {
+                uomSelect.value = '';
+            }
+        }
+
+        // 2. Hitung subtotal
+        var price = parseFloat(priceInput.value) || 0;
+        subtotalSpan.textContent = (qty * price).toLocaleString('id-ID');
+    }
+
+    // Fungsi untuk update SEMUA baris saat Supplier diganti
+    function updateAllRows() {
+        var rows = document.getElementById("detailTable").getElementsByTagName('tbody')[0].rows;
+        for (var i = 0; i < rows.length; i++) {
+            var itemSelect = rows[i].querySelector('select[name="itemIds"]');
+            if (itemSelect) {
+                updateRow(itemSelect);
+            }
+        }
+    }
+
+    function addRow() {
+        var table = document.getElementById("detailTable").getElementsByTagName('tbody')[0];
+        var templateRow = table.rows[0];
+        var newRow = templateRow.cloneNode(true);
+        
+        newRow.querySelectorAll('input').forEach(function(input) { input.value = ''; });
+        newRow.querySelectorAll('select').forEach(function(sel) { sel.value = ''; });
+        newRow.querySelector('.subtotal').textContent = '0';
+        
+        table.appendChild(newRow);
+    }
+
+    function removeRow(btn) {
+        var table = document.getElementById("detailTable").getElementsByTagName('tbody')[0];
+        if (table.rows.length > 1) {
+            btn.parentNode.parentNode.remove();
+        } else {
+            alert('Minimal harus ada 1 baris item.');
+        }
+    }
+    /*]]>*/
+</script>
+</body>
+</html>

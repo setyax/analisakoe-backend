@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+
+<body>
+<div class="app-layout">
+
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+
+        <section class="app-content">
+
+            <style>
+                .pr-page { padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+                .pr-title { margin: 0 0 20px; }
+
+                /* Header form */
+                .pr-header { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 600px; margin-bottom: 20px; }
+                .pr-field { display: flex; align-items: center; }
+                .pr-field label { width: 120px; font-weight: bold; }
+                .pr-field input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+                .pr-field input[readonly] { background: #e0e0e0; color: #334155; }
+
+                /* Tabel item */
+                .pr-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+                .pr-table thead tr { background-color: #1e293b; color: #fff; }
+                .pr-table th { padding: 10px; }
+                .pr-table td { padding: 8px; border-bottom: 1px solid #eee; }
+                .pr-table .row-no { text-align: center; }
+                .pr-table select,
+                .pr-table input { width: 100%; box-sizing: border-box; padding: 5px; border: 1px solid #ccc; }
+                .pr-table input[name="qty"] { text-align: right; }
+
+                /* Tombol */
+                .pr-btn-gray { background: #d1d5db; color: #333; border: none; border-radius: 4px; cursor: pointer; }
+                .pr-btn-add { padding: 8px 15px; font-weight: bold; margin-bottom: 20px; }
+                .pr-btn-remove { padding: 5px 10px; border-radius: 3px; }
+                .pr-actions { margin-top: 30px; text-align: right; border-top: 1px solid #eee; padding-top: 20px; }
+                .pr-btn { padding: 10px 25px; border: none; border-radius: 4px; font-weight: bold; color: #fff; cursor: pointer; text-decoration: none; }
+                .pr-btn-primary { background: #2563eb; }
+                .pr-btn-secondary { background: #64748b; margin-left: 10px; }
+            </style>
+
+            <div class="erp-container pr-page">
+
+                <h3 class="pr-title"
+                    th:text="${isNew} ? '[F0101] New Purchase Request' : '[F0101] Edit Purchase Request'">Purchase Request</h3>
+
+                <div th:if="${error}" class="error-msg" th:text="${error}" style="margin-bottom:10px;"></div>
+
+                <!-- Action menyesuaikan mode (new vs edit) -->
+                <form th:action="${isNew} ? @{/ui/purchasing/pr} : @{/ui/purchasing/pr/{id}(id=${prId})}" method="post">
+
+                    <!-- ===== Header ===== -->
+                    <div class="pr-header">
+                        <div class="pr-field" th:if="${!isNew}">
+                            <label>Doc No:</label>
+                            <input type="text" th:value="${prDocNo}" readonly>
+                        </div>
+                        <div class="pr-field">
+                            <label>Date:</label>
+                            <input type="date" name="docDate" th:value="${isNew} ? ${today} : ${prDate}" required>
+                        </div>
+                        <div class="pr-field">
+                            <label>Requestor:</label>
+                            <input type="text" th:value="${user != null ? user.username : '-'}" readonly>
+                        </div>
+                        <div class="pr-field">
+                            <label>Remarks:</label>
+                            <input type="text" name="remarks" th:value="${isNew} ? '' : ${prRemarks}">
+                        </div>
+                    </div>
+
+                    <!-- ===== Tabel item ===== -->
+                    <table class="erp-table pr-table" id="itemTable">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;">NO</th>
+                                <th>ITEM</th>
+                                <th style="width:100px;">QTY</th>
+                                <th style="width:100px;">UNIT</th>
+                                <th style="width:50px;">X</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemBody">
+                            <!-- Mode New: baris pertama ditambahkan oleh script saat halaman dibuka -->
+
+                            <!-- Mode Edit: baris existing -->
+                            <tr th:unless="${isNew}" th:each="d, stat : ${existingDetails}">
+                                <td class="row-no" th:text="${stat.count}">1</td>
+                                <td>
+                                    <select name="itemId" required>
+                                        <option th:each="i : ${items}" th:value="${i.id}"
+                                                th:text="${i.code} + ' - ' + ${i.name}"
+                                                th:selected="${i.id == d.itemId}"></option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="number" name="qty" step="0.01" min="0.01" required
+                                           th:value="${#numbers.formatDecimal(d.qty, 1, 'NONE', 2, 'POINT')}">
+                                </td>
+                                <td>
+                                    <select name="uomId" required>
+                                        <option th:each="u : ${uoms}" th:value="${u.id}"
+                                                th:text="${u.code}"
+                                                th:selected="${u.id == d.uomId}"></option>
+                                    </select>
+                                </td>
+                                <td style="text-align:center;">
+                                    <button type="button" class="pr-btn-gray pr-btn-remove" onclick="removeRow(this)">X</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Template baris kosong (dipakai addRow, tidak ikut terkirim) -->
+                    <template id="rowTemplate">
+                        <tr>
+                            <td class="row-no">1</td>
+                            <td>
+                                <select name="itemId" required>
+                                    <option th:each="i : ${items}" th:value="${i.id}"
+                                            th:text="${i.code} + ' - ' + ${i.name}"></option>
+                                </select>
+                            </td>
+                            <td>
+                                <input type="number" name="qty" step="0.01" min="0.01" required>
+                            </td>
+                            <td>
+                                <select name="uomId" required>
+                                    <option th:each="u : ${uoms}" th:value="${u.id}" th:text="${u.code}"></option>
+                                </select>
+                            </td>
+                            <td style="text-align:center;">
+                                <button type="button" class="pr-btn-gray pr-btn-remove" onclick="removeRow(this)">X</button>
+                            </td>
+                        </tr>
+                    </template>
+
+                    <button type="button" class="pr-btn-gray pr-btn-add" onclick="addRow()">+ Tambah Baris</button>
+
+                    <!-- ===== Aksi ===== -->
+                    <div class="pr-actions">
+                        <button type="submit" class="pr-btn pr-btn-primary"
+                                th:text="${isNew} ? 'Save PR' : 'Update PR'">Save</button>
+                        <a class="pr-btn pr-btn-secondary" th:href="@{/ui/purchasing/pr}">Cancel</a>
+                    </div>
+
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script>
+    function addRow() {
+        const tbody = document.getElementById('itemBody');
+        const fragment = document.getElementById('rowTemplate').content.cloneNode(true);
+        tbody.appendChild(fragment);
+        updateRowNumbers();
+    }
+
+    function removeRow(btn) {
+        const tbody = document.getElementById('itemBody');
+        if (tbody.rows.length > 1) {          // minimal satu baris
+            btn.closest('tr').remove();
+            updateRowNumbers();
+        }
+    }
+
+    function updateRowNumbers() {
+        document.querySelectorAll('#itemBody tr').forEach((row, i) => {
+            const el = row.querySelector('.row-no');
+            if (el) el.innerText = i + 1;
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Mode New (atau PR tanpa detail): mulai dengan satu baris kosong
+        if (document.querySelectorAll('#itemBody tr').length === 0) addRow();
+
+        // Qty tampil 2 desimal
+        document.querySelectorAll('#itemBody input[name="qty"]').forEach(function (input) {
+            const num = parseFloat(input.value);
+            if (!isNaN(num)) input.value = num.toFixed(2);
+        });
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0303] AP Payments (Vendor Payment)</h3>
+
+                <!-- NOTIFIKASI -->
+                <div th:if="${success}" style="margin-bottom:10px; padding:10px; background:#dcfce7; color:#166534; border-radius:4px;" th:text="${success}"></div>
+                <div th:if="${error}" style="margin-bottom:10px; padding:10px; background:#fee2e2; color:#991b1b; border-radius:4px;" th:text="${error}"></div>
+
+                <!-- SEARCH BAR -->
+                <div style="margin-bottom: 15px;">
+                    <input type="text" id="searchInput" placeholder="🔍 Cari data..." style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                </div>
+
+                <!-- TABEL -->
+                <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:4px; margin-bottom:20px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:13px;" id="paymentTable">
+                        <thead>
+                            <tr style="background-color:#1e293b; color:white;">
+                                <th style="padding:10px; width:30px;"></th>
+                                <th style="padding:10px;">TGL</th>
+                                <th style="padding:10px;">NO. PAYMENT</th>
+                                <th style="padding:10px;">SUPPLIER</th>
+                                <th style="padding:10px;">METODE</th>
+                                <th style="padding:10px;">NO. REF</th>
+                                <th style="padding:10px; text-align:right;">JUMLAH</th>
+                                <th style="padding:10px;">STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${#lists.isEmpty(payments)}">
+                                <td colspan="8" style="text-align:center; padding:20px; color:#94a3b8;">Belum ada data payment.</td>
+                            </tr>
+                                                        <tr th:each="p : ${payments}" style="border-bottom:1px solid #eee;">
+                                <td style="padding:10px; text-align:center;">
+                                    <input type="radio" name="selRow" th:value="${p.id}" th:attr="data-status=${p.status}">
+                                </td>
+                                <td style="padding:10px;" th:text="${p.docDate != null ? #temporals.format(p.docDate, 'dd-MM-yyyy') : '-'}">-</td>
+                                <td style="padding:10px; font-weight:bold;" th:text="${p.docNo}">-</td>
+                                <td style="padding:10px;" th:text="${p.supplierName}">-</td>
+                                <td style="padding:10px;">
+                                    <span th:text="${p.paymentMethod}" style="background:#e2e8f0; padding:3px 8px; border-radius:3px; font-size:11px; font-weight:bold;">-</span>
+                                </td>
+                                <td style="padding:10px;" th:text="${p.refNo}">-</td>
+                                <td style="padding:10px; text-align:right; font-weight:bold;"
+                                    th:text="'Rp ' + ${#numbers.formatDecimal(p.amount ?: 0, 1, 'POINT', 2, 'COMMA')}">Rp 0</td>
+                                <td style="padding:10px;">
+                                    <span th:styleappend="${p.status == 'POSTED' ? 'background:#dcfce7; color:#166534;' : (p.status == 'VOID' ? 'background:#fee2e2; color:#991b1b;' : 'background:#e2e8f0; color:#475569;')}"
+                                          style="padding:3px 10px; border-radius:12px; font-size:11px; font-weight:bold;"
+                                          th:text="${p.status}">-</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ACTION BUTTONS -->
+                <div style="background:#e2e8f0; padding:10px; border-radius:5px; display:flex; gap:8px; flex-wrap:wrap;">
+                    <a th:href="@{/ui/finance/ap-payments/new}" style="background:#d97706; color:white; padding:6px 15px; border-radius:3px; text-decoration:none; font-weight:bold;">Insert</a>
+                    <button type="button" style="background:#dc2626; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('void')">Void</button>
+                    <button type="button" style="background:#6b7280; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('delete')">Delete</button>
+                </div>
+
+                <div style="margin-top:10px; font-size:12px; color:#64748b;">
+                    Pilih baris dengan menekan bulatan di kolom kiri, lalu klik tombol aksi.
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script th:inline="javascript">
+    // Gunakan CONTEXT_PATH agar URL aman (/api/)
+    const CONTEXT_PATH = /*[[@{/}]]*/ '/';
+
+    function doAction(action) {
+        const selected = document.querySelector('input[name="selRow"]:checked');
+        if (!selected) { 
+            alert('Pilih data terlebih dahulu dengan menekan bulatan di kolom kiri!'); 
+            return; 
+        }
+        
+        const id = selected.value;
+        const status = selected.getAttribute('data-status');
+        const baseUrl = CONTEXT_PATH + 'ui/finance/ap-payments/' + id;
+
+        // Validasi Status
+        if (action === 'void' && status === 'VOID') { 
+            alert('Payment sudah VOID.'); 
+            return; 
+        }
+        if (action === 'delete' && status !== 'DRAFT') { 
+            alert('Hanya payment DRAFT yang bisa dihapus. Gunakan VOID untuk payment POSTED.'); 
+            return; 
+        }
+
+        // Konfirmasi
+        if (action === 'void') { 
+            if (!confirm('Void payment ini? Invoice akan di-reverse.')) return; 
+        } else if (action === 'delete') { 
+            if (!confirm('Hapus payment ini?')) return; 
+        }
+
+        // Eksekusi
+        submitForm(baseUrl + '/' + action);
+    }
+
+    function submitForm(url) {
+        const form = document.createElement('form');
+        form.method = 'POST'; 
+        form.action = url;
+        document.body.appendChild(form); 
+        form.submit();
+    }
+
+    // Fitur Search
+    document.getElementById('searchInput').addEventListener('keyup', function() {
+        const filter = this.value.toLowerCase();
+        const rows = document.querySelectorAll('#paymentTable tbody tr');
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(filter) ? '' : 'none';
+        });
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="max-width:1100px;">
+                <h3 style="margin-top:0;" th:text="${isNew} ? 'New UoM Set' : 'Edit UoM Set'"></h3>
+
+                <div th:if="${error}" style="background:#fee2e2;border:1px solid #dc2626;color:#7f1d1d;padding:10px;border-radius:6px;margin-bottom:15px;" th:text="${error}"></div>
+
+                <form th:action="@{/ui/master/uom-sets/save}" method="post" id="uomSetForm">
+                    <input type="hidden" name="id" th:if="${!isNew}" th:value="${uomSet.id}"/>
+
+                    <!-- HEADER -->
+                    <div style="background:#f8fafc;border:2px solid #3b82f6;padding:15px;border-radius:8px;margin-bottom:20px;">
+                        <h4 style="margin-top:0;margin-bottom:15px;color:#1e40af;">Header</h4>
+                        <div style="display:grid;grid-template-columns:1fr 2fr 1fr;gap:15px;">
+                            <div>
+                                <label style="display:block;font-weight:bold;margin-bottom:5px;">Code</label>
+                                <input type="text" name="code" required th:value="${!isNew ? uomSet.code : ''}"
+                                       placeholder="PACK-STD" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:4px;font-family:monospace;"/>
+                            </div>
+                            <div>
+                                <label style="display:block;font-weight:bold;margin-bottom:5px;">Name</label>
+                                <input type="text" name="name" required th:value="${!isNew ? uomSet.name : ''}"
+                                       placeholder="Kemasan Standar" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:4px;"/>
+                            </div>
+                            <div>
+                                <label style="display:block;font-weight:bold;margin-bottom:5px;">Category</label>
+                                <select name="category" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:4px;">
+                                    <option value="">-- None --</option>
+                                    <option value="PACKAGING" th:selected="${!isNew and uomSet.category == 'PACKAGING'}">PACKAGING</option>
+                                    <option value="WEIGHT" th:selected="${!isNew and uomSet.category == 'WEIGHT'}">WEIGHT</option>
+                                    <option value="VOLUME" th:selected="${!isNew and uomSet.category == 'VOLUME'}">VOLUME</option>
+                                    <option value="LENGTH" th:selected="${!isNew and uomSet.category == 'LENGTH'}">LENGTH</option>
+                                    <option value="AREA" th:selected="${!isNew and uomSet.category == 'AREA'}">AREA</option>
+                                    <option value="TIME" th:selected="${!isNew and uomSet.category == 'TIME'}">TIME</option>
+                                    <option value="CUSTOM" th:selected="${!isNew and uomSet.category == 'CUSTOM'}">CUSTOM</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:2fr 1fr;gap:15px;margin-top:15px;">
+                            <div>
+                                <label style="display:block;font-weight:bold;margin-bottom:5px;">Description</label>
+                                <input type="text" name="description" th:value="${!isNew ? uomSet.description : ''}"
+                                       style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:4px;"/>
+                            </div>
+                            <div>
+                                <label style="display:block;font-weight:bold;margin-bottom:5px;">Status</label>
+                                <label style="padding-top:8px;display:inline-block;">
+                                    <input type="checkbox" name="isActive" value="true" th:checked="${isNew or uomSet.isActive}"/> Active
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DETAIL HIERARKI -->
+                    <div style="background:#fef3c7;border:2px solid #f59e0b;padding:15px;border-radius:8px;margin-bottom:20px;">
+                        <h4 style="margin-top:0;margin-bottom:10px;color:#92400e;">Hierarki UoM</h4>
+                        <p style="margin:0 0 15px;font-size:13px;color:#78350f;">
+                            <strong>Contoh:</strong> PCS (base) &rarr; BOX (factor 12) &rarr; DUS (factor 12) &rarr; PALET (factor 50)<br/>
+                            Artinya: 1 BOX = 12 PCS, 1 DUS = 12 BOX = 144 PCS, 1 PALET = 50 DUS = 7200 PCS
+                        </p>
+
+                        <table style="width:100%;border-collapse:collapse;margin-bottom:10px;" id="detailTable">
+                            <thead>
+                                <tr style="background:#fef3c7;">
+                                    <th style="padding:8px;border:1px solid #f59e0b;width:40px;">#</th>
+                                    <th style="padding:8px;border:1px solid #f59e0b;">UoM</th>
+                                    <th style="padding:8px;border:1px solid #f59e0b;">Parent UoM</th>
+                                    <th style="padding:8px;border:1px solid #f59e0b;width:140px;">Factor (1 ini = ? parent)</th>
+                                    <th style="padding:8px;border:1px solid #f59e0b;width:80px;text-align:center;">Base?</th>
+                                    <th style="padding:8px;border:1px solid #f59e0b;width:50px;">X</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailBody">
+                                <!-- diisi oleh script di bawah -->
+                            </tbody>
+                        </table>
+
+                        <button type="button" onclick="addDetailRow()"
+                                style="background:#f59e0b;color:white;border:none;padding:8px 15px;border-radius:4px;cursor:pointer;font-weight:bold;">
+                            + Tambah Baris
+                        </button>
+                    </div>
+
+                    <div style="margin-top:20px;">
+                        <button type="submit" style="background:#10b981;color:white;padding:10px 25px;border:none;border-radius:4px;font-weight:bold;cursor:pointer;font-size:15px;">
+                            &#128190; Simpan UoM Set
+                        </button>
+                        <a th:href="@{/ui/master/uom-sets}" style="color:#64748b;text-decoration:none;margin-left:15px;">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+
+<!-- 1. Data dari server (hanya data, tanpa logika). th:each tidak dipakai di dalam script. -->
+<script th:inline="javascript">
+    window.IS_NEW = /*[[${isNew}]]*/ true;
+    window.UOM_ROWS = /*[[${uoms}]]*/ [];          // tiap baris: [id, code, name]
+    window.DETAIL_ROWS = /*[[${details}]]*/ [];    // tiap baris: d[1]=uom_id, d[4]=parent_uom_id, d[6]=factor, d[8]=is_base
+</script>
+
+<!-- 2. Logika form (script biasa, tidak diproses Thymeleaf) -->
+<script>
+    var uomOptions = (window.UOM_ROWS || []).map(function (u) {
+        return { id: u[0], code: u[1], name: u[2] };
+    });
+
+    var existingDetails = (window.IS_NEW ? [] : (window.DETAIL_ROWS || [])).map(function (d) {
+        return {
+            uomId: d[1],
+            parentUomId: d[4],
+            factor: d[6],
+            isBase: d[8] === true || d[8] === 'true' || d[8] === 't'
+        };
+    });
+
+    function sameId(a, b) {
+        return a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b);
+    }
+
+    function esc(value) {
+        return String(value === null || value === undefined ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function addDetailRow(uomId, parentUomId, factor, isBase) {
+        var tbody = document.getElementById('detailBody');
+        var tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #eee';
+
+        var uomOpts = '<option value="">-- Pilih UoM --</option>';
+        var parentOpts = '<option value="">-- Tidak ada (Base) --</option>';
+        uomOptions.forEach(function (u) {
+            uomOpts += '<option value="' + esc(u.id) + '"' + (sameId(u.id, uomId) ? ' selected' : '') + '>' +
+                       esc(u.code) + ' - ' + esc(u.name) + '</option>';
+            parentOpts += '<option value="' + esc(u.id) + '"' + (sameId(u.id, parentUomId) ? ' selected' : '') + '>' +
+                          esc(u.code) + '</option>';
+        });
+
+        tr.innerHTML =
+            '<td style="padding:5px;border:1px solid #cbd5e1;text-align:center;" class="rowNum"></td>' +
+            '<td style="padding:5px;border:1px solid #cbd5e1;">' +
+                '<select name="uomIds" required style="width:100%;padding:6px;border:none;">' + uomOpts + '</select>' +
+            '</td>' +
+            '<td style="padding:5px;border:1px solid #cbd5e1;">' +
+                '<select name="parentUomIds" style="width:100%;padding:6px;border:none;">' + parentOpts + '</select>' +
+            '</td>' +
+            '<td style="padding:5px;border:1px solid #cbd5e1;">' +
+                '<input type="number" step="0.000001" min="0.000001" name="conversionFactors" required value="' + esc(factor || 1) + '" style="width:100%;padding:6px;border:none;text-align:right;"/>' +
+            '</td>' +
+            '<td style="padding:5px;border:1px solid #cbd5e1;text-align:center;">' +
+                '<input type="checkbox" name="isBases" value="true"' + (isBase ? ' checked' : '') + ' onchange="onBaseChange(this)" style="width:18px;height:18px;cursor:pointer;"/>' +
+            '</td>' +
+            '<td style="padding:5px;border:1px solid #cbd5e1;text-align:center;">' +
+                '<button type="button" onclick="removeRow(this)" style="color:red;border:none;background:none;cursor:pointer;font-size:16px;">\u2716</button>' +
+            '</td>';
+
+        tbody.appendChild(tr);
+        renumber();
+    }
+
+    function onBaseChange(checkbox) {
+        if (checkbox.checked) {
+            document.querySelectorAll('input[name="isBases"]').forEach(function (cb) {
+                if (cb !== checkbox) cb.checked = false;
+            });
+        }
+    }
+
+    function removeRow(btn) {
+        var tbody = document.getElementById('detailBody');
+        if (tbody.children.length > 1) {
+            btn.closest('tr').remove();
+            renumber();
+        } else {
+            alert('Minimal 1 baris UoM.');
+        }
+    }
+
+    function renumber() {
+        var tbody = document.getElementById('detailBody');
+        for (var i = 0; i < tbody.children.length; i++) {
+            tbody.children[i].querySelector('.rowNum').textContent = i + 1;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log('[UoM Set] uom options:', uomOptions.length, '| detail rows:', existingDetails.length);
+        if (existingDetails.length > 0) {
+            existingDetails.forEach(function (d) {
+                addDetailRow(d.uomId, d.parentUomId, d.factor, d.isBase);
+            });
+        } else {
+            addDetailRow(null, null, 1, true);   // default: 1 baris base
+        }
+    });
+</script>
+</body>
+</html>

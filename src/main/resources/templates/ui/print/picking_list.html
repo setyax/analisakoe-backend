@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Picking List</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 0; padding: 20px; background: #f1f5f9; }
+        .page { max-width: 800px; margin: 0 auto; background: white; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; border-bottom: 3px solid #1e40af; padding-bottom: 15px; margin-bottom: 20px; }
+        .company-name { font-size: 22px; font-weight: bold; }
+        .doc-title { text-align: right; }
+        .doc-title h1 { font-size: 20px; margin: 0; color: #1e40af; letter-spacing: 2px; }
+        .doc-title .doc-no { font-family: monospace; font-size: 13px; margin-top: 5px; color: #555; }
+        .info-row { display: flex; gap: 20px; margin-bottom: 15px; }
+        .info-box { flex: 1; background: #f8fafc; padding: 10px; border-left: 4px solid #1e40af; }
+        .info-box h4 { margin: 0 0 6px 0; font-size: 10px; color: #64748b; text-transform: uppercase; }
+        .info-box p { margin: 2px 0; font-size: 12px; }
+        table.items { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        table.items th { background: #1e293b; color: white; padding: 10px; font-size: 11px; text-transform: uppercase; border: 1px solid #1e293b; }
+        table.items td { padding: 10px; border: 1px solid #cbd5e1; font-size: 12px; }
+        .right { text-align: right; }
+        .center { text-align: center; }
+        .check-box { width: 20px; height: 20px; border: 2px solid #000; display: inline-block; }
+        .blank-cell { background: #fefce8; }
+        .signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px; }
+        .sig-box { text-align: center; }
+        .sig-box .label { font-size: 11px; margin-bottom: 70px; color: #64748b; }
+        .sig-box .line { border-top: 1px solid #000; padding-top: 5px; font-size: 11px; }
+        .print-btn { position: fixed; top: 20px; right: 20px; background: #1e40af; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; z-index: 100; }
+        @media print {
+            body { background: white; padding: 0; }
+            .page { box-shadow: none; padding: 0; max-width: 100%; }
+            .print-btn { display: none !important; }
+            @page { size: A4; margin: 15mm; }
+        }
+    </style>
+</head>
+<body>
+<button class="print-btn" onclick="window.print()">🖨️ Cetak Picking List</button>
+
+<div class="page">
+    <div class="header">
+        <div>
+            <div class="company-name" th:text="${company.name}">AnalisaKoe</div>
+            <div style="color: #64748b; font-size: 11px; margin-top: 3px;">Warehouse · Picking Document</div>
+        </div>
+        <div class="doc-title">
+            <h1>PICKING LIST</h1>
+            <div class="doc-no" th:text="${docNo}">-</div>
+        </div>
+    </div>
+
+    <div class="info-row">
+        <div class="info-box">
+            <h4>Customer</h4>
+            <p style="font-weight: bold;" th:text="${customerName}">-</p>
+        </div>
+        <div class="info-box">
+            <h4>Detail DO</h4>
+            <p>Tanggal: <strong th:text="${docDate}">-</strong></p>
+            <p>Ref SO: <strong th:text="${soNo}">-</strong></p>
+        </div>
+    </div>
+
+    <table class="items">
+        <thead>
+            <tr>
+                <th style="width: 35px;">NO</th>
+                <th style="width: 80px;">KODE</th>
+                <th>NAMA BARANG</th>
+                <th style="width: 70px;">QTY ORDER</th>
+                <th style="width: 60px;">UNIT</th>
+                <th style="width: 70px;">QTY AKTUAL</th>
+                <th style="width: 90px;">LOKASI RAK</th>
+                <th style="width: 40px;">✓</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:if="${items.isEmpty()}">
+                <td colspan="8" class="center" style="padding: 20px; color: #94a3b8;">Tidak ada item.</td>
+            </tr>
+            <tr th:each="it, st : ${items}">
+                <td class="center" th:text="${st.count}">1</td>
+                <td th:text="${it.code}">-</td>
+                <td th:text="${it.name}">-</td>
+                <td class="right" th:text="${@qtyDisplay.format(#numbers.formatDecimal(it.qty, 1, 'POINT', 2, 'COMMA'))}">0</td>
+                <td class="center" th:text="${it.uom}">-</td>
+                <td class="blank-cell"></td>
+                <td class="blank-cell"></td>
+                <td class="center"><div class="check-box"></div></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div th:if="${remarks != null and !remarks.isEmpty()}" style="margin-bottom: 20px;">
+        <strong>Catatan:</strong> <span th:text="${remarks}">-</span>
+    </div>
+
+    <div style="background: #fef3c7; padding: 12px; border-left: 4px solid #d97706; margin-bottom: 20px; font-size: 11px;">
+        <strong>Instruksi Picking:</strong>
+        <ul style="margin: 5px 0 0 15px; padding: 0;">
+            <li>Ambil barang sesuai urutan di atas</li>
+            <li>Tulis qty aktual yang diambil (jika ada selisih, tulis catatan di balik)</li>
+            <li>Centang kolom ✓ jika sudah diambil</li>
+            <li>Bawa dokumen ini ke checker untuk verifikasi</li>
+        </ul>
+    </div>
+
+    <div class="signatures">
+        <div class="sig-box">
+            <div class="label">Diambil Oleh (Picker)</div>
+            <div class="line">Nama & Tgl</div>
+        </div>
+        <div class="sig-box">
+            <div class="label">Diperiksa (Checker)</div>
+            <div class="line">Nama & Tgl</div>
+        </div>
+        <div class="sig-box">
+            <div class="label">Diserahkan ke Kurir</div>
+            <div class="line">Nama & Tgl</div>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 10px;">
+        Dicetak dari sistem ERP AnalisaKoe · <span th:text="${#temporals.format(#temporals.createNow(), 'dd-MM-yyyy HH:mm')}"></span>
+    </div>
+</div>
+</body>
+</html>

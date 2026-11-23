@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+
+<body>
+<div class="app-layout">
+
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+
+        <section class="app-content">
+
+            <style>
+                .sb-page { max-width: 1300px; }
+                .sb-title { margin: 0 0 16px; font-size: 20px; color: #1e293b; }
+
+                /* Filter */
+                .sb-filter { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: flex-end; margin-bottom: 16px; }
+                .sb-filter label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: #334155; }
+                .sb-filter select,
+                .sb-filter input[type="text"] { padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; min-width: 180px; }
+                .sb-filter .sb-check { flex-direction: row; align-items: center; gap: 6px; font-weight: 500; padding-bottom: 8px; }
+                .sb-btn { padding: 9px 20px; border: none; border-radius: 4px; background: #2563eb; color: #fff; font-weight: 700; cursor: pointer; }
+                .sb-reset { padding: 9px 4px; color: #64748b; text-decoration: none; }
+
+                /* Ringkasan */
+                .sb-summary { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 12px; padding: 10px 14px;
+                              background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; }
+                .sb-summary strong { color: #1e293b; }
+
+                /* Tabel */
+                .sb-table-wrap { overflow-x: auto; }
+                .sb-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+                .sb-table thead th { background: #1e293b; color: #fff; padding: 10px; text-align: left; white-space: nowrap; }
+                .sb-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+                .sb-table .num { text-align: right; white-space: nowrap; }
+                .sb-table thead th.num { text-align: right; }
+                .sb-table .empty { text-align: center; padding: 28px; color: #64748b; }
+                .sb-table .neg { color: #dc2626; font-weight: 600; }
+                .sb-sub { display: block; font-size: 12px; color: #64748b; }
+
+                /* Halaman */
+                .sb-pager { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 14px; }
+                .sb-pager a { padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 4px; color: #1e293b; text-decoration: none; }
+                .sb-pager .disabled { padding: 6px 14px; border: 1px solid #e2e8f0; border-radius: 4px; color: #94a3b8; }
+            </style>
+
+            <div class="erp-container sb-page">
+
+                <h3 class="sb-title">Stock Balance</h3>
+
+                <!-- ===== Filter ===== -->
+                <form method="get" th:action="@{/ui/inventory/stock-balance}" class="sb-filter">
+                    <label>Gudang
+                        <select name="warehouseId">
+                            <option value="">Semua gudang</option>
+                            <option th:each="w : ${warehouses}"
+                                    th:value="${w.id}"
+                                    th:text="${w.code + ' - ' + w.name}"
+                                    th:selected="${warehouseId != null and warehouseId == w.id}"></option>
+                        </select>
+                    </label>
+                    <label>Cari item
+                        <input type="text" name="q" th:value="${q}" placeholder="Kode atau nama item">
+                    </label>
+                    <label>Per halaman
+                        <select name="size">
+                            <option value="20" th:selected="${size == 20}">20</option>
+                            <option value="50" th:selected="${size == 50}">50</option>
+                            <option value="100" th:selected="${size == 100}">100</option>
+                        </select>
+                    </label>
+                    <label class="sb-check">
+                        <input type="checkbox" name="nonZero" value="true" th:checked="${nonZero}"> Hanya stok tidak nol
+                    </label>
+                    <button type="submit" class="sb-btn">Tampilkan</button>
+                    <a class="sb-reset" th:href="@{/ui/inventory/stock-balance}">Reset</a>
+                </form>
+
+                <!-- ===== Ringkasan ===== -->
+                <div class="sb-summary">
+                    <span>Jumlah baris: <strong th:text="${#numbers.formatInteger(totalRows, 1, 'POINT')}">0</strong></span>
+                    <span>Total nilai persediaan: <strong th:text="'Rp ' + ${#numbers.formatDecimal(totalValue, 1, 'POINT', 2, 'COMMA')}">Rp 0,00</strong></span>
+                </div>
+
+                <!-- ===== Tabel ===== -->
+                <div class="sb-table-wrap">
+                    <table class="erp-table sb-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Gudang</th>
+                                <th class="num">Qty</th>
+                                <th class="num">Qty Base</th>
+                                <th>UoM Base</th>
+                                <th class="num">Avg Cost</th>
+                                <th class="num">Nilai</th>
+                                <th>Update Terakhir</th>
+                            <th style="text-align:center;width:120px;">Aksi</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${#lists.isEmpty(rows)}">
+                                <td colspan="8" class="empty">Tidak ada data stok untuk filter ini.</td>
+                            </tr>
+                            <tr th:each="r : ${rows}">
+                                <td>
+                                    <span th:text="${r.itemCode}"></span>
+                                    <span class="sb-sub" th:text="${r.itemName}"></span>
+                                </td>
+                                <td>
+                                    <span th:text="${r.warehouseCode}"></span>
+                                    <span class="sb-sub" th:text="${r.warehouseName}"></span>
+                                </td>
+                                <td class="num" th:classappend="${r.qty.signum() < 0} ? 'neg'"
+                                    th:text="${@qtyDisplay.format(#numbers.formatDecimal(r.qty, 1, 'POINT', 2, 'COMMA'))}"></td>
+                                <td class="num" th:classappend="${r.qtyBase.signum() < 0} ? 'neg'"
+                                    th:text="${@qtyDisplay.format(#numbers.formatDecimal(r.qtyBase, 1, 'POINT', 2, 'COMMA'))}"></td>
+                                <td th:text="${r.uom}"></td>
+                                <td class="num" th:text="${#numbers.formatDecimal(r.avgCost, 1, 'POINT', 2, 'COMMA')}"></td>
+                                <td class="num" th:text="${#numbers.formatDecimal(r.totalValue, 1, 'POINT', 2, 'COMMA')}"></td>
+                                <td th:text="${@dateFmt.format(r.lastUpdated)}"></td>
+                            <td style="text-align:center;"><a class="erp-btn erp-btn-primary" th:href="@{/ui/inventory/stock-balance/history(itemId=${r.itemId},warehouseId=${r.warehouseId})}" style="padding:4px 9px;text-decoration:none;">Historical</a></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ===== Halaman ===== -->
+                <div class="sb-pager">
+                    <span th:text="'Halaman ' + ${page + 1} + ' dari ' + ${totalPages}"></span>
+                    <span>
+                        <a th:if="${page > 0}"
+                           th:href="@{/ui/inventory/stock-balance(q=${q}, warehouseId=${warehouseId}, nonZero=${nonZero}, size=${size}, page=${page - 1})}">&laquo; Sebelumnya</a>
+                        <span th:unless="${page > 0}" class="disabled">&laquo; Sebelumnya</span>
+
+                        <a th:if="${page < totalPages - 1}"
+                           th:href="@{/ui/inventory/stock-balance(q=${q}, warehouseId=${warehouseId}, nonZero=${nonZero}, size=${size}, page=${page + 1})}">Berikutnya &raquo;</a>
+                        <span th:unless="${page < totalPages - 1}" class="disabled">Berikutnya &raquo;</span>
+                    </span>
+                </div>
+
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

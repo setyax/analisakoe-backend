@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">[Finance] Bank Accounts</h3>
+                <table class="erp-table">
+                    <thead><tr><th>ID</th><th>Nama Akun / Bank</th><th>No. Rekening</th></tr></thead>
+                    <tbody>
+                        <tr th:each="b : ${banks}">
+                            <td th:text="${b.id}"></td>
+                            <td><strong th:text="${b.name}"></strong></td>
+                            <td th:text="${b.accountNo}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">[Sales] Edit Invoice: <span th:text="${invoice.docNo}"></span></h3>
+                <form th:action="@{/ui/sales/invoices/{id}(id=${invoice.id})}" method="post">
+                    <div class="erp-form-grid">
+                        <label>No. Invoice:</label>
+                        <input type="text" th:value="${invoice.docNo}" readonly style="background:#e0e0e0;">
+                        
+                        <label>Tgl Invoice:</label>
+                        <input type="date" th:value="${invoice.docDate}" readonly style="background:#e0e0e0;">
+
+                        <label>Jatuh Tempo:</label>
+                        <input type="date" name="dueDate" th:value="${invoice.dueDate}" required>
+
+                        <label>Total Amount:</label>
+                        <input type="text" th:value="${#numbers.formatDecimal(invoice.totalAmount, 1, 'POINT', 2, 'COMMA')}" readonly style="background:#e0e0e0; text-align:right;">
+                    </div>
+                    
+                    <label>Keterangan / Remarks:</label>
+                    <textarea name="remarks" style="width: 50%; height: 60px;" th:text="${invoice.remarks}"></textarea>
+                    
+                    <div style="margin-top: 20px; border-top: 1px solid #a0a0a0; padding-top: 15px;">
+                        <button type="submit" class="erp-btn erp-btn-primary" style="padding: 8px 30px;">Simpan Perubahan</button>
+                        <a th:href="@{/ui/sales/invoices}" class="erp-btn" style="text-decoration:none; padding: 8px 20px; margin-left:10px;">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

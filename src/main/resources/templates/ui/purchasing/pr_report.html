@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+
+<body>
+
+<div class="app-layout">
+
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <main class="app-main">
+
+        <header th:replace="~{fragments/header :: header}"></header>
+
+        <section class="app-content">
+
+            <div class="erp-container"
+                 style="padding:20px;background:white;border-radius:8px;">
+
+                <h3>Purchase Request Recap</h3>
+
+                <form method="get"
+                      th:action="@{/ui/purchasing/pr/report}"
+                      class="report-filter"
+                      style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;background:#f8fafc;padding:15px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:20px;">
+
+                    <div>
+                        <label>Dari Tanggal</label><br>
+                        <input type="date" name="dateFrom"
+                               th:value="${dateFrom}" required>
+                    </div>
+
+                    <div>
+                        <label>Sampai Tanggal</label><br>
+                        <input type="date" name="dateTo"
+                               th:value="${dateTo}" required>
+                    </div>
+
+                    <div>
+                        <label>Requestor</label><br>
+                        <select name="requestorId">
+                            <option value="">Semua Requestor</option>
+                            <option th:each="r : ${requestors}"
+                                    th:value="${r.id}"
+                                    th:text="${r.username}"
+                                    th:selected="${r.id == selectedRequestorId}">
+                            </option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label>Status</label><br>
+                        <select name="status">
+                            <option value="ALL"
+                                    th:selected="${selectedStatus == 'ALL'}">
+                                Semua Status
+                            </option>
+                            <option value="DRAFT"
+                                    th:selected="${selectedStatus == 'DRAFT'}">
+                                DRAFT
+                            </option>
+                            <option value="CONFIRMED"
+                                    th:selected="${selectedStatus == 'CONFIRMED'}">
+                                CONFIRMED
+                            </option>
+                            <option value="VOID"
+                                    th:selected="${selectedStatus == 'VOID'}">
+                                VOID
+                            </option>
+                        </select>
+                    </div>
+
+                    <button type="submit"
+                            style="background:#2563eb;color:white;padding:8px 16px;border:0;border-radius:4px;">
+                        Tampilkan
+                    </button>
+
+                    <button type="button"
+                            onclick="window.print()"
+                            style="background:#059669;color:white;padding:8px 16px;border:0;border-radius:4px;">
+                        Print Rekap
+                    </button>
+
+                    <a th:href="@{/ui/purchasing/pr}"
+                       style="background:#64748b;color:white;padding:8px 16px;border-radius:4px;text-decoration:none;">
+                        Kembali
+                    </a>
+
+                </form>
+
+                <div class="summary"
+                     style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;">
+
+                    <div style="background:#eff6ff;padding:15px;border-radius:6px;">
+                        <small>Total PR</small>
+                        <h2 th:text="${totalPR}">0</h2>
+                    </div>
+
+                    <div style="background:#f8fafc;padding:15px;border-radius:6px;">
+                        <small>Draft</small>
+                        <h2 th:text="${draftCount}">0</h2>
+                    </div>
+
+                    <div style="background:#dcfce7;padding:15px;border-radius:6px;">
+                        <small>Confirmed</small>
+                        <h2 th:text="${confirmedCount}">0</h2>
+                    </div>
+
+                    <div style="background:#fee2e2;padding:15px;border-radius:6px;">
+                        <small>Void</small>
+                        <h2 th:text="${voidCount}">0</h2>
+                    </div>
+
+                    <div style="background:#fef3c7;padding:15px;border-radius:6px;">
+                        <small>Total Baris Item</small>
+                        <h2 th:text="${totalLines}">0</h2>
+                    </div>
+
+                </div>
+
+                <div class="report-heading">
+                    <h3>PURCHASE REQUEST SUMMARY</h3>
+                    <p>
+                        Periode:
+                        <strong th:text="${#temporals.format(dateFrom,'dd-MM-yyyy')}"></strong>
+                        sampai
+                        <strong th:text="${#temporals.format(dateTo,'dd-MM-yyyy')}"></strong>
+                    </p>
+                    <p>
+                        Requestor:
+                        <strong th:text="${selectedRequestorId == null ? 'Semua Requestor' : 'Requestor Terpilih'}"></strong>
+                    </p>
+                </div>
+
+                <div style="overflow-x:auto;">
+
+                    <table class="erp-table"
+                           style="width:100%;border-collapse:collapse;">
+
+                        <thead>
+                            <tr style="background:#1e293b;color:white;">
+                                <th>No</th>
+                                <th>Tanggal</th>
+                                <th>No. PR</th>
+                                <th>Requestor</th>
+                                <th>Remarks</th>
+                                <th style="text-align:right;">Jumlah Baris</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            <tr th:if="${#lists.isEmpty(reportRows)}">
+                                <td colspan="8"
+                                    style="text-align:center;padding:20px;">
+                                    Tidak ada Purchase Request pada periode ini.
+                                </td>
+                            </tr>
+
+                            <tr th:each="r,stat : ${reportRows}">
+
+                                <td th:text="${stat.count}"></td>
+
+                                <td th:text="${#temporals.format(r.docDate,'dd-MM-yyyy')}"></td>
+
+                                <td th:text="${r.docNo}"
+                                    style="font-weight:bold;"></td>
+
+                                <td th:text="${r.requestor}"></td>
+
+                                <td th:text="${r.remarks}"></td>
+
+                                <td style="text-align:right;"
+                                    th:text="${r.lineCount}"></td>
+
+                                <td th:text="${r.status}"></td>
+
+                                <td>
+                                    <a th:href="@{/ui/purchasing/pr/{id}/print(id=${r.id})}"
+                                       target="_blank">
+                                        Print
+                                    </a>
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<style>
+@media print {
+    .app-layout aside,
+    .app-main header,
+    .report-filter,
+    .summary {
+        display:none !important;
+    }
+
+    body {
+        background:white;
+        font-size:10px;
+    }
+
+    .erp-container {
+        box-shadow:none !important;
+        padding:0 !important;
+    }
+
+    table {
+        page-break-inside:auto;
+    }
+
+    tr {
+        page-break-inside:avoid;
+        page-break-after:auto;
+    }
+
+    @page {
+        size:A4 landscape;
+        margin:12mm;
+    }
+}
+</style>
+
+</body>
+</html>

@@ -1,0 +1,2 @@
+ALTER TABLE fin.ar_collection ADD COLUMN status VARCHAR(16) DEFAULT 'DRAFT';
+ALTER TABLE fin.ap_payment ADD COLUMN status VARCHAR(16) DEFAULT 'DRAFT';

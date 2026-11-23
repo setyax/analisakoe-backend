@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:20px;">Payroll Management</h3>
+
+                <!-- Flash Messages -->
+                <div th:if="${success}" style="background:#dcfce7; border:1px solid #16a34a; color:#14532d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${success}"></div>
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                                <!-- FORM PROSES PAYROLL -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:15px; border-radius:6px; margin-bottom:20px;">
+                    <form th:action="@{/ui/hr/payroll/process}" method="post" style="display:flex; gap:10px; align-items:center; margin:0;" onsubmit="return confirm('Proses perhitungan payroll untuk periode ini?');">
+                        <label style="font-weight:bold;">Hitung Payroll Periode:</label>
+                        
+                        <!-- Dropdown Bulan (name="month") -->
+                        <select name="month" required style="padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                            <option value="">-- Bulan --</option>
+                            <option value="01">Januari</option>
+                            <option value="02">Februari</option>
+                            <option value="03">Maret</option>
+                            <option value="04">April</option>
+                            <option value="05">Mei</option>
+                            <option value="06">Juni</option>
+                            <option value="07">Juli</option>
+                            <option value="08">Agustus</option>
+                            <option value="09">September</option>
+                            <option value="10">Oktober</option>
+                            <option value="11">November</option>
+                            <option value="12">Desember</option>
+                        </select>
+
+                        <!-- Dropdown Tahun (name="year") -->
+                        <select name="year" required style="padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                            <option value="">-- Tahun --</option>
+                            <option value="2024">2024</option>
+                            <option value="2025">2025</option>
+                            <option value="2026" selected>2026</option>
+                            <option value="2027">2027</option>
+                            <option value="2028">2028</option>
+                            <option value="2029">2029</option>
+                            <option value="2030">2030</option>
+                        </select>
+
+                        <button type="submit" class="erp-btn erp-btn-primary" style="background:#3b82f6; color:white; padding:9px 15px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">
+                            ⚙️ Proses Payroll
+                        </button>
+                    </form>
+                </div>
+
+                <!-- DAFTAR PAYROLL RUNS -->
+                <div th:if="${runs.isEmpty()}" style="text-align:center; padding:20px; color:#64748b;">
+                    Belum ada data payroll yang diproses.
+                </div>
+
+                <!-- Looping setiap Payroll Run -->
+                <div th:each="run : ${runs}" style="margin-bottom: 30px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                    
+                    <!-- Header Payroll Run -->
+                    <div style="background: #1e293b; color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="font-size: 16px;">Periode: <span th:text="${run.period}"></span></strong>
+                            <span style="margin-left: 15px; font-size: 12px; padding: 3px 8px; border-radius: 10px; font-weight: bold;"
+                                  th:style="${run.status == 'DRAFT' ? 'background:#f59e0b; color:#fff;' : 'background:#10b981; color:#fff;'}"
+                                  th:text="${run.status}"></span>
+                        </div>
+                        
+                        <!-- Tombol Post Jurnal (Hanya muncul jika DRAFT) -->
+                        <form th:action="@{/ui/hr/payroll/{id}/post(id=${run.id})}" method="post" style="margin:0;" onsubmit="return confirm('Posting jurnal payroll ini?');">
+                            <button type="submit" th:if="${run.status == 'DRAFT'}" style="background:#10b981; color:white; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">
+                                📤 Post ke Jurnal
+                            </button>
+                        </form>
+                        <form th:action="@{/ui/hr/payroll/{id}/unpost(id=${run.id})}" method="post" style="margin:0;" onsubmit="return confirm('Unpost payroll ini? Jurnal PAYROLL akan dihapus dan payroll kembali ke DRAFT.');">
+                            <button type="submit" th:if="${run.status == 'POSTED'}" style="background:#64748b; color:white; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">
+                                ⏪ Unpost
+                            </button>
+                        </form>
+                        <form th:action="@{/ui/hr/payroll/{id}/delete(id=${run.id})}" method="post" style="margin:0;" onsubmit="return confirm('Hapus payroll run ini beserta rinciannya?');">
+                            <button type="submit" th:if="${run.status == 'DRAFT'}" style="background:#ef4444; color:white; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">
+                                🗑 Hapus
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Ringkasan Angka -->
+                    <div style="background: #f8fafc; padding: 10px 15px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 20px; font-size: 14px;">
+                        <div>Total Kotor: <strong style="color:#0f172a;" th:text="'Rp ' + ${#numbers.formatDecimal(run.totalGross, 1, 'POINT', 2, 'COMMA')}">Rp 0</strong></div>
+                        <div>Total Potongan: <strong style="color:#dc2626;" th:text="'Rp ' + ${#numbers.formatDecimal(run.totalDeduction, 1, 'POINT', 2, 'COMMA')}">Rp 0</strong></div>
+                        <div>Total Bersih (Net): <strong style="color:#047857;" th:text="'Rp ' + ${#numbers.formatDecimal(run.totalNet, 1, 'POINT', 2, 'COMMA')}">Rp 0</strong></div>
+                    </div>
+
+                    <!-- Tabel Detail Karyawan -->
+                    <table class="erp-table" style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                                                <thead>
+                            <tr style="background-color:#f1f5f9; color:#334155; text-align:left;">
+                                <!-- GANTI HEADER ID MENJADI NIK & NAMA -->
+                                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">NIK</th>
+                                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Nama Karyawan</th>
+                                
+                                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align:right;">Gaji Kotor</th>
+                                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align:right;">Potongan BPJS</th>
+                                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align:right;">PPh 21</th>
+                                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align:right;">Gaji Bersih</th>
+                                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align:center;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="dtl : ${run.details}" style="border-bottom: 1px solid #eee;">
+                                
+                                <!-- TAMPILKAN NIK & NAMA DARI MAP -->
+                                <td style="padding: 10px; font-weight: bold;" th:text="${employeeMap[dtl.employeeId]?.nip}">-</td>
+                                <td style="padding: 10px;" th:text="${employeeMap[dtl.employeeId]?.name}">-</td>
+                                
+                                <td style="padding: 10px; text-align:right;" th:text="${#numbers.formatDecimal(dtl.grossSalary, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                <td style="padding: 10px; text-align:right; color:#dc2626;" th:text="${#numbers.formatDecimal(dtl.bpjsDeduction, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                <td style="padding: 10px; text-align:right; color:#dc2626;" th:text="${#numbers.formatDecimal(dtl.pph21Deduction, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                <td style="padding: 10px; text-align:right; font-weight:bold; color:#047857;" th:text="${#numbers.formatDecimal(dtl.netSalary, 1, 'POINT', 2, 'COMMA')}">0</td>
+                                <td style="padding: 10px; text-align:center;">
+                                    <a th:href="@{/ui/hr/payroll/{runId}/payslip/{empId}(runId=${run.id}, empId=${dtl.employeeId})}" 
+                                       target="_blank" 
+                                       style="background:#0ea5e9; color:white; text-decoration:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; display:inline-block;">
+                                       🖨️ Slip Gaji
+                                    </a>
+                                </td>
+                            </tr>
+                            
+                            <!-- Jangan lupa ubah colspan dari 6 menjadi 7 -->
+                            <tr th:if="${run.details.isEmpty()}">
+                                <td colspan="7" style="padding: 15px; text-align: center; color: #64748b;">Tidak ada detail karyawan di payroll ini.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </section>
+    </main>
+</div>
+<script>
+    // Isi dropdown tahun otomatis (dari tahun sekarang mundur 5 tahun dan maju 2 tahun)
+    document.addEventListener('DOMContentLoaded', function() {
+        var yearSelect = document.getElementById('inputYear');
+        if (yearSelect) {
+            var currentYear = new Date().getFullYear();
+            for (var y = currentYear + 2; y >= currentYear - 5; y--) {
+                var opt = document.createElement('option');
+                opt.value = y;
+                opt.text = y;
+                if (y === currentYear) opt.selected = true;
+                yearSelect.appendChild(opt);
+            }
+        }
+    });
+
+    // Gabungkan Bulan & Tahun jadi format YYYY-MM sebelum submit
+    function combinePeriod(event) {
+        var month = document.getElementById('inputMonth').value;
+        var year = document.getElementById('inputYear').value;
+        
+        if (!month || !year) {
+            alert('Silakan pilih Bulan dan Tahun terlebih dahulu!');
+            event.preventDefault();
+            return false;
+        }
+        
+        // Hasilnya pasti: 2026-11
+        document.getElementById('periodHidden').value = year + '-' + month;
+        
+        if (!confirm('Proses perhitungan payroll untuk periode ' + year + '-' + month + '?')) {
+            event.preventDefault();
+            return false;
+        }
+        
+        return true;
+    }
+</script>
+</body>
+</html>

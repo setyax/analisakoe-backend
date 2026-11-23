@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+            <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+            
+            <div class="toolbar">
+                <h2>Riwayat Transaksi</h2>
+                <a th:href="@{/ui/inventory/transactions/new}" role="button">+ Buat Transaksi</a>
+            </div>
+            
+            <table role="grid">
+                <thead>
+                    <tr><th>No. Dokumen</th><th>Tanggal</th><th>Tipe</th><th>Gudang</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                <tr th:if="${transactions.isEmpty()}"><td colspan="5" style="text-align:center;">Belum ada transaksi.</td></tr>
+                <tr th:each="t : ${transactions}">
+                    <td><strong th:text="${t.docNo}"></strong></td>
+                    <td th:text="${@dateFmt.format(t.docDate)}"></td>
+                    <td>
+                        <span th:if="${t.docType == 'IN'}" style="color:green; font-weight:bold;">MASUK (IN)</span>
+                        <span th:if="${t.docType == 'OUT'}" style="color:red; font-weight:bold;">KELUAR (OUT)</span>
+                    </td>
+                    <td th:text="${t.warehouseName}"></td>
+                    <td th:text="${t.status}"></td>
+                </tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+</div>
+</body>
+</html>

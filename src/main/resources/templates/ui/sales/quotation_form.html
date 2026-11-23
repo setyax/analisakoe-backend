@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0101] New Sales Quotation (SPH)</h3>
+
+                <form th:action="@{/ui/sales/quotations}" method="post">
+                    <div style="display:grid; grid-template-columns:150px 1fr 150px 1fr; gap:15px; align-items:center; margin-bottom:25px; background:#f8fafc; padding:20px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <label style="font-weight:600;">Tanggal SPH:</label>
+                        <input type="date" name="docDate" th:value="${today}" required style="padding:10px; border:1px solid #ddd; border-radius:4px;">
+                        
+                        <label style="font-weight:600;">Berlaku Sampai:</label>
+                        <input type="date" name="validUntil" th:value="${defaultValidUntil}" style="padding:10px; border:1px solid #ddd; border-radius:4px;">
+                        
+                        <label style="font-weight:600;">Customer:</label>
+                        <select name="customerId" id="customerSelect" required style="padding:10px; border:1px solid #ddd; border-radius:4px;">
+                            <option value="">-- Pilih Customer --</option>
+                            <option th:each="c : ${customers}" th:value="${c.id}" th:text="${c.name}"></option>
+                        </select>
+                        
+                        <label style="font-weight:600;">Currency:</label>
+                        <select name="currency" required style="padding:10px; border:1px solid #ddd; border-radius:4px;">
+                            <option value="IDR" selected>IDR</option>
+                            <option value="USD">USD</option>
+                            <option value="SGD">SGD</option>
+                        </select>
+                        
+                        <label style="font-weight:600;">Tax Type:</label>
+                        <select name="taxType" id="taxTypeSelect" required style="padding:10px; border:1px solid #ddd; border-radius:4px;" onchange="recalc()">
+                            <option value="NO_TAX">Non-PPN</option>
+                            <option value="EXCLUDE" selected>Exclude (PPN 11%)</option>
+                            <option value="INCLUDE">Include (PPN 11%)</option>
+                        </select>
+                        
+                        <label style="font-weight:600;">Remarks:</label>
+                        <input type="text" name="remarks" style="padding:10px; border:1px solid #ddd; border-radius:4px; grid-column: span 3;">
+                    </div>
+
+                    <table id="itemTable" style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                        <thead>
+                            <tr style="background-color:#1e293b; color:white;">
+                                <th style="padding:10px; width:40px;">NO</th>
+                                <th style="padding:10px;">ITEM</th>
+                                <th style="padding:10px; width:80px;">QTY</th>
+                                <th style="padding:10px; width:90px;">UNIT</th>
+                                <th style="padding:10px; width:130px;">HARGA</th>
+                                <th style="padding:10px; width:130px; text-align:right;">SUBTOTAL</th>
+                                <th style="padding:10px; width:130px; text-align:right;">DPP</th>
+                                <th style="padding:10px; width:120px; text-align:right;">PPN 11%</th>
+                                <th style="padding:10px; width:130px; text-align:right;">TOTAL</th>
+                                <th style="padding:10px; width:50px;">X</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemBody">
+                            <tr>
+                                <td style="text-align:center; padding:8px;" class="row-no">1</td>
+                                <td style="padding:8px;">
+                                    <select name="itemId" class="item-select" onchange="fetchItemPrice(this)" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                        <option value="">-- Pilih Item --</option>
+                                        <option th:each="i : ${items}" th:value="${i.id}" th:text="${i.code} + ' - ' + ${i.name}"></option>
+                                    </select>
+                                </td>
+                                <td style="padding:8px;"><input type="number" name="qty" class="qty-input" step="any" min="0.01" value="1" required style="width:100%; padding:8px; text-align:right; border:1px solid #ddd; border-radius:4px;"></td>
+                                <td style="padding:8px;">
+                                    <select name="uomId" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                        <option th:each="u : ${uoms}" th:value="${u.id}" th:text="${u.code}"></option>
+                                    </select>
+                                </td>
+                                <td style="padding:8px;"><input type="text" name="price" class="price-input" inputmode="numeric" value="0" required style="width:100%; padding:8px; text-align:right; border:1px solid #ddd; border-radius:4px;"></td>
+                                <td class="subtotal-cell" style="padding:8px; text-align:right; background:#f8f9fa;">0</td>
+                                <td class="dpp-cell" style="padding:8px; text-align:right; background:#f8f9fa;">0</td>
+                                <td class="ppn-cell" style="padding:8px; text-align:right; background:#f8f9fa;">0</td>
+                                <td class="total-cell" style="padding:8px; text-align:right; font-weight:bold; background:#f8f9fa;">0</td>
+                                <td style="text-align:center; padding:8px;"><button type="button" onclick="removeRow(this)" style="background:#e2e8f0; border:1px solid #cbd5e1; color:#64748b; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">X</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <button type="button" onclick="addRow()" style="background:#e2e8f0; color:#333; padding:8px 20px; border:1px solid #cbd5e1; border-radius:4px; font-weight:bold; cursor:pointer; margin-bottom:20px;">+ Tambah Item</button>
+
+                    <div style="display:flex; justify-content:space-between; gap:40px; margin-bottom:30px;">
+                        <div style="flex:1;"></div>
+                        <div style="width:400px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:20px;">
+                            <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f1f5f9;">
+                                <span style="font-weight:600; color:#555;">Total Subtotal:</span>
+                                <span id="summarySubtotal" style="background:#f1f5f9; padding:5px 15px; border-radius:4px; font-weight:600;">0</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f1f5f9;">
+                                <span style="font-weight:600; color:#555;">Total DPP:</span>
+                                <span id="summaryDpp" style="background:#f1f5f9; padding:5px 15px; border-radius:4px; font-weight:600;">0</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f1f5f9;">
+                                <span style="font-weight:600; color:#555;">Total PPN:</span>
+                                <span id="summaryPpn" style="background:#f1f5f9; padding:5px 15px; border-radius:4px; font-weight:600;">0</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; padding:12px 0 0 0; border-top:2px solid #e2e8f0; margin-top:5px;">
+                                <span style="font-weight:bold; color:#1e293b; font-size:16px;">Total Akhir:</span>
+                                <span id="summaryTotal" style="background:#e0f2fe; color:#0369a1; padding:5px 15px; border-radius:4px; font-weight:bold; font-size:16px;">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="text-align:right; border-top:1px solid #eee; padding-top:20px;">
+                        <button type="submit" style="padding:10px 30px; background:#2563eb; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">💾 Save Quotation</button>
+                        <a th:href="@{/ui/sales/quotations}" style="padding:10px 30px; background:#64748b; color:white; border-radius:4px; text-decoration:none; font-weight:bold; margin-left:10px;">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script th:inline="javascript">
+    const CONTEXT_PATH = /*[[@{/}]]*/ '/';
+    let itemOptionsTemplate = '';
+    let uomOptionsTemplate = '';
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const firstItem = document.querySelector('select[name="itemId"]');
+        const firstUom = document.querySelector('select[name="uomId"]');
+        if (firstItem) itemOptionsTemplate = firstItem.innerHTML;
+        if (firstUom) uomOptionsTemplate = firstUom.innerHTML;
+        attachRowEvents(document.querySelector('#itemBody tr'));
+        recalc();
+    });
+
+    function attachRowEvents(row) {
+        if (!row) return;
+        const qty = row.querySelector('.qty-input');
+        const price = row.querySelector('.price-input');
+        if (qty) qty.addEventListener('input', recalc);
+        if (price) price.addEventListener('input', recalc);
+    }
+
+        function parseCleanNumber(str) {
+        if (!str) return 0;
+        // 1. Hapus semua karakter KECUALI angka dan koma
+        //    (Ini otomatis menghapus titik pemisah ribuan)
+        let cleanStr = str.toString().replace(/[^0-9,]+/g, "");
+        // 2. Ubah koma (desimal lokal) menjadi titik (standar JS)
+        cleanStr = cleanStr.replace(/,/g, ".");
+        return parseFloat(cleanStr) || 0;
+    }
+
+    function formatRibuan(num) {
+        if (num === null || num === undefined || num === '') return '0';
+        return new Intl.NumberFormat('id-ID').format(Math.round(parseFloat(num) || 0));
+    }
+
+    function recalc() {
+        let totalSubtotal = 0, totalDpp = 0, totalPpn = 0, totalAkhir = 0;
+        const taxTypeEl = document.getElementById('taxTypeSelect');
+        const taxType = taxTypeEl ? taxTypeEl.value : 'EXCLUDE';
+        const rows = document.querySelectorAll('#itemBody tr');
+
+        rows.forEach((row) => {
+            const qtyInput = row.querySelector('.qty-input');
+            const priceInput = row.querySelector('.price-input');
+            if (!qtyInput || !priceInput) return;
+
+            const qty = parseFloat(qtyInput.value) || 0;
+            const price = parseCleanNumber(priceInput.value);
+            const subtotal = qty * price;
+            
+            let dpp = subtotal, ppn = 0, total = subtotal;
+
+            if (taxType === 'EXCLUDE') {
+                // Harga belum PPN
+                dpp = subtotal;
+                ppn = subtotal * 0.11;
+                total = subtotal + ppn;
+            } else if (taxType === 'INCLUDE') {
+                // Harga sudah termasuk PPN
+                // PPN = subtotal × 11 / 111
+                ppn = (subtotal * 11) / 111;
+                dpp = subtotal - ppn;
+                total = subtotal;
+            }
+            // NO_TAX: ppn=0, total=subtotal
+
+            // Null-safe: cek element ada sebelum set
+            const subtotalCell = row.querySelector('.subtotal-cell');
+            const dppCell = row.querySelector('.dpp-cell');
+            const ppnCell = row.querySelector('.ppn-cell');
+            const totalCell = row.querySelector('.total-cell');
+
+            if (subtotalCell) subtotalCell.innerText = formatRibuan(subtotal);
+            if (dppCell) dppCell.innerText = formatRibuan(dpp);
+            if (ppnCell) ppnCell.innerText = formatRibuan(ppn);
+            if (totalCell) totalCell.innerText = formatRibuan(total);
+
+            totalSubtotal += subtotal;
+            totalDpp += dpp;
+            totalPpn += ppn;
+            totalAkhir += total;
+        });
+
+        const setEl = (id, val) => { 
+            const el = document.getElementById(id); 
+            if (el) el.innerText = val; 
+        };
+        setEl('summarySubtotal', formatRibuan(totalSubtotal));
+        setEl('summaryDpp', formatRibuan(totalDpp));
+        setEl('summaryPpn', formatRibuan(totalPpn));
+        setEl('summaryTotal', formatRibuan(totalAkhir));
+    }
+
+    function addRow() {
+        const tbody = document.getElementById('itemBody');
+        const rowCount = tbody.querySelectorAll('tr').length + 1;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="text-align:center; padding:8px;" class="row-no">${rowCount}</td>
+            <td style="padding:8px;"><select name="itemId" class="item-select" onchange="fetchItemPrice(this)" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">${itemOptionsTemplate}</select></td>
+            <td style="padding:8px;"><input type="number" name="qty" class="qty-input" step="any" min="0.01" value="1" required style="width:100%; padding:8px; text-align:right; border:1px solid #ddd; border-radius:4px;"></td>
+            <td style="padding:8px;"><select name="uomId" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">${uomOptionsTemplate}</select></td>
+            <td style="padding:8px;"><input type="text" name="price" class="price-input" inputmode="numeric" value="0" required style="width:100%; padding:8px; text-align:right; border:1px solid #ddd; border-radius:4px;"></td>
+            <td class="subtotal-cell" style="padding:8px; text-align:right; background:#f8f9fa;">0</td>
+            <td class="dpp-cell" style="padding:8px; text-align:right; background:#f8f9fa;">0</td>
+            <td class="ppn-cell" style="padding:8px; text-align:right; background:#f8f9fa;">0</td>
+            <td class="total-cell" style="padding:8px; text-align:right; font-weight:bold; background:#f8f9fa;">0</td>
+            <td style="text-align:center; padding:8px;"><button type="button" onclick="removeRow(this)" style="background:#e2e8f0; border:1px solid #cbd5e1; color:#64748b; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">X</button></td>
+        `;
+        tbody.appendChild(tr);
+        attachRowEvents(tr);
+    }
+
+    function removeRow(btn) {
+        const tbody = document.getElementById('itemBody');
+        if (tbody.rows.length > 1) {
+            btn.closest('tr').remove();
+            document.querySelectorAll('#itemBody tr').forEach((row, i) => {
+                const rn = row.querySelector('.row-no');
+                if (rn) rn.innerText = i + 1;
+            });
+            recalc();
+        }
+    }
+
+    async function fetchItemPrice(selectEl) {
+        const itemId = selectEl.value;
+        if (!itemId) return;
+
+        const row = selectEl.closest('tr');
+        const priceInput = row.querySelector('.price-input');
+        if (!priceInput) return;
+        
+        const originalVal = priceInput.value;
+        priceInput.value = '...';
+        priceInput.disabled = true;
+
+        try {
+            const res = await fetch(CONTEXT_PATH + 'ui/sales/quotations/api/item-price/' + itemId);
+            const data = await res.json();
+
+            if (data.found && data.price != null) {
+                priceInput.value = formatRibuan(data.price);
+                priceInput.style.background = '#dcfce7';
+                console.log('[fetchItemPrice] Auto-filled:', data.price, data.currency);
+            } else {
+                priceInput.value = '0';
+                priceInput.style.background = '#fef3c7';
+                console.warn('[fetchItemPrice] Price not found:', data.message || data.error);
+            }
+        } catch (e) {
+            console.error('[fetchItemPrice] Error:', e);
+            priceInput.value = originalVal;
+        } finally {
+            priceInput.disabled = false;
+            recalc();
+        }
+    }
+</script>
+</body>
+</html>

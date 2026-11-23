@@ -1,0 +1,349 @@
+/* AnalisaKoe custom layout on top of Pico CSS */
+.app-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: 100vh;
+}
+.app-sidebar {
+    background: #1f2937;
+    color: #e5e7eb;
+    padding: 1rem;
+    overflow-y: auto;
+}
+.app-sidebar .brand a {
+    color: #fff;
+    font-size: 1.25rem;
+    text-decoration: none;
+}
+.app-sidebar nav { margin-top: 1rem; }
+.app-sidebar nav a {
+    color: #d1d5db;
+    display: block;
+    padding: 0.5rem 0.75rem;
+    text-decoration: none;
+    border-radius: 4px;
+    margin-bottom: 2px;
+}
+.app-sidebar nav a:hover { background: #374151; color: #fff; }
+.app-sidebar .menu-header {
+    color: #9ca3af;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 1rem;
+    padding: 0.25rem 0.75rem;
+}
+.app-main { display: flex; flex-direction: column; }
+.app-header {
+    background: #fff;
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.app-header h3 { margin: 0; }
+.app-header .user-info { display: flex; align-items: center; gap: 1rem; }
+.app-header .user-info button { margin: 0; padding: 0.4rem 0.8rem; }
+.app-content { padding: 1.5rem; flex: 1; }
+
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 1rem;
+}
+.toolbar .search-form { flex: 1; max-width: 400px; margin: 0; }
+.toolbar .search-form input { margin: 0; }
+
+.error-msg {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+.success-msg {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+.badge {
+    display: inline-block;
+    background: #e5e7eb;
+    color: #374151;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    margin-right: 4px;
+}
+.pagination {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 1rem;
+}
+.pagination a { margin: 0; padding: 0.3rem 0.8rem; }
+/* =========================================
+   TREE MENU (FOLDER STYLE)
+   ========================================= */
+.tree-nav {
+    margin-top: 1rem;
+    font-size: 0.95rem;
+}
+
+.tree-folder {
+    margin-bottom: 4px;
+}
+
+.tree-folder-title {
+    cursor: pointer;
+    padding: 6px 10px;
+    color: #e5e7eb;
+    font-weight: 600;
+    list-style: none; /* Hilangkan panah default */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 4px;
+    user-select: none;
+}
+
+.tree-folder-title:hover {
+    background: #374151;
+}
+
+/* Ikon panah custom (bisa diganti dengan ikon lain) */
+.tree-folder-title::-webkit-details-marker {
+    display: none;
+}
+.tree-folder-title::before {
+    content: "â–¶";
+    font-size: 0.7em;
+    color: #9ca3af;
+    transition: transform 0.2s ease;
+}
+.tree-folder[open] > .tree-folder-title::before {
+    transform: rotate(90deg);
+}
+
+.tree-children {
+    padding-left: 1rem;
+    margin-top: 2px;
+    margin-bottom: 8px;
+    border-left: 1px dashed #4b5563; /* Garis penghubung folder */
+    margin-left: 1rem;
+}
+
+.tree-leaf {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    color: #d1d5db;
+    text-decoration: none;
+    border-radius: 4px;
+    margin-bottom: 2px;
+    transition: background 0.15s ease;
+}
+
+.tree-leaf:hover {
+    background: #374151;
+    color: #fff;
+}
+
+.root-leaf {
+    padding-left: 10px;
+    margin-bottom: 4px;
+}
+
+/* Ikon Emoji */
+.folder-icon { font-size: 1.1em; }
+.leaf-icon { font-size: 0.9em; opacity: 0.8; }
+/* =========================================
+   COMPACT THEME (Desktop ERP Look)
+   ========================================= */
+
+/* 1. Kurangi ukuran font global */
+body {
+    font-size: 13px !important;
+}
+
+/* 2. Persempit sidebar & kurangi padding */
+.app-layout {
+    grid-template-columns: 200px 1fr !important;
+}
+.app-sidebar {
+    padding: 0.5rem !important;
+}
+.app-sidebar .brand {
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #374151;
+    margin-bottom: 0.5rem;
+}
+.app-sidebar .brand a {
+    font-size: 1.1rem !important;
+}
+
+/* 3. Perkecil Tree Menu (Folder) */
+.tree-nav {
+    font-size: 12px !important;
+}
+.tree-folder-title, .tree-leaf {
+    padding: 4px 6px !important;
+    gap: 6px !important;
+    margin-bottom: 1px !important;
+}
+.tree-children {
+    padding-left: 0.5rem !important;
+    margin-left: 0.8rem !important;
+    margin-top: 0 !important;
+    margin-bottom: 2px !important;
+}
+.folder-icon, .leaf-icon {
+    font-size: 11px !important; /* Emoji lebih kecil */
+}
+
+/* 4. Perkecil Header & Content */
+.app-header {
+    padding: 0.4rem 1rem !important;
+}
+.app-header h3 {
+    font-size: 1.1rem !important;
+    margin: 0 !important;
+}
+.app-content {
+    padding: 1rem !important;
+}
+
+/* 5. Padatkan Tabel */
+table {
+    font-size: 12px !important;
+    margin-bottom: 0.5rem !important;
+}
+th, td {
+    padding: 6px 8px !important;
+}
+th {
+    font-weight: 600 !important;
+}
+
+/* 6. Padatkan Form & Button */
+input, select, textarea {
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+    height: auto !important;
+    margin-bottom: 0.2rem !important;
+}
+label {
+    font-size: 12px !important;
+    margin-bottom: 0.5rem !important;
+}
+button, [role="button"] {
+    padding: 4px 12px !important;
+    font-size: 12px !important;
+    margin-bottom: 0.2rem !important;
+}
+
+/* 7. Kecilkan judul halaman */
+h2 { font-size: 1.4rem !important; margin-bottom: 0.5rem !important; }
+h3 { font-size: 1.2rem !important; }
+h4 { font-size: 1.1rem !important; }
+/* =========================================
+   FIXED SIDEBAR & SCROLLABLE CONTENT
+   ========================================= */
+html, body {
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important; /* Mencegah seluruh halaman ikut scroll */
+}
+
+.app-layout {
+    height: 100vh !important;
+    overflow: hidden !important;
+}
+
+.app-sidebar {
+    height: 100vh !important;
+    overflow-y: auto !important; /* Sidebar hanya scroll jika menunya terlalu panjang */
+}
+
+.app-main {
+    height: 100vh !important;
+    overflow-y: auto !important; /* Hanya bagian kanan (konten) yang akan di-scroll */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Membuat header atas tetap menempel di atas saat konten di-scroll */
+.app-header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1000 !important;
+    background-color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Sedikit bayangan agar terlihat terpisah */
+}
+/* =========================================
+   SIDEBAR READABILITY IMPROVEMENTS
+   ========================================= */
+/* Background sidebar dibuat lebih gelap agar teks putih lebih menonjol */
+.app-sidebar {
+    background-color: #111827 !important; 
+    border-right: 1px solid #374151;
+}
+
+/* Ukuran font dasar menu */
+.app-sidebar nav {
+    font-size: 13px !important; 
+}
+
+/* Judul Folder (Master Data, Purchasing, dll) */
+.tree-folder-title {
+    color: #f9fafb !important; /* Putih bersih */
+    font-weight: 600 !important;
+    font-size: 13.5px !important;
+    padding: 8px 10px !important;
+    border-radius: 4px;
+}
+
+.tree-folder-title:hover {
+    background-color: #1f2937 !important; /* Efek hover biru gelap */
+}
+
+/* Sub-menu di dalam folder (Items, Customers, dll) */
+.tree-leaf {
+    color: #d1d5db !important; /* Abu-abu sangat terang */
+    font-size: 13px !important;
+    padding: 6px 10px !important;
+}
+
+.tree-leaf:hover {
+    background-color: #1f2937 !important;
+    color: #ffffff !important; /* Menjadi putih saat disorot mouse */
+}
+
+/* Judul Kategori Besar (MASTER DATA, PURCHASING) */
+.menu-header {
+    color: #60a5fa !important; /* Warna biru muda yang kontras */
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase;
+    margin-top: 20px !important;
+    margin-bottom: 8px !important;
+    padding-left: 10px !important;
+    padding-bottom: 4px !important;
+    border-bottom: 1px solid #374151; /* Garis pemisah */
+}
+
+/* Ikon emoji dibuat sedikit lebih redup agar tidak mengganggu teks */
+.folder-icon, .leaf-icon {
+    opacity: 0.8;
+    margin-right: 5px;
+}

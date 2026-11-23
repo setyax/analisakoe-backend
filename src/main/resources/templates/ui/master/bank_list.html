@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">[Master] Bank Accounts (Kas &amp; Bank)</h3>
+                    <a th:href="@{/ui/master/banks/new}" class="erp-btn erp-btn-primary" style="background:#3b82f6; color:white; text-decoration:none; padding:7px 14px; border-radius:4px; font-weight:bold;">+ Bank Baru</a>
+                </div>
+
+                <div th:if="${success}" style="background:#dcfce7; border:1px solid #16a34a; color:#14532d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${success}"></div>
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <table class="erp-table" style="table-layout: fixed;">
+                    <thead>
+                        <tr>
+                            <th style="width:160px;">NAMA</th>
+                            <th style="width:130px;">NO. REKENING</th>
+                            <th style="width:100px;">BANK CODE</th>
+                            <th style="width:60px;">CUR</th>
+                            <th style="width:110px; text-align:right;">SALDO CURRENT</th>
+                            <th style="width:70px;">STATUS</th>
+                            <th style="width:140px; text-align:center;">AKSI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${banks.isEmpty()}"><td colspan="7" class="center" style="padding:20px;">Belum ada data Bank. Tambahkan lewat "+ Bank Baru".</td></tr>
+                        <tr th:each="b : ${banks}">
+                            <td style="overflow:hidden; text-overflow:ellipsis;"><strong th:text="${b.name}"></strong></td>
+                            <td style="overflow:hidden; text-overflow:ellipsis;" th:text="${b.accountNo != null ? b.accountNo : '-'}"></td>
+                            <td th:text="${b.bankCode != null ? b.bankCode : '-'}"></td>
+                            <td th:text="${b.currency != null ? b.currency : 'IDR'}"></td>
+                            <td style="text-align:right; font-weight:bold;" th:text="${#numbers.formatDecimal(b.currentBalance != null ? b.currentBalance : 0, 1, 'POINT', 2, 'COMMA')}"></td>
+                            <td><span class="badge" th:style="${b.status == 'ACTIVE'} ? 'background:#10b981; color:white;' : 'background:#64748b; color:white;'" th:text="${b.status} ?: 'ACTIVE'"></span></td>
+                            <td style="text-align:center; white-space:nowrap;">
+                                <a th:href="@{/ui/master/banks/{id}/edit(id=${b.id})}" style="background:#f59e0b; color:white; text-decoration:none; padding:3px 7px; border-radius:4px; font-size:10px; font-weight:bold; display:inline-block;">Edit</a>
+                                <form th:action="@{/ui/master/banks/{id}/delete(id=${b.id})}" method="post" style="display:inline-block; margin:0;" onsubmit="return confirm('Hapus bank ini?')">
+                                    <button type="submit" style="background:#ef4444; color:white; border:none; padding:3px 7px; border-radius:4px; font-size:10px; font-weight:bold; cursor:pointer;">Hapus</button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0304] Customer Receipts (AR)</h3>
+
+                <div th:if="${success}" style="margin-bottom:10px; padding:10px; background:#dcfce7; color:#166534; border-radius:4px;" th:text="${success}"></div>
+                <div th:if="${error}" style="margin-bottom:10px; padding:10px; background:#fee2e2; color:#991b1b; border-radius:4px;" th:text="${error}"></div>
+
+                <!-- SEARCH -->
+                <div style="margin-bottom:15px;">
+                    <input type="text" id="searchInput" placeholder="🔍 Cari data..."
+                           style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:4px;">
+                </div>
+
+                <!-- TABLE -->
+                <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:4px; margin-bottom:20px;">
+                    <table id="receiptTable" style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead>
+                            <tr style="background-color:#1e293b; color:white;">
+                                <th style="padding:10px; width:30px;"></th>
+                                <th style="padding:10px;">TGL</th>
+                                <th style="padding:10px;">NO. RECEIPT</th>
+                                <th style="padding:10px;">CUSTOMER</th>
+                                <th style="padding:10px;">METODE</th>
+                                <th style="padding:10px;">NO. REF</th>
+                                <th style="padding:10px; text-align:right;">JUMLAH</th>
+                                <th style="padding:10px;">STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${#lists.isEmpty(receipts)}">
+                                <td colspan="8" style="text-align:center; padding:20px; color:#94a3b8;">
+                                    Belum ada data receipt.
+                                </td>
+                            </tr>
+                            <tr th:each="r : ${receipts}" style="border-bottom:1px solid #eee;">
+                                <td style="padding:10px; text-align:center;">
+                                    <input type="radio" name="selRow" th:value="${r.id}" th:attr="data-status=${r.status}">
+                                </td>
+                                <td style="padding:10px;" th:text="${r.docDate != null ? #temporals.format(r.docDate, 'dd-MM-yyyy') : '-'}">-</td>
+                                <td style="padding:10px; font-weight:bold;" th:text="${r.docNo}">-</td>
+                                <td style="padding:10px;" th:text="${r.customerName}">-</td>
+                                <td style="padding:10px;">
+                                    <span th:text="${r.paymentMethod}" style="background:#e2e8f0; padding:3px 8px; border-radius:3px; font-size:11px; font-weight:bold;">-</span>
+                                </td>
+                                <td style="padding:10px;" th:text="${r.refNo}">-</td>
+                                <td style="padding:10px; text-align:right; font-weight:bold;"
+                                    th:text="'Rp ' + ${#numbers.formatDecimal(r.amount ?: 0, 1, 'POINT', 2, 'COMMA')}">Rp 0</td>
+                                <td style="padding:10px;">
+                                    <span th:styleappend="${r.status == 'POSTED' ? 'background:#dcfce7; color:#166534;' : (r.status == 'VOID' ? 'background:#fee2e2; color:#991b1b;' : 'background:#e2e8f0; color:#475569;')}"
+                                          style="padding:3px 10px; border-radius:12px; font-size:11px; font-weight:bold;"
+                                          th:text="${r.status}">-</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ACTION BUTTONS -->
+                <div style="background:#e2e8f0; padding:10px; border-radius:5px; display:flex; gap:8px; flex-wrap:wrap;">
+                    <a th:href="@{/ui/finance/receipts/new}" style="background:#d97706; color:white; padding:6px 15px; border-radius:3px; text-decoration:none; font-weight:bold;">Insert</a>
+                    <button type="button" style="background:#dc2626; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('void')">Void</button>
+                    <button type="button" style="background:#6b7280; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('delete')">Delete</button>
+                </div>
+
+                <div style="margin-top:10px; font-size:12px; color:#64748b;">
+                    Pilih baris dengan menekan bulatan di kolom kiri, lalu klik tombol aksi.
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script th:inline="javascript">
+    const CONTEXT_PATH = /*[[@{/}]]*/ '/';
+
+    function doAction(action) {
+        const selected = document.querySelector('input[name="selRow"]:checked');
+        if (!selected) {
+            alert('Pilih data terlebih dahulu!');
+            return;
+        }
+
+        const id = selected.value;
+        const status = selected.getAttribute('data-status');
+        const baseUrl = CONTEXT_PATH + 'ui/finance/receipts/' + id;
+
+        if (action === 'void' && status === 'VOID') {
+            alert('Receipt sudah VOID.'); return;
+        }
+        if (action === 'delete' && status !== 'DRAFT') {
+            alert('Hanya receipt DRAFT yang bisa dihapus. Gunakan VOID untuk receipt POSTED.'); return;
+        }
+
+        if (action === 'void') {
+            if (!confirm('Void receipt ini? Invoice akan di-reverse.')) return;
+        } else if (action === 'delete') {
+            if (!confirm('Hapus receipt ini?')) return;
+        }
+
+        submitForm(baseUrl + '/' + action);
+    }
+
+    function submitForm(url) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = url;
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    document.getElementById('searchInput').addEventListener('keyup', function() {
+        const filter = this.value.toLowerCase();
+        document.querySelectorAll('#receiptTable tbody tr').forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(filter) ? '' : 'none';
+        });
+    });
+</script>
+</body>
+</html>

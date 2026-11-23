@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 20px;">
+                    <h3 style="margin:0;">Purchase Returns</h3>
+                    <a th:href="@{/ui/purchasing/returns/new}" 
+                       style="background:#3b82f6; color:white; text-decoration:none; padding:10px 18px; border-radius:6px; font-weight:bold;">
+                       + Buat Retur Baru
+                    </a>
+                </div>
+
+                <div th:if="${success}" style="background:#dcfce7; border:1px solid #16a34a; color:#14532d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${success}"></div>
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <table class="erp-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background:#1e293b; color:white; text-align:left;">
+                            <th style="padding:12px;">NO. DOKUMEN</th>
+                            <th style="padding:12px;">TANGGAL</th>
+                            <th style="padding:12px;">SUPPLIER</th>
+                            <th style="padding:12px; text-align:right;">TOTAL</th>
+                            <th style="padding:12px; text-align:center;">STATUS</th>
+                            <th style="padding:12px; text-align:center;">AKSI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="r : ${returns}" style="border-bottom:1px solid #eee;">
+                            <td style="padding:12px; font-weight:bold;" th:text="${r[1]}"></td>
+                            <td style="padding:12px;" th:text="${r[2]}"></td>
+                            <td style="padding:12px;" th:text="${r[3]}"></td>
+                            <td style="padding:12px; text-align:right; font-weight:bold;" th:text="'Rp ' + ${#numbers.formatDecimal(r[4], 1, 'POINT', 2, 'COMMA')}"></td>
+                            <td style="padding:12px; text-align:center;">
+                                <span style="background:#e2e8f0; padding:4px 12px; border-radius:12px; font-size:12px; font-weight:bold;" th:text="${r[5]}"></span>
+                            </td>
+                            <td style="padding:12px; text-align:center; white-space:nowrap;">
+                                
+                                <!-- TOMBOL EDIT (Hanya DRAFT) -->
+                                <a th:if="${r[5] == 'DRAFT'}" 
+                                   th:href="@{/ui/purchasing/returns/{id}/edit(id=${r[0]})}" 
+                                   style="background:#f59e0b; color:white; text-decoration:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; display:inline-block; margin:2px;">
+                                   ✏️ Edit
+                                </a>
+                                
+                                <!-- TOMBOL HAPUS (Hanya DRAFT) -->
+                                <form th:if="${r[5] == 'DRAFT'}" 
+                                      th:action="@{/ui/purchasing/returns/{id}/delete(id=${r[0]})}" 
+                                      method="post" style="display:inline-block; margin:2px;" 
+                                      onsubmit="return confirm('Yakin hapus retur ini?');">
+                                    <button type="submit" 
+                                            style="background:#ef4444; color:white; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">
+                                        🗑️ Hapus
+                                    </button>
+                                </form>
+                                
+                                <!-- TOMBOL PRINT (Selalu Ada) -->
+                                <a th:href="@{/ui/purchasing/returns/{id}/print(id=${r[0]})}" 
+                                   target="_blank"
+                                   style="background:#64748b; color:white; text-decoration:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; display:inline-block; margin:2px;">
+                                   🖨️ Print
+                                </a>
+                            </td>
+                        </tr>
+                        <tr th:if="${returns == null or returns.isEmpty()}">
+                            <td colspan="6" style="padding:40px; text-align:center; color:#64748b;">
+                                Belum ada data Purchase Return. Klik <strong>+ Buat Retur Baru</strong> untuk mulai.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

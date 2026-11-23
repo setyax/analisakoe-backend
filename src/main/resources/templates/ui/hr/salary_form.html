@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:20px;">Setting Gaji: <span th:text="${emp.name}"></span></h3>
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <form th:action="@{/ui/hr/employees/{id}/salary(id=${emp.id})}" method="post" style="max-width: 600px;">
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block; font-weight:bold; margin-bottom:5px;">Gaji Pokok (Base Salary)</label>
+                        <input type="number" step="0.01" name="baseSalary" required th:value="${sal.baseSalary}" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;"/>
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block; font-weight:bold; margin-bottom:5px;">Tunjangan Tetap (Fixed Allowance)</label>
+                        <input type="number" step="0.01" name="fixedAllowance" required th:value="${sal.fixedAllowance}" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;"/>
+                    </div>
+                    
+                    <h4 style="margin-top:20px; border-bottom:1px solid #e2e8f0; padding-bottom:5px;">BPJS Rates (%)</h4>
+                    <div style="display:flex; gap:15px; margin-bottom:15px;">
+                        <div style="flex:1;">
+                            <label style="display:block; font-weight:bold; margin-bottom:5px;">Kesehatan</label>
+                            <input type="number" step="0.01" name="bpjsKesehatanRate" required th:value="${sal.bpjsKesehatanRate}" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;"/>
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block; font-weight:bold; margin-bottom:5px;">JHT</label>
+                            <input type="number" step="0.01" name="bpjsJhtRate" required th:value="${sal.bpjsJhtRate}" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;"/>
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block; font-weight:bold; margin-bottom:5px;">JP</label>
+                            <input type="number" step="0.01" name="bpjsJpRate" required th:value="${sal.bpjsJpRate}" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;"/>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block; font-weight:bold; margin-bottom:5px;">Status PTKP (Pajak)</label>
+                        <select name="ptkpStatus" required style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                            <option value="TK/0" th:selected="${sal.ptkpStatus == 'TK/0'}">TK/0 (Tidak Kawin, 0 Tanggungan)</option>
+                            <option value="K/0" th:selected="${sal.ptkpStatus == 'K/0'}">K/0 (Kawin, 0 Tanggungan)</option>
+                            <option value="K/1" th:selected="${sal.ptkpStatus == 'K/1'}">K/1 (Kawin, 1 Tanggungan)</option>
+                            <option value="K/2" th:selected="${sal.ptkpStatus == 'K/2'}">K/2 (Kawin, 2 Tanggungan)</option>
+                            <option value="K/3" th:selected="${sal.ptkpStatus == 'K/3'}">K/3 (Kawin, 3 Tanggungan)</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-top:25px;">
+                        <button type="submit" class="erp-btn erp-btn-primary" style="padding: 10px 20px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Simpan Gaji</button>
+                        <a th:href="@{/ui/hr/employees}" style="text-decoration:none; padding:10px 20px; color:#64748b; margin-left:10px;">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

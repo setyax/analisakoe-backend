@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:16px;">
+                    <div>
+                        <h3 style="margin:0 0 4px 0;">Customer Master</h3>
+                        <p style="margin:0; color:#64748b; font-size:13px;">Maintain customer identity, tax, credit and payment terms.</p>
+                    </div>
+                    <a th:href="@{/ui/customers/new}" class="erp-btn erp-btn-primary" style="text-decoration:none;">+ Add Customer</a>
+                </div>
+
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+
+                <form th:action="@{/ui/customers}" method="get" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0 0 12px 0;">
+                    <input type="search" name="q" th:value="${q}" placeholder="Search customer name..." aria-label="Search customer name" style="max-width:320px; margin:0;">
+                    <button type="submit" class="erp-btn erp-btn-primary">Search</button>
+                    <a th:href="@{/ui/customers}" class="erp-btn" style="background:#e2e8f0; color:#334155; text-decoration:none;">Reset</a>
+                </form>
+
+                <div style="overflow-x:auto;">
+                    <table class="erp-table">
+                        <thead>
+                        <tr>
+                            <th>Customer Code</th>
+                            <th>Customer Name</th>
+                            <th>Tax ID</th>
+                            <th>Currency</th>
+                            <th style="text-align:right;">Credit Limit</th>
+                            <th style="text-align:right;">Payment Term</th>
+                            <th>Status</th>
+                            <th style="width:150px;">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(customers.content)}">
+                            <td colspan="8" style="text-align:center; padding:24px; color:#64748b;">No customer records found.</td>
+                        </tr>
+                        <tr th:each="c : ${customers.content}">
+                            <td><strong th:text="${c.code}">CUST001</strong></td>
+                            <td th:text="${c.name}">Customer Name</td>
+                            <td th:text="${c.taxId != null and !#strings.isEmpty(c.taxId) ? c.taxId : '—'}">—</td>
+                            <td th:text="${c.currency != null ? c.currency : '—'}">IDR</td>
+                            <td style="text-align:right;" th:text="${c.creditLimit != null ? #numbers.formatDecimal(c.creditLimit, 1, 'POINT', 2, 'COMMA') : '—'}">0,00</td>
+                            <td style="text-align:right;" th:text="${c.paymentTermDays != null ? c.paymentTermDays + ' days' : '—'}">0 days</td>
+                            <td>
+                                <span th:text="${c.status}" th:style="${c.status == 'ACTIVE' ? 'display:inline-block;padding:3px 8px;border-radius:12px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;' : 'display:inline-block;padding:3px 8px;border-radius:12px;background:#fee2e2;color:#991b1b;font-size:12px;font-weight:600;'}">ACTIVE</span>
+                            </td>
+                            <td style="white-space:nowrap;">
+                                <a th:href="@{/ui/customers/{id}/edit(id=${c.id})}" class="erp-btn-sm" style="background:#dbeafe;color:#1d4ed8;text-decoration:none;">Edit</a>
+                                <button type="button" class="erp-btn-sm" style="background:#fee2e2;color:#b91c1c;" th:attr="data-delete-url=@{/ui/customers/{id}(id=${c.id})}" onclick="deleteMasterRecord(this, 'customer')">Delete</button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+<script>
+async function deleteMasterRecord(button, label) {
+    if (!confirm('Delete this ' + label + '? This action cannot be undone.')) return;
+    button.disabled = true;
+    try {
+        const response = await fetch(button.dataset.deleteUrl, {
+            method: 'DELETE',
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        if (!response.ok || response.redirected) {
+            throw new Error('Delete failed (HTTP ' + response.status + '). Please refresh and try again.');
+        }
+        window.location.reload();
+    } catch (error) {
+        alert(error.message || 'Unable to delete this record.');
+        button.disabled = false;
+    }
+}
+</script>
+</body>
+</html>

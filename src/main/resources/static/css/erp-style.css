@@ -1,0 +1,183 @@
+/* =========================================
+   ERP DESKTOP STYLE (Orlansoft-like)
+   ========================================= */
+.erp-container {
+    border: 1px solid #a0a0a0;
+    background-color: #f0f0f0;
+    padding: 10px;
+    font-family: Tahoma, Arial, sans-serif;
+    font-size: 12px;
+    color: #000;
+}
+.erp-tabs {
+    display: flex;
+    border-bottom: 1px solid #a0a0a0;
+    margin-bottom: 10px;
+    background: #e0e0e0;
+}
+.erp-tab {
+    padding: 5px 15px;
+    border: 1px solid #a0a0a0;
+    border-bottom: none;
+    background: #d0d0d0;
+    margin-right: 2px;
+    cursor: pointer;
+    font-weight: bold;
+}
+.erp-tab.active {
+    background: #fff;
+    margin-bottom: -1px;
+    padding-bottom: 6px;
+}
+.erp-form-grid {
+    display: grid;
+    grid-template-columns: 120px 200px 120px 200px;
+    gap: 5px 10px;
+    margin-bottom: 15px;
+    align-items: center;
+}
+.erp-form-grid label {
+    text-align: right;
+    margin: 0;
+    font-weight: normal;
+}
+.erp-form-grid input, .erp-form-grid select {
+    margin: 0;
+    padding: 2px 5px;
+    height: 22px;
+    font-size: 12px;
+    border: 1px solid #7a7a7a;
+    background: #fff;
+    width: 100%;
+}
+.erp-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 10px;
+    background: #fff;
+}
+.erp-table th {
+    background: #d4d0c8;
+    border: 1px solid #a0a0a0;
+    padding: 4px;
+    text-align: left;
+    font-size: 11px;
+}
+.erp-table td {
+    border: 1px solid #a0a0a0;
+    padding: 2px;
+    font-size: 12px;
+}
+.erp-table input {
+    margin: 0;
+    height: 20px;
+    border: none;
+    background: transparent;
+    width: 100%;
+}
+.erp-table input:focus {
+    background: #e6f7ff;
+    outline: 1px solid #0078d7;
+}
+.erp-btn {
+    background: #d4d0c8;
+    border: 1px solid #a0a0a0;
+    padding: 3px 15px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-right: 5px;
+}
+.erp-btn:hover { background: #e0e0e0; }
+.erp-btn-primary { background: #0078d7; color: white; border-color: #005a9e; }
+.erp-summary-box {
+    border: 1px solid #a0a0a0;
+    background: #fff;
+    width: 300px;
+    float: right;
+    padding: 10px;
+    margin-bottom: 20px;
+}
+.erp-summary-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 3px;
+}
+.erp-summary-row input {
+    width: 120px;
+    text-align: right;
+    border: none;
+    background: #f0f0f0;
+    font-weight: bold;
+}
+/* =========================================
+   LIST VIEW ERP STYLE
+   ========================================= */
+.erp-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+    font-size: 11px;
+}
+.erp-pagination {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.erp-pagination button {
+    padding: 2px 8px;
+    font-size: 11px;
+    background: #e0e0e0;
+    border: 1px solid #a0a0a0;
+    cursor: pointer;
+}
+.erp-action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+.erp-btn-sm {
+    background: #b36b39; /* Warna oranye gelap khas Orlansoft */
+    color: #fff;
+    border: 1px solid #8a4f26;
+    padding: 3px 12px;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 3px;
+}
+.erp-btn-sm:hover {
+    background: #9c5b30;
+}
+.erp-btn-sm:disabled {
+    background: #ccc;
+    color: #888;
+    border-color: #aaa;
+    cursor: not-allowed;
+}
+.erp-table tr.selected {
+    background-color: #e6f7ff;
+}
+.erp-table th {
+    background: #b36b39;
+    color: white;
+    text-align: center;
+    font-weight: bold;
+    border: 1px solid #8a4f26;
+}
+.erp-table td {
+    text-align: left;
+    vertical-align: middle;
+}
+.erp-table td.center {
+    text-align: center;
+}
+/* Status Icons */
+.status-icon {
+    font-weight: bold;
+    font-size: 14px;
+}
+.status-icon.approved { color: green; }
+.status-icon.void { color: red; }
+.status-icon.draft { color: gray; }

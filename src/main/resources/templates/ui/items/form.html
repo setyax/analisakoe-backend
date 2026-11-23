@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+
+                <article>
+                    <h2 th:text="${pageTitle}">Item Master</h2>
+
+                    <form th:action="${isNew} ? @{/ui/items} : @{'/ui/items/' + ${item.id}}" method="post">
+                        <h3>Basic Information</h3>
+                        <div class="grid">
+                            <label>Item Code
+                                <input type="text" name="code" th:value="${item.code}" required maxlength="50">
+                            </label>
+                            <label>Item Name
+                                <input type="text" name="name" th:value="${item.name}" required maxlength="255">
+                            </label>
+                        </div>
+
+                        <label>Description
+                            <textarea name="description" rows="3" maxlength="1000" th:text="${item.description}"></textarea>
+                        </label>
+
+                        <div class="grid">
+                            <label>Base UOM
+                                <select name="baseUomId" required>
+                                    <option value="">-- Pilih UOM --</option>
+                                    <option th:each="u : ${uoms}"
+                                            th:value="${u.id}"
+                                            th:text="${u.code} + ' - ' + ${u.name}"
+                                            th:selected="${item.baseUomId != null and item.baseUomId == u.id}">
+                                    </option>
+                                </select>
+                            </label>
+                            <label>Item Type
+                                <select name="itemType" required>
+                                    <option value="STOCK" th:selected="${item.itemType == 'STOCK'}">STOCK</option>
+                                    <option value="NONSTOCK" th:selected="${item.itemType == 'NONSTOCK'}">NONSTOCK</option>
+                                    <option value="SERVICE" th:selected="${item.itemType == 'SERVICE'}">SERVICE</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div class="grid">
+                            <label>UoM Set
+                                <select name="uomSetId">
+                                    <option value="">-- Tanpa UoM Set --</option>
+                                    <option th:each="s : ${uomSets}"
+                                            th:value="${s.id}"
+                                            th:text="${s.code} + ' - ' + ${s.name}"
+                                            th:selected="${item.uomSetId != null and item.uomSetId == s.id}">
+                                    </option>
+                                </select>
+                                <small>Untuk konversi satuan (mis. DUS ke PCS). Base UOM item harus sama dengan base UoM pada set.</small>
+                            </label>
+                        </div>
+
+                        <div class="grid">
+                            <label>Barcode
+                                <input type="text" name="barcode" th:value="${item.barcode}" maxlength="50">
+                            </label>
+                            <label>Status
+                                <select name="status" required>
+                                    <option value="ACTIVE" th:selected="${item.status == 'ACTIVE'}">ACTIVE</option>
+                                    <option value="INACTIVE" th:selected="${item.status == 'INACTIVE'}">INACTIVE</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div style="display:flex; gap:1.5rem; flex-wrap:wrap; margin:0.75rem 0 1.25rem;">
+                            <label style="display:flex; align-items:center; gap:.5rem;">
+                                <input type="checkbox" name="trackLot" value="true" th:checked="${item.trackLot}">
+                                Track Lot
+                            </label>
+                            <label style="display:flex; align-items:center; gap:.5rem;">
+                                <input type="checkbox" name="trackSerial" value="true" th:checked="${item.trackSerial}">
+                                Track Serial
+                            </label>
+                        </div>
+
+                        <hr>
+                        <h3>Purchasing &amp; Inventory Valuation (SAP)</h3>
+                        <div class="grid">
+                            <label>Purchasing Group
+                                <input type="text" name="purchasingGroup"
+                                       th:value="${item.purchasingGroup}" maxlength="20"
+                                       placeholder="Contoh: 001">
+                            </label>
+                            <label>Lead Time (Days)
+                                <input type="number" name="leadTimeDays"
+                                       th:value="${item.leadTimeDays}" min="0" step="1">
+                            </label>
+                        </div>
+
+                        <div class="grid">
+                            <label>Price Control
+                                <input type="text" name="priceControl"
+                                       th:value="${item.priceControl}" maxlength="1"
+                                       placeholder="V / S">
+                                <small>Gunakan kode price control yang berlaku pada konfigurasi ERP.</small>
+                            </label>
+                            <label>Valuation Class
+                                <input type="text" name="valuationClass"
+                                       th:value="${item.valuationClass}" maxlength="20"
+                                       placeholder="Contoh: 3000">
+                            </label>
+                        </div>
+
+                        <div class="grid">
+                            <label>Standard Price
+                                <input type="number" name="standardPrice"
+                                       th:value="${item.standardPrice}" min="0" step="0.0001">
+                            </label>
+                            <label>DJP Goods Code
+                                <input type="text" name="djpGoodsCode" list="djpCodeList" autocomplete="off"
+                                       th:value="${item.djpGoodsCode}" maxlength="50"
+                                       placeholder="Ketik untuk mencari kode DJP">
+                                <datalist id="djpCodeList">
+                                    <option th:each="c : ${djpCodes}" th:value="${c}"></option>
+                                </datalist>
+                                <small>Harus kode yang terdaftar di master DJP Goods Code. Kosongkan jika tidak ada.</small>
+                            </label>
+                        </div>
+
+                        <div style="display:flex; gap:.5rem; margin-top:1.25rem; flex-wrap:wrap;">
+                            <button type="submit" th:text="${isNew} ? 'Simpan' : 'Update'">Simpan</button>
+                            <a th:href="@{/ui/items}" role="button" class="secondary">Batal</a>
+                        </div>
+                    </form>
+                </article>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

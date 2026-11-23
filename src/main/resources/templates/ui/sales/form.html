@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;" th:text="${isNew} ? '[F0102] New Sales Order' : '[F0102] Edit Sales Order'"></h3>
+                <div th:if="${success}" class="flash-success-banner" th:text="${success}" style="background:#dcfce7; border:1px solid #16a34a; color:#14532d; padding:10px 14px; border-radius:6px; margin-bottom:15px;"></div>
+                <div th:if="${error}" class="flash-error-banner" th:text="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px 14px; border-radius:6px; margin-bottom:15px;"></div>
+
+                
+                <!-- Perhatikan penggunaan th:action yang aman -->
+                <form id="soForm" th:action="@{${isNew ? '/ui/sales/orders' : '/ui/sales/orders/' + order?.id}}" method="post">
+                    
+                    <!-- HEADER FORM -->
+                    <div class="erp-form-grid">
+                        <label>Date:</label>
+                        <input type="date" name="docDate" th:value="${isNew} ? ${today} : ${order?.docDate}" required>
+                        
+                        <label>Customer ID:</label>
+                        <select name="customerId" required>
+                            <option th:each="c : ${customers}" th:value="${c.id}" th:text="${c.code} + ' - ' + ${c.name}" th:selected="${!isNew && order?.customerId == c.id}"></option>
+                        </select>
+
+                        <label>Salesperson:</label>
+                        <select name="salespersonId">
+                            <option value="">-- Tidak ada --</option>
+                            <option th:each="s : ${salespersons}" th:value="${s[0]}" th:text="${s[1]}" th:selected="${!isNew && order?.salespersonId != null && order?.salespersonId == s[0]}"></option>
+                        </select>
+
+                        <label>Currency:</label>
+                        <select name="currency" id="currencySelect">
+                            <option value="IDR" th:selected="${isNew || order?.currency == 'IDR'}">IDR</option>
+                            <option value="USD" th:selected="${!isNew && order?.currency == 'USD'}">USD</option>
+                        </select>
+                        
+                        <label>Tax Type:</label>
+                        <select name="taxType" id="taxTypeSelect" onchange="calcTotal()">
+                            <option value="NO_TAX" th:selected="${isNew || order?.taxType == 'NO_TAX'}">No Tax</option>
+                            <option value="EXCLUDE" th:selected="${!isNew && order?.taxType == 'EXCLUDE'}">Exclude (PPN 11%)</option>
+                            <option value="INCLUDE" th:selected="${!isNew && order?.taxType == 'INCLUDE'}">Include (PPN 11%)</option>
+                        </select>
+                    </div>
+
+                    <!-- TABEL DETAIL -->
+                    <table class="erp-table" id="itemTable" style="margin-bottom: 15px;">
+                        <thead>
+                            <tr>
+                                <th style="width: 30px; text-align:center;">No</th>
+                                <th>Item ID</th>
+                                <th style="width: 70px;">Qty</th>
+                                <th style="width: 70px;">Unit</th>
+                                <th style="width: 120px;">Unit Price</th>
+                                <th style="width: 130px;">Subtotal</th>
+                                <th style="width: 130px;">DPP</th>
+                                <th style="width: 110px;">PPN (11%)</th>
+                                <th style="width: 130px;">Total</th>
+                                <th style="width: 40px;">X</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- BARIS KOSONG (NEW) -->
+                            <tr th:if="${isNew}">
+                                <td style="text-align:center;">1</td>
+                                <td><select name="itemId" onchange="onItemChange(this)" required style="width:100%;"><option value="">-- Pilih --</option><option th:each="i : ${items}" th:value="${i.id}" th:text="${i.code} + ' - ' + ${i.name}"></option></select></td>
+                                <td><input type="number" name="qty" step="0.01" min="0.01" required onchange="calcTotal()" onkeyup="calcTotal()" style="text-align:right;"></td>
+                                <td><select name="uomId" onchange="onUomChange(this)" required style="width:100%;"><option th:each="u : ${uoms}" th:value="${u.id}" th:text="${u.code}"></option></select></td>
+                                <td><input type="text" name="price" class="num-input" value="0,00" onblur="formatInput(this)" onkeyup="calcTotal()" required style="text-align:right;"></td>
+                                <td><input type="text" name="subtotal" value="0,00" readonly style="text-align:right; background:#f0f0f0;"></td>
+                                <td><input type="text" name="dpp" value="0,00" readonly style="text-align:right; background:#f0f0f0;"></td>
+                                <td><input type="text" name="tax" value="0,00" readonly style="text-align:right; background:#f0f0f0;"></td>
+                                <td><input type="text" name="lineTotal" value="0,00" readonly style="text-align:right; background:#f0f0f0; font-weight:bold;"></td>
+                                <td style="text-align:center;"><button type="button" class="erp-btn" style="padding:2px 5px; margin:0;" onclick="this.closest('tr').remove(); updateNo(); calcTotal();">X</button></td>
+                            </tr>
+                            
+                            <!-- BARIS DATA (EDIT) -->
+                            <tr th:if="${!isNew}" th:each="dtl, stat : ${order?.details}">
+                                <td style="text-align:center;" th:text="${stat.count}"></td>
+                                <td><select name="itemId" onchange="onItemChange(this)" required style="width:100%;"><option th:each="i : ${items}" th:value="${i.id}" th:text="${i.code} + ' - ' + ${i.name}" th:selected="${dtl.itemId == i.id}"></option></select></td>
+                                <td><input type="number" name="qty" step="0.01" min="0.01" th:value="${dtl.qty}" required onchange="calcTotal()" onkeyup="calcTotal()" style="text-align:right;"></td>
+                                <td><select name="uomId" onchange="onUomChange(this)" required style="width:100%;"><option th:each="u : ${uoms}" th:value="${u.id}" th:text="${u.code}" th:selected="${dtl.uomId == u.id}"></option></select></td>
+                                <td><input type="text" name="price" class="num-input" th:value="${#numbers.formatDecimal(dtl.price, 3, 'POINT', 2, 'COMMA')}" onblur="formatInput(this)" onkeyup="calcTotal()" required style="text-align:right;"></td>
+                                <td><input type="text" name="subtotal" value="0,00" readonly style="text-align:right; background:#f0f0f0;"></td>
+                                <td><input type="text" name="dpp" value="0,00" readonly style="text-align:right; background:#f0f0f0;"></td>
+                                <td><input type="text" name="tax" value="0,00" readonly style="text-align:right; background:#f0f0f0;"></td>
+                                <td><input type="text" name="lineTotal" value="0,00" readonly style="text-align:right; background:#f0f0f0; font-weight:bold;"></td>
+                                <td style="text-align:center;"><button type="button" class="erp-btn" style="padding:2px 5px; margin:0;" onclick="this.closest('tr').remove(); updateNo(); calcTotal();">X</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- TOMBOL INSERT BARIS -->
+                    <div style="margin-bottom: 20px;">
+                        <button type="button" class="erp-btn" onclick="addRow()">+ Insert Baris Baru</button>
+                    </div>
+
+                    <!-- FOOTER FORM (RINGKASAN & TOMBOL SIMPAN) -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        
+                        <!-- Kiri: Remarks -->
+                        <div style="width: 50%;">
+                            <label style="font-weight: bold; margin-bottom: 5px; display: block;">Remarks:</label>
+                            <textarea name="remarks" style="width: 90%; height: 60px; padding: 5px;" th:text="${isNew} ? '' : ${order?.remarks}"></textarea>
+                        </div>
+                        
+                        <!-- Kanan: Ringkasan -->
+                        <div class="erp-summary-box" style="float: none; margin: 0;">
+                            <div class="erp-summary-row"><span>Total Subtotal:</span><input type="text" id="totalSubtotal" value="0,00" readonly></div>
+                            <div class="erp-summary-row"><span>Total DPP:</span><input type="text" id="totalDpp" value="0,00" readonly></div>
+                            <div class="erp-summary-row"><span>Total PPN (11%):</span><input type="text" id="totalTax" value="0,00" readonly></div>
+                            <div class="erp-summary-row" style="border-top: 1px solid #ccc; padding-top: 5px; margin-top: 5px; font-weight: bold;">
+                                <span>Total Akhir:</span><input type="text" id="totalNet" value="0,00" readonly style="background:#e6f7ff; color:#005a9e;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="clear: both;"></div>
+
+                    <!-- TOMBOL AKSI BAWAH -->
+                    <div style="margin-top: 25px; border-top: 1px solid #a0a0a0; padding-top: 15px;">
+                        <button type="submit" class="erp-btn erp-btn-primary" style="padding: 8px 30px; font-weight: bold;" th:text="${isNew} ? 'Simpan (Save)' : 'Update'">Save</button>
+                        <a th:href="@{/ui/sales/orders}" class="erp-btn" style="text-decoration:none; display:inline-block; padding: 8px 20px; margin-left: 10px;">Batal (Close)</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script>
+    function formatInput(input) {
+        let val = input.value.replace(/\./g, '').replace(',', '.');
+        let num = parseFloat(val);
+        if (isNaN(num)) num = 0;
+        input.value = num.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        calcTotal();
+    }
+
+    function parseNumber(str) {
+        if (!str) return 0;
+        let clean = str.toString().replace(/[^0-9.,]/g, '');
+        let lastComma = clean.lastIndexOf(',');
+        let lastDot = clean.lastIndexOf('.');
+        
+        if (lastComma > lastDot) {
+            clean = clean.replace(/\./g, '').replace(',', '.');
+        } else if (lastDot > lastComma) {
+            clean = clean.replace(/,/g, '');
+        }
+        return parseFloat(clean) || 0;
+    }
+
+    function addRow() {
+        const tbody = document.querySelector('#itemTable tbody');
+        const tr = tbody.querySelector('tr').cloneNode(true);
+        tr.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+        tr.querySelectorAll('input[type="text"]').forEach(i => i.value = '0,00');
+        tr.querySelector('input[name="qty"]').value = '';
+        tbody.appendChild(tr);
+        updateNo();
+    }
+
+    function updateNo() {
+        document.querySelectorAll('#itemTable tbody tr').forEach((row, index) => { 
+            row.cells[0].innerText = index + 1; 
+        });
+    }
+
+    function calcTotal() {
+        const taxType = document.getElementById('taxTypeSelect').value;
+        let totalSubtotal = 0;
+        let totalDpp = 0;
+        let totalTax = 0;
+        let grandTotal = 0;
+
+        document.querySelectorAll('#itemTable tbody tr').forEach(row => {
+            const qtyInput = row.querySelector('input[name="qty"]');
+            const priceInput = row.querySelector('input[name="price"]');
+            
+            if (!qtyInput || !priceInput) return;
+
+            const qty = parseFloat(qtyInput.value) || 0;
+            const price = parseNumber(priceInput.value);
+            
+            let subtotal = qty * price;
+            let dpp = 0;
+            let rowTax = 0;
+            let rowTotal = 0;
+
+            if (taxType === 'EXCLUDE') {
+                dpp = subtotal;
+                rowTax = dpp * 0.11;
+                rowTotal = dpp + rowTax;
+            } else if (taxType === 'INCLUDE') {
+                rowTotal = subtotal;
+                dpp = rowTotal / 1.11;
+                rowTax = rowTotal - dpp;
+            } else {
+                dpp = subtotal;
+                rowTax = 0;
+                rowTotal = dpp;
+            }
+
+            const safeSet = (name, val) => {
+                const el = row.querySelector(`input[name="${name}"]`);
+                if (el) el.value = val.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            };
+
+            safeSet('subtotal', subtotal);
+            safeSet('dpp', dpp);
+            safeSet('tax', rowTax);
+            safeSet('lineTotal', rowTotal);
+
+            totalSubtotal += subtotal;
+            totalDpp += dpp;
+            totalTax += rowTax;
+            grandTotal += rowTotal;
+        });
+
+        const safeSetGlobal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
+
+        safeSetGlobal('totalSubtotal', totalSubtotal);
+        safeSetGlobal('totalDpp', totalDpp);
+        safeSetGlobal('totalTax', totalTax);
+        safeSetGlobal('totalNet', grandTotal);
+    }
+
+    document.getElementById('soForm').addEventListener('submit', function(e) {
+        document.querySelectorAll('input[name="price"]').forEach(input => {
+            let val = parseNumber(input.value);
+            input.value = val.toString();
+        });
+    });
+
+    document.addEventListener('DOMContentLoaded', calcTotal);
+        async function onItemChange(sel) {
+            const row = sel.closest('tr');
+            const itemId = sel.value;
+            console.log('[item-price] selected itemId =', itemId);
+            if (!itemId) return;
+
+            const priceInput = row.querySelector('input[name="price"]');
+            if (!priceInput) { console.warn('[item-price] price input NOT FOUND'); return; }
+
+            try {
+                const res = await fetch('/api/ui/sales/orders/api/item-price/' + itemId);
+                if (!res.ok) { console.warn('[item-price] http', res.status); return; }
+                const data = await res.json();
+                console.log('[item-price] payload =', data);
+                if (!data.found) { console.warn('[item-price] no price'); return; }
+
+                const p = parseFloat(data.price) || 0;
+
+                // FIX: isi elemen dengan angka mentah dulu, lalu panggil formatInput(INPUT)
+                priceInput.value = p;
+
+                if (typeof formatInput === 'function') {
+                    try {
+                        formatInput(priceInput);   // pass ELEMENT, bukan value
+                        console.log('[item-price] price formatted =', priceInput.value);
+                    } catch (e) {
+                        console.warn('[item-price] formatInput gagal, biarkan mentah:', e);
+                    }
+                } else {
+                    console.log('[item-price] price set raw =', priceInput.value);
+                }
+
+                const uomSelect = row.querySelector('select[name="uomId"]');
+                if (uomSelect && data.uomId) {
+                    uomSelect.value = data.uomId;
+                    console.log('[item-price] uom set =', data.uomId);
+                }
+
+                if (typeof calcTotal === 'function') calcTotal();
+            } catch (e) {
+                console.error('[item-price] EXCEPTION:', e);
+            }
+        }
+
+        // Saat UOM diganti manual, ambil harga untuk satuan tersebut
+        async function onUomChange(sel) {
+            const row = sel.closest('tr');
+            const uomId = sel.value;
+            if (!uomId) return;
+            const itemSel = row.querySelector('select[name="itemId"]');
+            if (!itemSel || !itemSel.value) return;
+
+            const priceInput = row.querySelector('input[name="price"]');
+            if (!priceInput) return;
+
+            try {
+                const res = await fetch('/api/ui/sales/orders/api/item-price/' + itemSel.value + '?uomId=' + uomId);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data.found) {
+                    console.warn('[item-price] tidak ada harga untuk UOM', uomId);
+                    return;
+                }
+                const p = parseFloat(data.price) || 0;
+                priceInput.value = p;
+                if (typeof formatInput === 'function') {
+                    try { formatInput(priceInput); } catch (e) {}
+                }
+                if (typeof calcTotal === 'function') calcTotal();
+            } catch (e) {
+                console.error('[uom-price] EXCEPTION:', e);
+            }
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<style>
+    /* CHECKBOX CUSTOM - JELAS & BESAR */
+    input[type="checkbox"].row-checkbox,
+    input[type="checkbox"]#checkAll {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #64748b;
+        border-radius: 4px;
+        cursor: pointer;
+        position: relative;
+        background: white;
+        transition: all 0.15s;
+    }
+    input[type="checkbox"].row-checkbox:hover,
+    input[type="checkbox"]#checkAll:hover {
+        border-color: #3b82f6;
+    }
+    input[type="checkbox"].row-checkbox:checked,
+    input[type="checkbox"]#checkAll:checked {
+        background: #3b82f6;
+        border-color: #3b82f6;
+    }
+    input[type="checkbox"].row-checkbox:checked::after,
+    input[type="checkbox"]#checkAll:checked::after {
+        content: '✓';
+        color: white;
+        font-size: 14px;
+        font-weight: bold;
+        position: absolute;
+        top: -1px;
+        left: 3px;
+    }
+    .btn-act {
+        color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px;
+        font-size: 12px; font-weight: bold; margin-right: 3px; display: inline-block;
+    }
+</style>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+
+                <div style="display:flex; justify-content: space-between; margin-bottom: 15px;">
+                    <h3 style="margin:0;">Delivery Order List</h3>
+                </div>
+
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+                <div th:if="${success}" style="background:#dcfce7; border:1px solid #16a34a; color:#14532d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${success}"></div>
+
+                <!-- Info Cabang Aktif -->
+                <div style="background:#eff6ff; border:1px solid #3b82f6; color:#1e40af; padding:8px 12px; border-radius:6px; margin-bottom:15px; font-size:13px;">
+                    Cabang aktif: <strong th:text="${user != null ? user.activeCompanyName : '-'}">-</strong>
+                </div>
+
+                <table class="erp-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background:#1e293b; color:white; text-align:left;">
+                            <th style="padding:10px; width:40px; text-align:center;">
+                                <input type="checkbox" id="checkAll" onclick="toggleAll(this)"/>
+                            </th>
+                            <th style="padding:10px;">TANGGAL</th>
+                            <th style="padding:10px;">NO. DO</th>
+                            <th style="padding:10px;">CUSTOMER</th>
+                            <th style="padding:10px;">NO. SO</th>
+                            <th style="padding:10px;">REMARKS</th>
+                            <th style="padding:10px;">STATUS</th>
+                            <th style="padding:10px; text-align:center;">AKSI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="d : ${deliveries}" style="border-bottom:1px solid #eee;">
+                            <td style="padding:10px; text-align:center;">
+                                <input type="checkbox" name="selectedIds" th:value="${d[0]}" class="row-checkbox"/>
+                            </td>
+                            <td style="padding:10px;" th:text="${@dateFmt.format(d[2])}">-</td>
+                            <td style="padding:10px; font-weight:bold;" th:text="${d[1]}">-</td>
+                            <td style="padding:10px;" th:text="${d[5]}">-</td>
+                            <td style="padding:10px;" th:text="${d[6]}">-</td>
+                            <td style="padding:10px;" th:text="${d[4]}">-</td>
+                            <td style="padding:10px; text-align:center;">
+                                <span th:style="${d[3] == 'DRAFT' ? 'background:#fef3c7; color:#92400e;' : (d[3] == 'CONFIRMED' ? 'background:#dcfce7; color:#14532d;' : (d[3] == 'VOID' ? 'background:#fee2e2; color:#991b1b;' : 'background:#e2e8f0; color:#0f172a;'))}"
+                                      style="padding:4px 10px; border-radius:12px; font-size:12px; font-weight:bold;"
+                                      th:text="${d[3]}">-</span>
+                            </td>
+                            <td style="padding:10px; text-align:center; white-space:nowrap;">
+                                <!-- DRAFT: Confirm, Void, Hapus -->
+                                <a th:if="${d[3] == 'DRAFT'}" th:href="@{/ui/sales/do/{id}/confirm(id=${d[0]})}"
+                                   onclick="event.preventDefault(); postAction(this.href, 'Confirm DO ini? Status menjadi OPEN. Stok dipotong saat Goods Issue.');"
+                                   class="btn-act" style="background:#10b981;">✓ Confirm</a>
+
+                                <!-- CONFIRMED / OPEN / pra-GI: Unconfirm -->
+                                <a th:if="${d[3] == 'CONFIRMED' or d[3] == 'OPEN' or d[3] == 'IN_PICKING' or d[3] == 'PICKING' or d[3] == 'READY_TO_SHIP'}" th:href="@{/ui/sales/do/{id}/unconfirm(id=${d[0]})}"
+                                   onclick="event.preventDefault(); postAction(this.href, 'Unconfirm DO ini? Status kembali ke DRAFT. Tidak bisa jika sudah ada Goods Issue.');"
+                                   class="btn-act" style="background:#f59e0b;">↩ Unconfirm</a>
+
+                                <!-- DRAFT / CONFIRMED: Void -->
+                                <a th:if="${d[3] == 'DRAFT' or d[3] == 'CONFIRMED' or d[3] == 'OPEN' or d[3] == 'IN_PICKING' or d[3] == 'READY_TO_SHIP'}" th:href="@{/ui/sales/do/{id}/void(id=${d[0]})}"
+                                   onclick="event.preventDefault(); postAction(this.href, 'Batalkan DO ini? DO akan berstatus CANCELLED dan tidak dapat diproses kembali. Pembatalan hanya dapat dilakukan jika belum ada Goods Issue bersih.');"
+                                   class="btn-act" style="background:#7c3aed;">⛔ Void</a>
+
+                                <a th:if="${d[3] == 'DRAFT'}" th:href="@{/ui/sales/do/{id}/delete(id=${d[0]})}"
+                                   onclick="event.preventDefault(); postAction(this.href, 'Hapus DO ini?');"
+                                   class="btn-act" style="background:#ef4444;">🗑 Hapus</a>
+
+                                <!-- SHIPPED: Delivered / POD -->
+                                <a th:if="${d[3] == 'SHIPPED'}"
+                                   th:href="@{/ui/sales/do/{id}/goods-issue(id=${d[0]})}"
+                                   class="btn-act"
+                                   style="background:#0d9488;"
+                                   title="Input dan konfirmasi Proof of Delivery">
+                                    Mark Delivered / POD
+                                </a>
+                                <!-- WORKFLOW: Picking / Goods Issue / POD -->
+                                <a th:if="${d[3] == 'OPEN' or d[3] == 'IN_PICKING' or d[3] == 'PICKING' or d[3] == 'READY_TO_SHIP' or d[3] == 'PARTIALLY_SHIPPED' or d[3] == 'SHIPPED' or d[3] == 'DELIVERED'}"
+                                   th:href="@{/ui/sales/do/{id}/goods-issue(id=${d[0]})}"
+                                   class="btn-act"
+                                   style="background:#0d9488;"
+                                   title="Buka workflow Picking, Goods Issue dan POD">
+                                    Workflow / Goods Issue / POD
+                                </a>
+                                <!-- View (Semua status) -->
+                                <a th:href="@{/ui/sales/do/{id}/view(id=${d[0]})}"
+                                   class="btn-act" style="background:#334155;"
+                                   title="Lihat rincian qty DO">👁 View</a>
+
+                                <a th:href="@{/ui/sales/do/{id}/print(id=${d[0]})}" target="_blank"
+                                   class="btn-act" style="background:#64748b; margin-right:0;">🖨 Print</a>
+                            </td>
+                        </tr>
+                        <tr th:if="${deliveries == null or deliveries.isEmpty()}">
+                            <td colspan="8" style="padding:40px; text-align:center; color:#64748b;">
+                                Belum ada data Delivery Order untuk cabang ini.<br/>
+                                <span style="font-size:12px;">Coba ganti cabang aktif di header.</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- BATCH ACTION BUTTONS -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:12px; border-radius:6px; margin-top:15px;">
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                        <a th:href="@{/ui/sales/do/new}" style="background:#3b82f6; color:white; text-decoration:none; padding:8px 15px; border-radius:4px; font-weight:bold;">+ New Delivery Order</a>
+                        <button type="button" onclick="batchAction('confirm')" style="background:#10b981; color:white; border:none; padding:8px 15px; border-radius:4px; font-weight:bold; cursor:pointer;">✓ Confirm Batch</button>
+                        <button type="button" onclick="batchAction('delete')" style="background:#ef4444; color:white; border:none; padding:8px 15px; border-radius:4px; font-weight:bold; cursor:pointer;">🗑 Hapus Batch</button>
+                        <button type="button" onclick="batchAction('picking-list')" style="background:#0ea5e9; color:white; border:none; padding:8px 15px; border-radius:4px; font-weight:bold; cursor:pointer;">📋 Batch Picking List</button>
+                        <button type="button" onclick="batchAction('loadsheet')" style="background:#0d9488; color:white; border:none; padding:8px 15px; border-radius:4px; font-weight:bold; cursor:pointer;">🚚 Batch Loadsheet</button>
+                    </div>
+                    <div style="font-size:12px; color:#64748b; margin-top:8px;">
+                        💡 Pilih baris dengan mencentang kotak di kiri, lalu klik tombol batch di atas.
+                        Picking List dan Loadsheet akan terbuka di tab baru (DO berstatus VOID tidak diikutkan).
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+</div>
+
+<script th:inline="javascript">
+    var BATCH_BASE = /*[[@{/ui/sales/do/batch/}]]*/ '/api/ui/sales/do/batch/';
+    function toggleAll(source) {
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = source.checked);
+    }
+
+    // Kirim aksi satu DO sebagai form POST
+    function postAction(url, message) {
+        if (!confirm(message)) return;
+        var f = document.createElement('form');
+        f.method = 'POST';
+        f.action = url;
+        document.body.appendChild(f);
+        f.submit();
+    }
+
+    var BATCH_CONFIG = {
+        'confirm':      { label: 'Confirm',      ask: true,  newTab: false },
+        'delete':       { label: 'Hapus',        ask: true,  newTab: false },
+        'picking-list': { label: 'Picking List', ask: false, newTab: true  },
+        'loadsheet':    { label: 'Loadsheet',    ask: false, newTab: true  }
+    };
+
+    function batchAction(action) {
+        var cfg = BATCH_CONFIG[action];
+        var selected = [];
+        document.querySelectorAll('.row-checkbox:checked').forEach(cb => selected.push(cb.value));
+
+        if (selected.length === 0) {
+            alert('Pilih minimal 1 DO terlebih dahulu dengan mencentang kotak di kiri.');
+            return;
+        }
+
+        if (cfg.ask && !confirm(cfg.label + ' ' + selected.length + ' DO terpilih?')) return;
+
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = BATCH_BASE + action;
+        if (cfg.newTab) form.target = '_blank';
+        selected.forEach(function (id) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'ids';
+            input.value = id;
+            form.appendChild(input);
+        });
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    }
+</script>
+</body>
+</html>

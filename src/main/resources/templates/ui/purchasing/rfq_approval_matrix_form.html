@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Form RFQ Approval Matrix</title>
+    <style>
+        body{font-family:Arial,sans-serif;background:#f4f6f9;color:#263238;margin:0;padding:24px}
+        .wrap{max-width:760px;margin:0 auto}.panel{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:22px}
+        h1{font-size:24px;margin:0 0 6px}.muted{color:#64748b;font-size:13px;margin-bottom:20px}
+        label{display:block;font-weight:600;font-size:13px;margin:15px 0 6px}input[type=text],input[type=number]{width:100%;box-sizing:border-box;padding:10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.check{display:flex;align-items:center;gap:9px;margin-top:18px}.check label{margin:0}
+        .actions{display:flex;gap:8px;margin-top:22px}.btn{display:inline-block;padding:10px 14px;border:0;border-radius:6px;text-decoration:none;cursor:pointer;font-size:13px}
+        .primary{background:#155eef;color:#fff}.secondary{background:#e8edf5;color:#243247}.flash{padding:10px 12px;border-radius:7px;margin-bottom:12px;background:#fee2e2;color:#991b1b}
+        .hint{font-size:12px;color:#64748b;margin-top:5px;line-height:1.5}@media(max-width:600px){body{padding:12px}.grid{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="panel">
+        <h1 th:text="${isNew} ? 'Tambah RFQ Approval Matrix' : 'Ubah RFQ Approval Matrix'"></h1>
+        <div class="muted">Satu rentang nominal memilih satu role approver. Batas atas bersifat eksklusif.</div>
+        <div th:if="${error}" class="flash" th:text="${error}"></div>
+        <form method="post" th:action="@{/ui/purchasing/rfq/approval-matrix/save}">
+            <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <input type="hidden" name="id" th:if="${matrix.id != null}" th:value="${matrix.id}">
+
+            <div class="grid">
+                <div>
+                    <label for="level">Level Approval</label>
+                    <input id="level" name="level" type="number" min="1" step="1" required th:value="${matrix.level}">
+                    <div class="hint">Nomor level harus unik untuk setiap tenant dan jenis dokumen RFQ.</div>
+                </div>
+                <div>
+                    <label for="roleRequired">Role Approver</label>
+                    <input id="roleRequired" name="roleRequired" type="text" maxlength="100" required th:value="${matrix.roleRequired}" placeholder="Contoh: MANAGER">
+                    <div class="hint">Harus sama dengan role yang tersimpan pada session user.</div>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div>
+                    <label for="minAmount">Nominal Minimal (Rp)</label>
+                    <input id="minAmount" name="minAmount" type="number" min="0" step="0.01" required th:value="${matrix.minAmount}">
+                </div>
+                <div>
+                    <label for="maxAmount">Nominal Maksimal (Rp)</label>
+                    <input id="maxAmount" name="maxAmount" type="number" min="0.01" step="0.01" required th:value="${matrix.maxAmount}">
+                </div>
+            </div>
+            <div class="hint">Contoh: Level 1 = 0 s.d. 50.000.000 (maksimal tidak termasuk); Level 2 mulai tepat 50.000.000.</div>
+
+            <div class="check">
+                <input id="isActive" name="isActive" type="checkbox" value="true" th:checked="${matrix.isActive}">
+                <label for="isActive">Matrix aktif untuk transaksi RFQ baru</label>
+            </div>
+
+            <div class="actions">
+                <button class="btn primary" type="submit">Simpan</button>
+                <a class="btn secondary" th:href="@{/ui/purchasing/rfq/approval-matrix}">Batal</a>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

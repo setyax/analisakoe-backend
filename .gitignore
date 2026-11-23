@@ -1,0 +1,38 @@
+# Daftar putih: hanya kode sumber dan berkas bangun yang masuk Git
+/*
+!/.gitignore
+!/.dockerignore
+!/Dockerfile
+!/pom.xml
+!/README.txt
+!/run_erp.bat
+!/run_erp.vbs
+!/run_erp_hidden.vbs
+!/start_erp.vbs
+!/src/
+
+# Rahasia: jangan pernah di-commit
+/src/main/resources/application.yml
+/src/main/resources/application-*.yml
+/src/main/resources/application-*.properties
+!/src/main/resources/application-example.yml
+
+# Cadangan manual di dalam src
+*.bak*
+*-bak
+*.old_*
+*.polos
+*.broken_*
+*.backup-*
+*.disabled
+!/.gitattributes
+
+# Template yatim (terbukti tidak dirender, jangan masuk Git)
+/src/main/resources/templates/fragments/sidebar_old.html
+/src/main/resources/templates/ui/finance/balance_sheet1.html
+/src/main/resources/templates/ui/finance/income_statement1.html
+/src/main/resources/templates/ui/purchasing/return_form.html
+/src/main/resources/templates/ui/purchasing/return_list.html
+/src/main/resources/templates/ui/sales/list.html
+/src/main/resources/templates/ui/users/form.html
+/src/main/resources/templates/ui/users/list.html

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0203] New Goods Receipt (GRN)</h3>
+
+                <div th:if="${error}" class="error-msg" th:text="${error}" style="margin-bottom:10px;"></div>
+
+                <form id="grnForm" th:action="@{/ui/purchasing/grn}" method="post">
+                    <div style="display:flex; flex-direction:column; gap:10px; width:100%; max-width:600px; margin-bottom:20px;">
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:120px; font-weight:bold;">Date:</label>
+                            <input type="date" name="docDate" th:value="${today}" required
+                                   style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:120px; font-weight:bold;">Pilih PO:</label>
+                            <select id="poSelect" name="poId" required style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;" onchange="loadPoDetails(this.value)">
+                                <option value="">-- Pilih Purchase Order --</option>
+                                <option th:each="p : ${pos}" th:value="${p.id}" th:text="${p.docNo}"
+                                        th:selected="${p.id == selectedPoId}"></option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:120px; font-weight:bold;">Remarks:</label>
+                            <input type="text" name="remarks" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        </div>
+                    </div>
+
+                    <table class="erp-table" id="itemTable" style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                        <thead>
+                            <tr style="background-color:#1e293b; color:white;">
+                                <th style="padding:10px; width:40px;">NO</th>
+                                <th style="padding:10px;">ITEM</th>
+                                <th style="padding:10px; width:120px;">QTY ORDER</th>
+                                <th style="padding:10px; width:120px;">QTY RECEIVED</th>
+                                <th style="padding:10px; width:100px;">UNIT</th>
+                                <th style="padding:10px; width:50px;">X</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemBody">
+                            <tr>
+                                <td colspan="6" style="text-align:center; padding:20px;">Silakan pilih PO di atas untuk memuat item.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div style="margin-top:30px; text-align:right; border-top:1px solid #eee; padding-top:20px;">
+                        <button type="submit" style="background:#2563eb; color:white; padding:10px 25px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Save GRN</button>
+                        <a th:href="@{/ui/purchasing/grn}" style="background:#64748b; color:white; padding:10px 25px; border-radius:4px; text-decoration:none; font-weight:bold; margin-left:10px;">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script th:inline="javascript">
+const uomList = /*[[${uoms}]]*/ [];
+
+function showTableMessage(message, color = '#64748b') {
+    const tbody = document.getElementById('itemBody');
+    tbody.replaceChildren();
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 6;
+    td.style.textAlign = 'center';
+    td.style.padding = '20px';
+    td.style.color = color;
+    td.textContent = message;
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+}
+
+function addPoDetailRow(item, index) {
+    // API wajib mengirim ID detail PO, bukan hanya item_id.
+    if (item.poDetailId === null || item.poDetailId === undefined || item.poDetailId === '') {
+        throw new Error('Data PO tidak mengandung poDetailId. Endpoint po-details harus mengirim d.id sebagai poDetailId.');
+    }
+
+    const tr = document.createElement('tr');
+    const no = document.createElement('td');
+    no.className = 'row-no';
+    no.style.cssText = 'text-align:center; padding:8px; border-bottom:1px solid #eee;';
+    no.textContent = String(index + 1);
+
+    const itemCell = document.createElement('td');
+    itemCell.style.cssText = 'padding:8px; border-bottom:1px solid #eee;';
+    itemCell.append(document.createTextNode(String(item.itemCode ?? '') + ' - ' + String(item.itemName ?? '')));
+
+    const poDetailInput = document.createElement('input');
+    poDetailInput.type = 'hidden';
+    poDetailInput.name = 'poDetailId';
+    poDetailInput.value = String(item.poDetailId);
+    itemCell.appendChild(poDetailInput);
+
+    const itemInput = document.createElement('input');
+    itemInput.type = 'hidden';
+    itemInput.name = 'itemId';
+    itemInput.value = String(item.itemId);
+    itemCell.appendChild(itemInput);
+
+    const qtyOrderCell = document.createElement('td');
+    qtyOrderCell.style.cssText = 'padding:8px; border-bottom:1px solid #eee; text-align:right; color:#64748b;';
+    qtyOrderCell.textContent = String(item.qty ?? '0');
+
+    const qtyReceivedCell = document.createElement('td');
+    qtyReceivedCell.style.cssText = 'padding:8px; border-bottom:1px solid #eee;';
+    const qtyInput = document.createElement('input');
+    qtyInput.type = 'number';
+    qtyInput.name = 'qtyReceived';
+    qtyInput.step = 'any';
+    qtyInput.min = '0.01';
+    qtyInput.required = true;
+    qtyInput.value = String(parseFloat(item.remainingQty ?? item.qty ?? 0));
+    qtyInput.style.cssText = 'width:100%; padding:5px; border:1px solid #ccc; text-align:right; font-weight:bold;';
+    qtyReceivedCell.appendChild(qtyInput);
+
+    const uomCell = document.createElement('td');
+    uomCell.style.cssText = 'padding:8px; border-bottom:1px solid #eee;';
+    const uomSelect = document.createElement('select');
+    uomSelect.name = 'uomId';
+    uomSelect.required = true;
+    uomSelect.style.cssText = 'width:100%; padding:5px; border:1px solid #ccc;';
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '-- Pilih --';
+    uomSelect.appendChild(placeholder);
+
+    uomList.forEach(uom => {
+        const option = document.createElement('option');
+        option.value = String(uom.id);
+        option.textContent = String(uom.code ?? '');
+        if (String(uom.id) === String(item.uomId)) option.selected = true;
+        uomSelect.appendChild(option);
+    });
+    uomCell.appendChild(uomSelect);
+
+    const actionCell = document.createElement('td');
+    actionCell.style.cssText = 'text-align:center; padding:8px; border-bottom:1px solid #eee;';
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.textContent = 'X';
+    removeButton.style.cssText = 'background:#d1d5db; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;';
+    removeButton.addEventListener('click', () => removeRow(removeButton));
+    actionCell.appendChild(removeButton);
+
+    tr.append(no, itemCell, qtyOrderCell, qtyReceivedCell, uomCell, actionCell);
+    return tr;
+}
+
+async function loadPoDetails(poId) {
+    if (!poId) {
+        showTableMessage('Silakan pilih PO di atas untuk memuat item.');
+        return;
+    }
+
+    showTableMessage('Memuat item dari PO...');
+
+    try {
+        const res = await fetch('/api/ui/purchasing/grn/api/po-details/' + encodeURIComponent(poId));
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+
+        if (!Array.isArray(data) || data.length === 0) {
+            showTableMessage('PO tidak memiliki item.');
+            return;
+        }
+        if (data[0] && data[0].error) {
+            showTableMessage('Error: ' + data[0].error, 'red');
+            return;
+        }
+
+        const tbody = document.getElementById('itemBody');
+        tbody.replaceChildren();
+        data.forEach((item, index) => tbody.appendChild(addPoDetailRow(item, index)));
+        updateRowNumbers();
+    } catch (error) {
+        console.error('[GRN] Fatal:', error);
+        showTableMessage('Gagal memuat PO: ' + error.message, 'red');
+    }
+}
+
+function removeRow(button) {
+    button.closest('tr').remove();
+    updateRowNumbers();
+}
+
+function updateRowNumbers() {
+    document.querySelectorAll('#itemBody tr').forEach((row, index) => {
+        const cell = row.querySelector('.row-no');
+        if (cell) cell.textContent = String(index + 1);
+    });
+}
+
+document.getElementById('grnForm').addEventListener('submit', function (event) {
+    const rows = document.querySelectorAll('#itemBody tr');
+    const validRows = Array.from(rows).filter(row => row.querySelector('input[name="poDetailId"]'));
+    if (validRows.length === 0) {
+        event.preventDefault();
+        alert('GRN harus memiliki minimal satu detail PO.');
+        return;
+    }
+    const missingPoDetail = validRows.some(row => !row.querySelector('input[name="poDetailId"]').value);
+    if (missingPoDetail) {
+        event.preventDefault();
+        alert('ID detail PO tidak ditemukan. Muat ulang detail PO sebelum menyimpan.');
+    }
+});
+
+// Auto-load saat halaman dibuka dengan selectedPoId.
+document.addEventListener('DOMContentLoaded', function () {
+    const select = document.getElementById('poSelect');
+    if (select && select.value) loadPoDetails(select.value);
+});
+</script>
+</body>
+</html>

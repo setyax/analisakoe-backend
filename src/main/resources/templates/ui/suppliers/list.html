@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:16px;">
+                    <div>
+                        <h3 style="margin:0 0 4px 0;">Supplier Master</h3>
+                        <p style="margin:0; color:#64748b; font-size:13px;">Maintain supplier identity, tax and payment terms.</p>
+                    </div>
+                    <a th:href="@{/ui/suppliers/new}" class="erp-btn erp-btn-primary" style="text-decoration:none;">+ Add Supplier</a>
+                </div>
+
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+
+                <form th:action="@{/ui/suppliers}" method="get" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0 0 12px 0;">
+                    <input type="search" name="q" th:value="${q}" placeholder="Search supplier name..." aria-label="Search supplier name" style="max-width:320px; margin:0;">
+                    <button type="submit" class="erp-btn erp-btn-primary">Search</button>
+                    <a th:href="@{/ui/suppliers}" class="erp-btn" style="background:#e2e8f0; color:#334155; text-decoration:none;">Reset</a>
+                </form>
+
+                <div style="overflow-x:auto;">
+                    <table class="erp-table">
+                        <thead>
+                        <tr>
+                            <th>Supplier Code</th>
+                            <th>Supplier Name</th>
+                            <th>Tax ID</th>
+                            <th>Currency</th>
+                            <th style="text-align:right;">Payment Term</th>
+                            <th>Status</th>
+                            <th style="width:150px;">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(suppliers.content)}">
+                            <td colspan="7" style="text-align:center; padding:24px; color:#64748b;">No supplier records found.</td>
+                        </tr>
+                        <tr th:each="s : ${suppliers.content}">
+                            <td><strong th:text="${s.code}">SUP001</strong></td>
+                            <td th:text="${s.name}">Supplier Name</td>
+                            <td th:text="${s.taxId != null and !#strings.isEmpty(s.taxId) ? s.taxId : '—'}">—</td>
+                            <td th:text="${s.currency != null ? s.currency : '—'}">IDR</td>
+                            <td style="text-align:right;" th:text="${s.paymentTermDays != null ? s.paymentTermDays + ' days' : '—'}">0 days</td>
+                            <td>
+                                <span th:text="${s.status}" th:style="${s.status == 'ACTIVE' ? 'display:inline-block;padding:3px 8px;border-radius:12px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;' : 'display:inline-block;padding:3px 8px;border-radius:12px;background:#fee2e2;color:#991b1b;font-size:12px;font-weight:600;'}">ACTIVE</span>
+                            </td>
+                            <td style="white-space:nowrap;">
+                                <a th:href="@{/ui/suppliers/{id}/edit(id=${s.id})}" class="erp-btn-sm" style="background:#dbeafe;color:#1d4ed8;text-decoration:none;">Edit</a>
+                                <button type="button" class="erp-btn-sm" style="background:#fee2e2;color:#b91c1c;" th:attr="data-delete-url=@{/ui/suppliers/{id}(id=${s.id})}" onclick="deleteMasterRecord(this, 'supplier')">Delete</button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+<script>
+async function deleteMasterRecord(button, label) {
+    if (!confirm('Delete this ' + label + '? This action cannot be undone.')) return;
+    button.disabled = true;
+    try {
+        const response = await fetch(button.dataset.deleteUrl, {
+            method: 'DELETE',
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        if (!response.ok || response.redirected) {
+            throw new Error('Delete failed (HTTP ' + response.status + '). Please refresh and try again.');
+        }
+        window.location.reload();
+    } catch (error) {
+        alert(error.message || 'Unable to delete this record.');
+        button.disabled = false;
+    }
+}
+</script>
+</body>
+</html>

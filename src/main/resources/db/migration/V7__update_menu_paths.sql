@@ -1,0 +1,9 @@
+UPDATE core.menu SET path = '/ui/items'       WHERE code = 'md.items';
+UPDATE core.menu SET path = '/ui/customers'   WHERE code = 'md.customers';
+UPDATE core.menu SET path = '/ui/suppliers'   WHERE code = 'md.suppliers';
+UPDATE core.menu SET path = '/ui/uoms'        WHERE code = 'md.uoms';
+UPDATE core.menu SET path = '/ui/warehouses'  WHERE code = 'md.warehouses';
+UPDATE core.menu SET path = '/ui/users'       WHERE code = 'core.users';
+UPDATE core.menu SET path = '/ui/roles'       WHERE code = 'core.roles';
+UPDATE core.menu SET path = '/ui/permissions' WHERE code = 'core.permissions';
+UPDATE core.menu SET path = '/ui/dashboard'   WHERE code = 'dashboard';

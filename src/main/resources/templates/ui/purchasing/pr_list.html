@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0201] Purchase Request List</h3>
+
+                <div th:if="${success}" style="margin-bottom:10px; padding:10px; background:#dcfce7; color:#166534; border-radius:4px;" th:text="${success}"></div>
+                <div th:if="${error}" style="margin-bottom:10px; padding:10px; background:#fee2e2; color:#991b1b; border-radius:4px;" th:text="${error}"></div>
+
+                <!-- SEARCH BAR -->
+                <div style="margin-bottom: 15px;">
+                    <input type="text" id="searchInput" placeholder="🔍 Cari data (No PR, Requestor, Status)..." style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                </div>
+
+                <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:4px; margin-bottom:20px;">
+                    <table id="prTable" style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead>
+                            <tr style="background-color:#1e293b; color:white;">
+                                <th style="padding:10px; width:30px;"></th>
+                                <th style="padding:10px;">DATE</th>
+                                <th style="padding:10px;">DOC NO</th>
+                                <th style="padding:10px;">REQUESTOR</th>
+                                <th style="padding:10px;">REMARKS</th>
+                                <th style="padding:10px;">STATUS</th>
+                                <th style="padding:10px; text-align:center; width:100px;">AKSI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${#lists.isEmpty(prs)}">
+                                <td colspan="7" style="text-align:center; padding:20px; color:#94a3b8;">Belum ada data.</td>
+                            </tr>
+                            <tr th:each="p : ${prs}" style="border-bottom:1px solid #eee;">
+                                <td style="padding:10px; text-align:center;">
+                                    <input type="radio" name="selRow" th:value="${p.id}" th:attr="data-status=${p.status}">
+                                </td>
+                                <td style="padding:10px;" th:text="${p.docDate != null ? #temporals.format(p.docDate, 'dd-MM-yyyy') : '-'}">-</td>
+                                <td style="padding:10px; font-weight:bold;" th:text="${p.docNo}">-</td>
+                                <td style="padding:10px;" th:text="${p.requestor} ?: '-'">-</td>
+                                <td style="padding:10px;" th:text="${p.remarks} ?: ''"></td>
+                                <td style="padding:10px;">
+                                    <span th:styleappend="${p.status == 'DRAFT' ? 'background:#e2e8f0; color:#475569;' : (p.status == 'CONFIRMED' ? 'background:#dcfce7; color:#166534;' : 'background:#fee2e2; color:#991b1b;')}"
+                                          style="padding:3px 10px; border-radius:12px; font-size:11px; font-weight:bold;"
+                                          th:text="${p.status}">-</span>
+                                </td>
+                                <!-- KOLOM AKSI UNTUK BUAT RFQ -->
+                                <td style="padding:10px; text-align:center;">
+                                    <a th:href="@{/ui/purchasing/pr/{id}/print(id=${p.id})}"
+   target="_blank"
+   style="background:#2563eb;color:white;padding:4px 10px;border-radius:3px;text-decoration:none;font-size:11px;font-weight:bold;display:inline-block;margin-right:4px;">
+   Print
+</a>
+                                    <a th:if="${p.status == 'CONFIRMED'}" 
+                                       th:href="@{/ui/purchasing/rfq/new(prId=${p.id})}" 
+                                       style="background:#10b981; color:white; padding:4px 10px; border-radius:3px; text-decoration:none; font-size:11px; font-weight:bold; display:inline-block;"
+                                       title="Buat Request for Quotation dari PR ini">
+                                       + RFQ
+                                    </a>
+                                    <span th:if="${p.status != 'CONFIRMED'}" style="color:#cbd5e1;">-</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ACTION BUTTONS -->
+                <div style="background:#e2e8f0; padding:10px; border-radius:5px; display:flex; gap:8px; flex-wrap:wrap;">
+                    <a th:href="@{/ui/purchasing/pr/new}" style="background:#d97706; color:white; padding:6px 15px; border-radius:3px; text-decoration:none; font-weight:bold;">Insert</a>
+                    <a th:href="@{/ui/purchasing/pr/report}"
+   style="background:#0f766e;color:white;padding:6px 15px;border-radius:3px;text-decoration:none;font-weight:bold;">
+   Rekap Purchase Request
+</a>
+                    <button type="button" style="background:#3b82f6; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('edit')">Change</button>
+                    <button type="button" style="background:#10b981; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('confirm')">Confirm</button>
+                    <button type="button" style="background:#f59e0b; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('unconfirm')">Unconfirm</button>
+                    <button type="button" style="background:#dc2626; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('void')">Void</button>
+                    <button type="button" style="background:#6b7280; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('delete')">Delete</button>
+                </div>
+
+                <div style="margin-top:10px; font-size:12px; color:#64748b;">
+                    Pilih baris dengan menekan bulatan di kolom kiri, lalu klik tombol aksi.
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script th:inline="javascript">
+    const CONTEXT_PATH = /*[[@{/}]]*/ '/';
+
+    function doAction(action) {
+        const selected = document.querySelector('input[name="selRow"]:checked');
+        if (!selected) { alert('Pilih data terlebih dahulu!'); return; }
+        
+        const id = selected.value;
+        const status = selected.getAttribute('data-status');
+        const baseUrl = CONTEXT_PATH + 'ui/purchasing/pr/' + id;
+
+        if (action === 'edit' && status !== 'DRAFT') { alert('Hanya PR DRAFT yang bisa diedit.'); return; }
+        if (action === 'confirm' && status !== 'DRAFT') { alert('Hanya PR DRAFT yang bisa di-confirm.'); return; }
+        if (action === 'unconfirm' && status !== 'CONFIRMED') { alert('Hanya PR CONFIRMED yang bisa di-unconfirm.'); return; }
+        if (action === 'void' && status === 'VOID') { alert('PR sudah VOID.'); return; }
+        if (action === 'delete' && status !== 'DRAFT') { alert('Hanya PR DRAFT yang bisa dihapus.'); return; }
+
+        if (action === 'delete') { if (!confirm('Hapus PR ini?')) return; }
+        else if (action === 'confirm') { if (!confirm('Confirm PR ini?')) return; }
+        else if (action === 'unconfirm') { if (!confirm('Unconfirm PR ini?')) return; }
+        else if (action === 'void') { if (!confirm('Void PR ini?')) return; }
+
+        if (action === 'edit') { window.location.href = baseUrl + '/edit'; }
+        else { submitForm(baseUrl + '/' + action); }
+    }
+
+    function submitForm(url) {
+        const form = document.createElement('form');
+        form.method = 'POST'; form.action = url;
+        document.body.appendChild(form); form.submit();
+    }
+
+    // Fitur Pencarian
+    document.getElementById('searchInput').addEventListener('keyup', function() {
+        const filter = this.value.toLowerCase();
+        document.querySelectorAll('#prTable tbody tr').forEach(row => {
+            if (row.cells.length > 1) {
+                row.style.display = row.innerText.toLowerCase().includes(filter) ? '' : 'none';
+            }
+        });
+    });
+</script>
+</body>
+</html>

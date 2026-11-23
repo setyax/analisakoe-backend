@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Login')}"></head>
+<body>
+<main class="container" style="max-width: 400px; margin-top: 10vh;">
+    <article>
+        <h2 style="text-align:center;">AnalisaKoe</h2>
+        <p style="text-align:center; color: #666;">Masuk ke akun Anda</p>
+
+        <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+
+        <form th:action="@{/ui/login}" method="post">
+            <input type="hidden" name="redirect" th:value="${redirect}">
+            <label>Username
+                <input type="text" name="username" th:value="${username}" required autofocus>
+            </label>
+            <label>Password
+                <input type="password" name="password" required>
+            </label>
+            <button type="submit">Login</button>
+        </form>
+    </article>
+</main>
+</body>
+</html>

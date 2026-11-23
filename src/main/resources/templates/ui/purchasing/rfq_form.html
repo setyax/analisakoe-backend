@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0201] New Request for Quotation</h3>
+
+                <div th:if="${error}" style="margin-bottom:10px; padding:10px; background:#fee2e2; color:#991b1b; border-radius:4px;" th:text="${error}"></div>
+
+                <form th:action="@{/ui/purchasing/rfq}" method="post">
+                    <div style="display:grid; grid-template-columns:150px 1fr 150px 1fr; gap:15px; align-items:center; margin-bottom:25px; background:#f8fafc; padding:20px; border-radius:8px; border:1px solid #e2e8f0;">
+                                                <!-- TAMBAHKAN INI -->
+                        <label style="font-weight:600; color:#1e40af;">Buat dari PR:</label>
+                        <select id="prSelect" name="prId" onchange="loadPrDetails(this.value)"
+                                style="padding:10px; border:1px solid #3b82f6; border-radius:4px; background:#eff6ff; grid-column: span 3;">
+                            <option value="">-- (Opsional) Pilih Purchase Request --</option>
+                            <option th:each="pr : ${prs}" th:value="${pr.id}" th:text="${pr.docNo}"
+        th:selected="${selectedPrId != null and pr.id.toString() == selectedPrId.toString()}"></option>
+                        </select>
+						
+						<label style="font-weight:600;">Tanggal RFQ:</label>
+                        <input type="date" name="docDate" th:value="${today}" required style="padding:10px; border:1px solid #ddd; border-radius:4px;">
+                        
+                        <label style="font-weight:600;">Batas Penawaran:</label>
+                        <input type="date" name="dueDate" th:value="${today.plusDays(7)}" style="padding:10px; border:1px solid #ddd; border-radius:4px;">
+                        
+                        <label style="font-weight:600;">Remarks:</label>
+                        <input type="text" name="remarks" style="padding:10px; border:1px solid #ddd; border-radius:4px; grid-column: span 3;">
+                    </div>
+
+                    <!-- PILIH SUPPLIER -->
+                    <h4 style="color:#1e293b;">Supplier yang Diundang</h4>
+                    <div style="background:#f1f5f9; padding:15px; border-radius:6px; margin-bottom:20px;">
+                        <label th:each="s : ${suppliers}" style="display:inline-block; margin-right:20px; margin-bottom:5px;">
+                            <input type="checkbox" name="supplierId" th:value="${s.id}">
+                            <span th:text="${s.name}"></span>
+                        </label>
+                    </div>
+
+                    <!-- ITEMS -->
+                    <h4 style="color:#1e293b;">Item yang Diminta Penawaran</h4>
+                    <table style="width:100%; border-collapse:collapse; margin-bottom:15px;" id="itemTable">
+                        <thead>
+                            <tr style="background-color:#1e293b; color:white;">
+                                <th style="padding:10px; width:40px;">NO</th>
+                                <th style="padding:10px;">ITEM</th>
+                                <th style="padding:10px; width:120px;">QTY</th>
+                                <th style="padding:10px; width:100px;">UNIT</th>
+                                <th style="padding:10px; width:50px;">X</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemBody">
+                            <tr>
+                                <td style="text-align:center; padding:8px;" class="row-no">1</td>
+                                <td style="padding:8px;">
+                                    <select name="itemId" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                        <option value="">-- Pilih Item --</option>
+                                        <option th:each="i : ${items}" th:value="${i.id}" th:text="${i.code} + ' - ' + ${i.name}"></option>
+                                    </select>
+                                </td>
+                                <td style="padding:8px;"><input type="number" name="qty" step="any" min="0.01" required style="width:100%; padding:8px; text-align:right; border:1px solid #ddd; border-radius:4px;"></td>
+                                <td style="padding:8px;">
+                                    <select name="uomId" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                        <option th:each="u : ${uoms}" th:value="${u.id}" th:text="${u.code}"></option>
+                                    </select>
+                                </td>
+                                <td style="text-align:center; padding:8px;"><button type="button" onclick="removeRow(this)" style="background:#e2e8f0; border:1px solid #cbd5e1; color:#64748b; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">X</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <button type="button" onclick="addRow()" style="background:#e2e8f0; color:#333; padding:8px 20px; border:1px solid #cbd5e1; border-radius:4px; font-weight:bold; cursor:pointer; margin-bottom:20px;">+ Tambah Item</button>
+
+                    <div style="text-align:right; border-top:1px solid #eee; padding-top:20px;">
+                        <button type="submit" style="padding:10px 30px; background:#2563eb; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">💾 Save RFQ</button>
+                        <a th:href="@{/ui/purchasing/rfq}" style="padding:10px 30px; background:#64748b; color:white; border-radius:4px; text-decoration:none; font-weight:bold; margin-left:10px;">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script th:inline="javascript">
+    const CONTEXT_PATH = /*[[@{/}]]*/ '/';
+    let itemOptionsTemplate = '';
+    let uomOptionsTemplate = '';
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Simpan template opsi untuk baris baru
+        const firstItemSelect = document.querySelector('select[name="itemId"]');
+        const firstUomSelect = document.querySelector('select[name="uomId"]');
+        if(firstItemSelect) itemOptionsTemplate = firstItemSelect.innerHTML;
+        if(firstUomSelect) uomOptionsTemplate = firstUomSelect.innerHTML;
+
+        // === DEBUG: Cek nilai prSelect ===
+        const prSelect = document.getElementById('prSelect');
+        console.log('[DEBUG] prSelect ditemukan:', !!prSelect);
+        console.log('[DEBUG] prSelect.value =', prSelect ? '"' + prSelect.value + '"' : 'N/A');
+        console.log('[DEBUG] Jumlah opsi PR:', prSelect ? prSelect.options.length : 0);
+
+        // === AUTO-LOAD: Tunggu 100ms untuk pastikan DOM siap ===
+        setTimeout(function() {
+            if (prSelect && prSelect.value) {
+                console.log('[DEBUG] Auto-loading PR ID:', prSelect.value);
+                loadPrDetails(prSelect.value);
+            } else {
+                console.log('[DEBUG] Tidak ada PR terpilih, tampilkan dropdown default.');
+            }
+        }, 100);
+    });
+
+    async function loadPrDetails(prId) {
+        const tbody = document.getElementById('itemBody');
+        console.log('[loadPrDetails] Loading PR ID:', prId);
+        
+        if (!prId) {
+            tbody.innerHTML = `
+                <tr>
+                    <td style="text-align:center; padding:8px;" class="row-no">1</td>
+                    <td style="padding:8px;"><select name="itemId" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">${itemOptionsTemplate}</select></td>
+                    <td style="padding:8px;"><input type="number" name="qty" step="any" min="0.01" required style="width:100%; padding:8px; text-align:right; border:1px solid #ddd; border-radius:4px;"></td>
+                    <td style="padding:8px;"><select name="uomId" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">${uomOptionsTemplate}</select></td>
+                    <td style="text-align:center; padding:8px;"><button type="button" onclick="removeRow(this)" style="background:#e2e8f0; border:1px solid #cbd5e1; color:#64748b; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">X</button></td>
+                </tr>
+            `;
+            return;
+        }
+
+        try {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">⏳ Memuat data dari PR...</td></tr>';
+            
+            const url = 'api/pr-details/' + prId;
+            console.log('[DEBUG] Fetch URL:', url);
+            const res = await fetch(url);
+            
+            if (!res.ok) {
+                throw new Error('HTTP ' + res.status);
+            }
+            
+            const data = await res.json();
+            console.log('[DEBUG] Response data length:', data ? data.length : 0);
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#64748b;">PR tidak memiliki item.</td></tr>';
+                return;
+            }
+            if (data[0] && data[0].error) throw new Error(data[0].error);
+
+            tbody.innerHTML = '';
+            data.forEach((item, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="text-align:center; padding:8px;" class="row-no">${idx + 1}</td>
+                    <td style="padding:8px;">
+                        <input type="hidden" name="itemId" value="${item.itemId}">
+                        <span style="font-weight:bold;">${item.itemCode}</span> - ${item.itemName}
+                    </td>
+                    <td style="padding:8px;">
+                        <input type="number" name="qty" step="any" min="0.01" value="${item.qty}" required style="width:100%; padding:8px; text-align:right; border:1px solid #ddd; border-radius:4px;">
+                    </td>
+                    <td style="padding:8px;">
+                        <input type="hidden" name="uomId" value="${item.uomId}">
+                        <span style="padding:8px; display:block; text-align:center; font-weight:bold;">${item.uomCode}</span>
+                    </td>
+                    <td style="text-align:center; padding:8px;"><button type="button" onclick="removeRow(this)" style="background:#e2e8f0; border:1px solid #cbd5e1; color:#64748b; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">X</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (e) {
+            console.error('[loadPrDetails] Error:', e);
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:#dc2626; font-weight:bold;">Gagal memuat PR: ${e.message}</td></tr>`;
+        }
+    }
+
+    function addRow() {
+        const tbody = document.getElementById('itemBody');
+        const rowCount = tbody.querySelectorAll('tr').length + 1;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="text-align:center; padding:8px;" class="row-no">${rowCount}</td>
+            <td style="padding:8px;"><select name="itemId" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">${itemOptionsTemplate}</select></td>
+            <td style="padding:8px;"><input type="number" name="qty" step="any" min="0.01" required style="width:100%; padding:8px; text-align:right; border:1px solid #ddd; border-radius:4px;"></td>
+            <td style="padding:8px;"><select name="uomId" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">${uomOptionsTemplate}</select></td>
+            <td style="text-align:center; padding:8px;"><button type="button" onclick="removeRow(this)" style="background:#e2e8f0; border:1px solid #cbd5e1; color:#64748b; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">X</button></td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    function removeRow(btn) {
+        const tbody = document.getElementById('itemBody');
+        if (tbody.rows.length > 1) {
+            btn.closest('tr').remove();
+            document.querySelectorAll('#itemBody tr').forEach((row, i) => {
+                row.querySelector('.row-no').innerText = i + 1;
+            });
+        }
+    }
+</script>
+</body>
+</html>

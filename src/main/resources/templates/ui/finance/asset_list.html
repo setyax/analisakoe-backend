@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0713] Fixed Asset Master</h3>
+
+                <!-- Flash Messages -->
+                <div th:if="${success}" style="background:#dcfce7; border:1px solid #16a34a; color:#14532d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${success}"></div>
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <!-- Action Bar: Search, New, Depreciation -->
+                <div style="display:flex; gap:10px; margin-bottom:20px; align-items:center; flex-wrap:wrap;">
+                    
+                    <!-- Tombol New Asset -->
+                    <a th:href="@{/ui/finance/assets/new}" class="erp-btn erp-btn-primary" style="text-decoration:none; padding: 8px 15px; display:inline-block;">+ New Asset</a>
+                    
+                    <!-- FORM PENCARIAN (BARU) -->
+                    <form th:action="@{/ui/finance/assets}" method="get" style="display:flex; gap:5px; align-items:center; margin:0;">
+                        <input type="text" name="keyword" th:value="${keyword}" placeholder="Cari kode/nama..." style="padding:8px; border:1px solid #cbd5e1; border-radius:4px;" />
+                        <select name="status" style="padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                            <option value="">-- Semua Status --</option>
+                            <option value="ACTIVE" th:selected="${status == 'ACTIVE'}">ACTIVE</option>
+                            <option value="INACTIVE" th:selected="${status == 'INACTIVE'}">INACTIVE</option>
+                            <option value="DISPOSED" th:selected="${status == 'DISPOSED'}">DISPOSED</option>
+                        </select>
+                        <button type="submit" style="background:#0ea5e9; color:white; padding:9px 15px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Cari</button>
+                        <a th:href="@{/ui/finance/assets}" style="text-decoration:none; padding:9px 10px; color:#64748b;">Reset</a>
+                    </form>
+
+                    <!-- FORM DEPRESIASI (ASLI) -->
+                    <form id="formDepresiasi" onsubmit="return submitDepresiasi(event);" style="display:flex; gap:5px; align-items:center; margin:0 0 0 auto;">
+                        <select id="periodMonth" required style="padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                            <option value="">-- Bulan --</option>
+                            <option value="01">Januari</option>
+                            <option value="02">Februari</option>
+                            <option value="03">Maret</option>
+                            <option value="04">April</option>
+                            <option value="05">Mei</option>
+                            <option value="06">Juni</option>
+                            <option value="07">Juli</option>
+                            <option value="08">Agustus</option>
+                            <option value="09">September</option>
+                            <option value="10">Oktober</option>
+                            <option value="11">November</option>
+                            <option value="12">Desember</option>
+                        </select>
+                        <select id="periodYear" required style="padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                            <option value="">-- Tahun --</option>
+                        </select>
+                        <button type="submit" style="background:#8b5cf6; color:white; padding:9px 15px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">⚙️ Proses Depresiasi</button>
+                    </form>
+                </div>
+
+                <!-- TABEL ASET -->
+                <table class="erp-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background-color:#1e293b; color:white;">
+                            <th>KODE ASET</th>
+                            <th>NAMA ASET</th>
+                            <th>KATEGORI</th>
+                            <th>TGL PEROLEHAN</th>
+                            <th style="text-align:right;">HARGA PEROLEHAN</th>
+                            <th style="text-align:right;">AKUM. DEPRESIASI</th>
+                            <th style="text-align:right;">NILAI BUKU</th>
+                            <th>STATUS</th>
+                            <th style="text-align:center;">AKSI</th> <!-- KOLOM BARU -->
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${assets.isEmpty()}">
+                            <td colspan="9" style="text-align:center; padding: 20px;">Belum ada aset.</td>
+                        </tr>
+                        <tr th:each="a : ${assets}" style="border-bottom:1px solid #eee;">
+                            <td><strong th:text="${a.code}"></strong></td>
+                            <td th:text="${a.name}">-</td>
+                            <td th:text="${a.category}">-</td>
+                            <td th:text="${@dateFmt.format(a.acqDate)}">-</td>
+                            <td style="text-align:right;" th:text="${#numbers.formatDecimal(a.acqCost, 1, 'POINT', 2, 'COMMA')}">0,00</td>
+                            <td style="text-align:right; color:#dc2626;" th:text="${#numbers.formatDecimal(a.accumDep, 1, 'POINT', 2, 'COMMA')}">0,00</td>
+                            <td style="text-align:right; font-weight:bold;" th:text="${#numbers.formatDecimal(a.bookValue, 1, 'POINT', 2, 'COMMA')}">0,00</td>
+                            <td><span style="background:#e2e8f0; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:bold;" th:text="${a.status}">-</span></td>
+                            
+                            <!-- TOMBOL AKSI (BARU) -->
+                            <td style="text-align:center;">
+                                <a th:href="@{/ui/finance/assets/{id}/edit(id=${a.id})}" style="background:#f59e0b; color:white; text-decoration:none; padding:5px 10px; border-radius:4px; font-size:12px; margin-right:5px;">Edit</a>
+                                <form th:action="@{/ui/finance/assets/{id}/delete(id=${a.id})}" method="post" style="display:inline;" onsubmit="return confirm('Yakin hapus aset ini?');">
+                                    <button type="submit" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">Hapus</button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+<script>
+    // Isi dropdown tahun otomatis (5 tahun terakhir + 2 tahun ke depan)
+    document.addEventListener('DOMContentLoaded', function() {
+        var yearSelect = document.getElementById('periodYear');
+        if (!yearSelect) return;
+        var currentYear = new Date().getFullYear();
+        for (var y = currentYear + 2; y >= currentYear - 5; y--) {
+            var opt = document.createElement('option');
+            opt.value = y;
+            opt.text = y;
+            if (y === currentYear) opt.selected = true;
+            yearSelect.appendChild(opt);
+        }
+    });
+
+    function submitDepresiasi(event) {
+        event.preventDefault();
+        var month = document.getElementById('periodMonth').value;
+        var year = document.getElementById('periodYear').value;
+        
+        if (!month || !year) {
+            alert('Pilih bulan dan tahun terlebih dahulu!');
+            return false;
+        }
+        
+        var period = year + '-' + month;
+        if (!confirm('Proses depresiasi untuk periode ' + period + '?')) {
+            return false;
+        }
+        
+        var f = document.createElement('form');
+        f.method = 'POST';
+        f.action = '/api/ui/finance/assets/run-depreciation';
+        
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'period';
+        input.value = period;
+        
+        f.appendChild(input);
+        document.body.appendChild(f);
+        f.submit();
+        return false;
+    }
+</script>
+</body>
+</html>

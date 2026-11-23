@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+
+<body>
+<div class="app-layout">
+
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+
+        <section class="app-content">
+
+            <style>
+                .si-page { max-width: 1200px; }
+                .si-title { margin: 0 0 20px; font-size: 20px; color: #1e293b; }
+                .si-alert { background: #fee2e2; border: 1px solid #dc2626; color: #7f1d1d;
+                            padding: 10px 12px; border-radius: 6px; margin-bottom: 16px; }
+
+                /* Header form */
+                .si-header { display: grid; grid-template-columns: 180px 1fr; gap: 12px 16px;
+                             align-items: center; max-width: 640px; margin-bottom: 28px; }
+                .si-header label { font-weight: 600; color: #1e293b; }
+                .si-header select,
+                .si-header input { width: 100%; box-sizing: border-box; padding: 8px 10px;
+                                   border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; }
+                .si-header input[readonly] { background: #f1f5f9; color: #475569; }
+                .si-hint { display: block; margin-top: 4px; font-size: 12px; color: #64748b; }
+
+                /* Tabel item */
+                .si-section-title { margin: 0 0 10px; font-size: 16px; color: #1e293b; }
+                .si-table-wrap { overflow-x: auto; margin-bottom: 16px; }
+                .si-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+                .si-table thead th { background: #1e293b; color: #fff; padding: 10px; text-align: left;
+                                     white-space: nowrap; }
+                .si-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+                .si-table .col-no { width: 48px; text-align: center; }
+                .si-table .col-unit { width: 90px; }
+                .si-table .col-num { text-align: right; white-space: nowrap; }
+                .si-table thead th.col-num { text-align: right; }
+                .si-table .col-qty input { width: 90px; padding: 5px 6px; text-align: right;
+                                           border: 1px solid #cbd5e1; border-radius: 4px; }
+                .si-table .empty { text-align: center; padding: 24px; color: #64748b; }
+                .si-table .error { text-align: center; padding: 24px; color: #dc2626; }
+                .si-table .remaining-ok { color: #16a34a; font-weight: 600; }
+                .si-table .remaining-zero { color: #dc2626; font-weight: 600; }
+                .si-table .line-total { font-weight: 700; }
+
+                /* Ringkasan */
+                .si-summary { margin-left: auto; max-width: 420px; background: #f8fafc;
+                              border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 16px; }
+                .si-summary .row { display: flex; justify-content: space-between; padding: 4px 0; }
+                .si-summary .row.grand { margin-top: 6px; padding-top: 10px; border-top: 1px solid #cbd5e1;
+                                         font-size: 16px; font-weight: 700; }
+
+                /* Tombol */
+                .si-actions { display: flex; justify-content: flex-end; gap: 10px;
+                              margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+                .si-btn { padding: 10px 24px; border: none; border-radius: 4px; font-size: 14px;
+                          font-weight: 700; color: #fff; text-decoration: none; cursor: pointer; }
+                .si-btn-primary { background: #2563eb; }
+                .si-btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
+                .si-btn-secondary { background: #64748b; }
+            </style>
+
+            <div class="erp-container si-page">
+
+                <h3 class="si-title">New Sales Invoice</h3>
+
+                <div class="si-alert" th:if="${error}" th:text="${error}"></div>
+
+                <form th:action="@{/ui/sales/invoices}" method="post" id="siForm">
+
+                    <!-- ===== Header ===== -->
+                    <div class="si-header">
+                        <label for="doSelect">Pilih DO (Ref)</label>
+                        <select id="doSelect" name="doId" required onchange="loadDoDetails(this.value)">
+                            <option value="">-- Pilih Delivery Order --</option>
+                            <option th:each="d : ${doList}"
+                                    th:value="${d['id']}"
+                                    th:text="${d.docNo + ' | ' + d.customer}"
+                                    th:attr="data-top=${d['customerTop']},data-tax-type=${d['taxType']},data-so-no=${d['soNo']},data-customer=${d['customer']},data-currency=${d['currency']}"></option>
+                        </select>
+
+                        <label for="soNo">No. SO</label>
+                        <input type="text" id="soNo" readonly>
+
+                        <label for="customerName">Customer</label>
+                        <input type="text" id="customerName" readonly>
+
+                        <label for="currencyLabel">Currency</label>
+                        <input type="text" id="currencyLabel" readonly>
+
+                        <label for="invoiceDate">Tgl Invoice</label>
+                        <input type="date" id="invoiceDate" name="invDate" th:value="${today}"
+                               required onchange="calcDueDate()">
+
+                        <label for="dueDate">Jatuh Tempo</label>
+                        <div>
+                            <input type="date" id="dueDate" name="dueDate" required readonly>
+                            <small id="topInfo" class="si-hint"></small>
+                        </div>
+
+                        <label for="taxTypeLabel">Tax Type</label>
+                        <input type="text" id="taxTypeLabel" value="-" readonly>
+
+                        <label for="remarks">Remarks</label>
+                        <input type="text" id="remarks" name="remarks">
+                    </div>
+                    <input type="hidden" name="taxType" id="taxType">
+                    <input type="hidden" name="taxRate" id="taxRate">
+
+                    <!-- ===== Detail item ===== -->
+                    <h4 class="si-section-title">Detail Item dari DO</h4>
+
+                    <div class="si-table-wrap">
+                        <table class="erp-table si-table" id="itemTable">
+                            <thead>
+                                <tr>
+                                    <th class="col-no">No</th>
+                                    <th>Item</th>
+                                    <th class="col-unit">Unit</th>
+                                    <th class="col-num">Qty DO</th>
+                                    <th class="col-num">Sisa</th>
+                                    <th class="col-num">Qty Tagih</th>
+                                    <th class="col-num">Harga</th>
+                                    <th class="col-num">Subtotal</th>
+                                    <th class="col-num">DPP</th>
+                                    <th class="col-num" id="thPpn">PPN</th>
+                                    <th class="col-num">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemBody">
+                                <tr>
+                                    <td colspan="11" class="empty">Silakan pilih DO di atas.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- ===== Ringkasan ===== -->
+                    <div class="si-summary">
+                        <div class="row"><span>Total Subtotal</span><span id="totalSubtotal">Rp 0,00</span></div>
+                        <div class="row"><span>Total DPP</span><span id="totalDpp">Rp 0,00</span></div>
+                        <div class="row"><span>Total PPN</span><span id="totalPpn">Rp 0,00</span></div>
+                        <div class="row grand"><span>TOTAL TAGIHAN</span><span id="grandTotal">Rp 0,00</span></div>
+                    </div>
+
+                    <!-- ===== Aksi ===== -->
+                    <div class="si-actions">
+                        <a class="si-btn si-btn-secondary" th:href="@{/ui/sales/invoices}">Cancel</a>
+                        <button type="submit" id="btnSubmit" class="si-btn si-btn-primary" disabled>Save Invoice</button>
+                    </div>
+
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script>
+    const DO_DETAIL_URL = '/api/ui/sales/invoices/api/do-details/';
+    const DEFAULT_PPN_RATE = 11;   // SO tidak punya kolom tarif, PPN tetap 11%
+
+    // Pajak mengikuti SO dari DO yang dipilih
+    let currentTax = { type: 'NONE', rate: 0, found: false };
+
+    // ---------- Helper ----------
+    function formatRibuan(num) {
+        if (num === null || num === undefined) return '0';
+        return new Intl.NumberFormat('id-ID').format(Math.round(parseFloat(num) || 0));
+    }
+
+    function formatMoney(num) {
+        return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            .format(parseFloat(num) || 0);
+    }
+
+    function formatQty(num) {
+        return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(parseFloat(num) || 0);
+    }
+
+    function round2(n) {
+        return Math.round((n + Number.EPSILON) * 100) / 100;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function setMessageRow(text, cssClass) {
+        document.getElementById('itemBody').innerHTML =
+            '<tr><td colspan="11" class="' + cssClass + '">' + escapeHtml(text) + '</td></tr>';
+    }
+
+    // ---------- 1. Jatuh tempo (TOP master customer) ----------
+    function calcDueDate() {
+        const doSelect = document.getElementById('doSelect');
+        const dueInput = document.getElementById('dueDate');
+        const info = document.getElementById('topInfo');
+
+        if (!doSelect.value) {
+            dueInput.value = '';
+            info.textContent = '';
+            return;
+        }
+
+        const raw = doSelect.options[doSelect.selectedIndex].getAttribute('data-top');
+        const hasTop = raw !== null && raw !== '' && !isNaN(parseInt(raw));
+        const topDays = hasTop ? parseInt(raw) : 0;
+        info.textContent = hasTop
+            ? 'TOP customer: ' + topDays + ' hari'
+            : 'TOP belum diisi di master customer, jatuh tempo disamakan dengan tgl invoice';
+
+        const invDateStr = document.getElementById('invoiceDate').value;
+        if (!invDateStr) return;
+
+        const [y, m, d] = invDateStr.split('-').map(Number);
+        const due = new Date(y, m - 1, d + topDays);
+
+        const yyyy = due.getFullYear();
+        const mm = String(due.getMonth() + 1).padStart(2, '0');
+        const dd = String(due.getDate()).padStart(2, '0');
+        dueInput.value = `${yyyy}-${mm}-${dd}`;
+    }
+
+    // ---------- 2. Tax Type dari SO ----------
+    function normalizeTaxType(raw) {
+        const t = String(raw ?? '').trim().toUpperCase();
+        if (t.startsWith('EX')) return 'EXCLUDE';
+        if (t.startsWith('IN')) return 'INCLUDE';
+        return 'NONE';
+    }
+
+    function setTax(rawType, rawRate, found) {
+        const type = normalizeTaxType(rawType);
+        let rate = parseFloat(rawRate) || 0;
+        if (rate > 0 && rate < 1) rate = rate * 100;   // 0.11 menjadi 11
+        if (rate === 0) rate = DEFAULT_PPN_RATE;       // SO: Exclude/Include selalu PPN 11%
+        if (type === 'NONE') rate = 0;
+        currentTax = { type, rate, found };
+
+        const hasDo = !!document.getElementById('doSelect').value;
+        let label = '-';
+        if (hasDo) {
+            if (!found) label = 'Data pajak SO tidak terbaca (cek backend)';
+            else if (type === 'EXCLUDE') label = `Exclude (PPN ${rate}%)`;
+            else if (type === 'INCLUDE') label = `Include (PPN ${rate}%)`;
+            else label = 'Non PPN';
+        }
+        document.getElementById('taxTypeLabel').value = label;
+        document.getElementById('taxType').value = type;
+        document.getElementById('taxRate').value = rate;
+        document.getElementById('thPpn').innerText = rate > 0 ? `PPN (${rate}%)` : 'PPN';
+    }
+
+    function applyTaxFromSelectedDo() {
+        const sel = document.getElementById('doSelect');
+        if (!sel.value) { setTax(null, 0, false); return; }
+
+        const opt = sel.options[sel.selectedIndex];
+        const rawType = opt.getAttribute('data-tax-type');
+        const rawRate = opt.getAttribute('data-tax-rate');
+        const found = rawType !== null && rawType !== '';
+        if (!found) console.warn('[SI] doList tidak membawa taxType/taxRate untuk DO', sel.value);
+        else console.log('[SI] tax dari doList:', rawType, rawRate);
+        setTax(rawType, rawRate, found);
+    }
+
+    // ---------- Info SO (customer, currency, no. SO) ----------
+    function applyHeaderFromSelectedDo() {
+        const sel = document.getElementById('doSelect');
+        const opt = sel.value ? sel.options[sel.selectedIndex] : null;
+        document.getElementById('soNo').value = opt ? (opt.getAttribute('data-so-no') || '-') : '';
+        document.getElementById('customerName').value = opt ? (opt.getAttribute('data-customer') || '-') : '';
+        document.getElementById('currencyLabel').value = opt ? (opt.getAttribute('data-currency') || 'IDR') : '';
+    }
+
+    // ---------- 3. Muat detail DO ----------
+    async function loadDoDetails(doId) {
+        calcDueDate();
+        applyTaxFromSelectedDo();
+        applyHeaderFromSelectedDo();
+
+        const tbody = document.getElementById('itemBody');
+        const btnSubmit = document.getElementById('btnSubmit');
+        btnSubmit.disabled = true;
+
+        if (!doId) {
+            setMessageRow('Silakan pilih DO di atas.', 'empty');
+            updateGrandTotal();
+            return;
+        }
+
+        setMessageRow('Memuat item dari DO...', 'empty');
+
+        try {
+            const res = await fetch(DO_DETAIL_URL + doId);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+
+            const data = await res.json();
+            console.log('[SI] do-details:', data, 'tax:', currentTax);
+
+            if (!data || data.length === 0) {
+                setMessageRow('DO ini tidak memiliki sisa item untuk ditagih.', 'empty');
+                updateGrandTotal();
+                return;
+            }
+
+            // Cadangan: kalau doList tidak membawa pajak, coba baca dari item do-details
+            if (!currentTax.found && data[0].taxType) {
+                console.log('[SI] tax dari do-details:', data[0].taxType, data[0].taxRate ?? data[0].ppnRate);
+                setTax(data[0].taxType, data[0].taxRate ?? data[0].ppnRate, true);
+            }
+
+            tbody.innerHTML = '';
+            data.forEach((item, idx) => tbody.appendChild(buildItemRow(item, idx)));
+
+            updateGrandTotal();
+            btnSubmit.disabled = false;
+        } catch (e) {
+            console.error('[SI] Fatal:', e);
+            setMessageRow('Gagal load DO: ' + e.message, 'error');
+            updateGrandTotal();
+        }
+    }
+
+    function buildItemRow(item, idx) {
+        const price = parseFloat(item.price) || 0;
+        const remaining = parseFloat(item.remainingQty) || 0;
+        const unit = item.uomName ?? item.uom ?? '';
+
+        const tr = document.createElement('tr');
+        tr.dataset.price = price;
+        tr.dataset.subtotal = 0;
+        tr.dataset.dpp = 0;
+        tr.dataset.ppn = 0;
+        tr.dataset.total = 0;
+
+        tr.innerHTML = `
+            <td class="col-no">
+                ${idx + 1}
+                <input type="hidden" name="itemIds" value="${escapeHtml(item.itemId)}">
+                <input type="hidden" name="uomIds" value="${escapeHtml(item.uomId)}">
+                <input type="hidden" name="prices" value="${price}">
+            </td>
+            <td>${escapeHtml(item.itemName)}</td>
+            <td class="col-unit">${escapeHtml(unit)}</td>
+            <td class="col-num">${formatQty(item.doQty)}</td>
+            <td class="col-num ${remaining > 0 ? 'remaining-ok' : 'remaining-zero'}">${formatQty(remaining)}</td>
+            <td class="col-num col-qty">
+                <input type="number" name="qtys" value="${remaining}" min="0" max="${remaining}"
+                       step="0.01" required oninput="calcRow(this)">
+            </td>
+            <td class="col-num">${formatMoney(price)}</td>
+            <td class="col-num subtotal-val">0,00</td>
+            <td class="col-num dpp-val">0,00</td>
+            <td class="col-num ppn-val">0,00</td>
+            <td class="col-num line-total">0,00</td>
+        `;
+
+        calcRowFor(tr);
+        return tr;
+    }
+
+    // ---------- 4. Hitung subtotal, DPP, PPN, total (rumus sama dengan SO) ----------
+    function calcTax(subtotal) {
+        const r = currentTax.rate / 100;
+
+        if (currentTax.type === 'INCLUDE') {
+            const total = round2(subtotal);
+            const dpp = round2(subtotal / (1 + r));
+            return { dpp, ppn: round2(total - dpp), total };
+        }
+        if (currentTax.type === 'EXCLUDE') {
+            const dpp = round2(subtotal);
+            const ppn = round2(dpp * r);
+            return { dpp, ppn, total: round2(dpp + ppn) };
+        }
+        const dpp = round2(subtotal);
+        return { dpp, ppn: 0, total: dpp };
+    }
+
+    function calcRow(input) {
+        calcRowFor(input.closest('tr'));
+        updateGrandTotal();
+    }
+
+    function calcRowFor(tr) {
+        const qty = parseFloat(tr.querySelector('input[name="qtys"]').value) || 0;
+        const subtotal = round2(qty * (parseFloat(tr.dataset.price) || 0));
+        const t = calcTax(subtotal);
+
+        tr.dataset.subtotal = subtotal;
+        tr.dataset.dpp = t.dpp;
+        tr.dataset.ppn = t.ppn;
+        tr.dataset.total = t.total;
+
+        tr.querySelector('.subtotal-val').innerText = formatMoney(subtotal);
+        tr.querySelector('.dpp-val').innerText = formatMoney(t.dpp);
+        tr.querySelector('.ppn-val').innerText = formatMoney(t.ppn);
+        tr.querySelector('.line-total').innerText = formatMoney(t.total);
+    }
+
+    function updateGrandTotal() {
+        let sub = 0, dpp = 0, ppn = 0, total = 0;
+        document.querySelectorAll('#itemBody tr[data-total]').forEach(row => {
+            sub += parseFloat(row.dataset.subtotal) || 0;
+            dpp += parseFloat(row.dataset.dpp) || 0;
+            ppn += parseFloat(row.dataset.ppn) || 0;
+            total += parseFloat(row.dataset.total) || 0;
+        });
+        document.getElementById('totalSubtotal').innerText = 'Rp ' + formatMoney(round2(sub));
+        document.getElementById('totalDpp').innerText = 'Rp ' + formatMoney(round2(dpp));
+        document.getElementById('totalPpn').innerText = 'Rp ' + formatMoney(round2(ppn));
+        document.getElementById('grandTotal').innerText = 'Rp ' + formatMoney(round2(total));
+    }
+
+    document.addEventListener('DOMContentLoaded', calcDueDate);
+</script>
+
+</body>
+</html>

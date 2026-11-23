@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;" th:text="${isNew != null and isNew} ? '[F0204] New Purchase Invoice' : '[F0204] Edit Purchase Invoice'">Purchase Invoice</h3>
+
+                <div th:if="${error}" class="error-msg" th:text="${error}" style="margin-bottom:10px; color:red;"></div>
+
+                <form th:action="${invoiceId != null} ? @{/ui/purchasing/invoices/{id}(id=${invoiceId})} : @{/ui/purchasing/invoices}" method="post">
+                    <div style="display:flex; flex-direction:column; gap:10px; width:100%; max-width:600px; margin-bottom:20px;">
+                        
+                        <div th:if="${isNew == null or !isNew}" style="display:flex; align-items:center;">
+                            <label style="width:150px; font-weight:bold;">Doc No:</label>
+                            <input type="text" th:value="${invoiceDocNo}" readonly style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px; background:#e0e0e0;">
+                        </div>
+
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:150px; font-weight:bold;">Pilih GRN:</label>
+                            <select id="grnSelect" name="grnId" required style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;" onchange="loadGrnDetails(this.value)">
+                                <option value="">-- Pilih Goods Receipt --</option>
+                                <option th:each="g : ${grns}" th:value="${g.id}"
+                                        th:attr="data-top=${g.paymentTermDays != null ? g.paymentTermDays : 0}"
+                                        th:text="${g.docNo} + ' | ' + ${g.supplierName} + ' | ' + ${g.docDate}"
+                                        th:selected="${selectedGrnId != null and g.id == selectedGrnId}"></option>
+                            </select>
+                        </div>
+                        
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:150px; font-weight:bold;">Faktur Supplier:</label>
+                            <input type="text" name="supplierInvoiceNo" required placeholder="Misal: INV/2026/001"
+                                   th:value="${isNew != null and isNew} ? '' : ${supplierInvoiceNo}"
+                                   style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        </div>
+                        
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:150px; font-weight:bold;">Tgl Invoice:</label>
+                            <input type="date" id="invoiceDate" name="invoiceDate" 
+                                   th:value="${isNew != null and isNew ? #temporals.format(today, 'yyyy-MM-dd') : #temporals.format(invoiceDate, 'yyyy-MM-dd')}" required
+                                   onchange="hitungJatuhTempo()"
+                                   style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        </div>
+                        
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:150px; font-weight:bold;">Jatuh Tempo:</label>
+                            <input type="date" id="dueDate" name="dueDate" 
+                                   th:value="${isNew != null and isNew ? #temporals.format(today, 'yyyy-MM-dd') : #temporals.format(dueDate, 'yyyy-MM-dd')}" required readonly
+                                   style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px; background-color:#f8f9fa;">
+                        </div>
+                        
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:150px; font-weight:bold;">Remarks:</label>
+                            <input type="text" name="remarks" th:value="${isNew != null and isNew} ? '' : ${remarks}" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        </div>
+                    </div>
+
+                    <h4 style="margin-top:20px; color:#1e293b;">Preview Item dari GRN <span id="taxInfo" style="font-size:14px; font-weight:normal; margin-left:10px; color:#0d6efd;"></span></h4>
+                    
+                    <table class="erp-table" id="itemTable" style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                        <thead>
+                            <tr style="background-color:#1e293b; color:white; text-align:center;">
+                                <th style="padding:10px; width:40px;">NO</th>
+                                <th style="padding:10px; text-align:left;">ITEM</th>
+                                <th style="padding:10px; width:100px;">QTY</th>
+                                <th style="padding:10px; width:80px;">UNIT</th>
+                                <th style="padding:10px; width:130px;">HARGA</th>
+                                <th style="padding:10px; width:130px;">SUBTOTAL</th>
+                                <th style="padding:10px; width:130px;">DPP</th>
+                                <th style="padding:10px; width:120px;">PPN</th>
+                                <th style="padding:10px; width:140px;">TOTAL</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemBody">
+                            <tr>
+                                <td colspan="9" style="text-align:center; padding:20px;">Memuat data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div style="display:flex; justify-content:flex-end; margin-bottom:20px;">
+                        <div style="width:400px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:20px; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+                            <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f1f5f9;">
+                                <span style="font-weight:600; color:#555;">Total Subtotal:</span>
+                                <span id="summarySubtotal" style="background:#f1f5f9; padding:5px 15px; border-radius:4px; font-weight:600;">0</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f1f5f9;">
+                                <span style="font-weight:600; color:#555;">Total DPP:</span>
+                                <span id="summaryDpp" style="background:#f1f5f9; padding:5px 15px; border-radius:4px; font-weight:600;">0</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f1f5f9;">
+                                <span style="font-weight:600; color:#555;">Total PPN:</span>
+                                <span id="summaryPpn" style="background:#f1f5f9; padding:5px 15px; border-radius:4px; font-weight:600;">0</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; padding:12px 0 0 0; border-top:2px solid #e2e8f0; margin-top:5px;">
+                                <span style="font-weight:bold; color:#1e293b; font-size:16px;">Total Tagihan:</span>
+                                <span id="grandTotal" style="background:#e0f2fe; color:#0369a1; padding:5px 15px; border-radius:4px; font-weight:bold; font-size:16px;">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:30px; text-align:right; border-top:1px solid #eee; padding-top:20px;">
+                        <button type="submit" style="background:#2563eb; color:white; padding:10px 25px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;" th:text="${isNew != null and isNew} ? 'Save Invoice' : 'Update Invoice'">Save</button>
+                        <a th:href="@{/ui/purchasing/invoices}" style="background:#64748b; color:white; padding:10px 25px; border-radius:4px; text-decoration:none; font-weight:bold; margin-left:10px;">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script th:inline="javascript">
+var GRN_API_URL = /*[[@{/ui/purchasing/invoices/api/grn-details/}]]*/ '/ui/purchasing/invoices/api/grn-details/';
+
+function formatRibuan(num) {
+    if (num === null || num === undefined) return '0';
+    return new Intl.NumberFormat('id-ID').format(Math.round(parseFloat(num) || 0));
+}
+
+function hitungJatuhTempo() {
+    const invDateInput = document.getElementById('invoiceDate').value;
+    const dueDateInput = document.getElementById('dueDate');
+    const selectGrn = document.getElementById('grnSelect');
+    
+    if (!invDateInput || !selectGrn.value) return;
+
+    const selectedOpt = selectGrn.options[selectGrn.selectedIndex];
+    const topDays = parseInt(selectedOpt.getAttribute('data-top')) || 0;
+    
+    let invDate = new Date(invDateInput);
+    invDate.setDate(invDate.getDate() + topDays);
+    
+    const yyyy = invDate.getFullYear();
+    const mm = String(invDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(invDate.getDate()).padStart(2, '0');
+    
+    dueDateInput.value = `${yyyy}-${mm}-${dd}`;
+}
+
+async function loadGrnDetails(grnId) {
+    const tbody = document.getElementById('itemBody');
+    const totalEl = document.getElementById('grandTotal');
+    const taxInfoEl = document.getElementById('taxInfo');
+    
+    hitungJatuhTempo();
+
+    if (!grnId) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px;">Silakan pilih GRN di atas.</td></tr>';
+        document.getElementById('summarySubtotal').innerText = '0';
+        document.getElementById('summaryDpp').innerText = '0';
+        document.getElementById('summaryPpn').innerText = '0';
+        totalEl.innerText = '0';
+        taxInfoEl.innerText = '';
+        return;
+    }
+
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px;">Memuat item dari GRN...</td></tr>';
+    
+    try {
+        const res = await fetch(GRN_API_URL + grnId);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        
+        let rawData = await res.json();
+        let data = Array.isArray(rawData) ? rawData : Object.values(rawData);
+
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px;">GRN tidak memiliki item.</td></tr>';
+            return;
+        }
+        if (data[0] && data[0].error) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:red;">Error: ' + data[0].error + '</td></tr>';
+            return;
+        }
+
+        const taxType = data[0].taxType || 'NO_TAX';
+        taxInfoEl.innerText = taxType === 'NO_TAX' ? '(Non-PPN)' : (taxType === 'INCLUDE' ? '(Harga Include PPN 11%)' : '(Harga Exclude PPN 11%)');
+
+        tbody.innerHTML = '';
+        
+        let grandTotal = 0;
+        let totalSubtotal = 0;
+        let totalDpp = 0;
+        let totalPpn = 0;
+        
+        data.forEach((item, idx) => {
+            const qty = (item.qty && item.qty.parsedValue !== undefined) ? item.qty.parsedValue : (parseFloat(item.qty) || 0);
+            const price = (item.price && item.price.parsedValue !== undefined) ? item.price.parsedValue : (parseFloat(item.price) || 0);
+            
+            const subtotal = qty * price;
+            
+            let dpp = subtotal;
+            let ppn = 0;
+            let total = subtotal;
+
+            if (taxType === 'EXCLUDE') {
+                ppn = subtotal * 0.11;
+                total = subtotal + ppn;
+            } else if (taxType === 'INCLUDE') {
+                dpp = subtotal * (100 / 111);
+                ppn = subtotal * (11 / 111);
+                total = subtotal;
+            }
+
+            totalSubtotal += subtotal;
+            totalDpp += dpp;
+            totalPpn += ppn;
+            grandTotal += total;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="text-align:center; padding:8px; border-bottom:1px solid #eee;">${idx + 1}</td>
+                <td style="padding:8px; border-bottom:1px solid #eee;">${item.itemCode} - ${item.itemName}</td>
+                <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">${qty}</td>
+                <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${item.uomCode}</td>
+                <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">${formatRibuan(price)}</td>
+                <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">${formatRibuan(subtotal)}</td>
+                <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">${formatRibuan(dpp)}</td>
+                <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">${formatRibuan(ppn)}</td>
+                <td style="padding:8px; border-bottom:1px solid #eee; text-align:right; font-weight:bold;">${formatRibuan(total)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        document.getElementById('summarySubtotal').innerText = formatRibuan(totalSubtotal);
+        document.getElementById('summaryDpp').innerText = formatRibuan(totalDpp);
+        document.getElementById('summaryPpn').innerText = formatRibuan(totalPpn);
+        totalEl.innerText = formatRibuan(grandTotal);
+        
+    } catch (e) {
+        console.error('[PI] Fatal:', e);
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:red;">Gagal load GRN: ' + e.message + '</td></tr>';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const sel = document.getElementById('grnSelect');
+    if (sel && sel.value) {
+        loadGrnDetails(sel.value);
+    } else {
+        hitungJatuhTempo();
+    }
+});
+</script>
+</body>
+</html>

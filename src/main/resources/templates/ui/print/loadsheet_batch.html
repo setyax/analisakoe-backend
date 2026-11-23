@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Consolidated Load Sheet</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; padding: 20px; }
+        .header { border-bottom: 3px solid #059669; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; }
+        .doc-title h1 { color: #059669; margin: 0; font-size: 22px; letter-spacing: 2px; }
+        .header-info { display: flex; gap: 20px; margin-bottom: 20px; }
+        .info-box { flex: 1; background: #f8fafc; padding: 10px; border-left: 4px solid #059669; }
+        .do-section { border: 1px solid #cbd5e1; margin-bottom: 15px; border-radius: 4px; overflow: hidden; }
+        .do-title { background: #f1f5f9; padding: 10px; font-weight: bold; display: flex; justify-content: space-between; border-bottom: 1px solid #cbd5e1; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8fafc; padding: 8px; text-align: left; font-size: 11px; color: #64748b; }
+        td { padding: 8px; border-bottom: 1px solid #eee; }
+        .check { width: 20px; height: 20px; border: 2px solid #000; display: inline-block; }
+        .signatures { display: flex; justify-content: space-between; margin-top: 50px; }
+        .sig-box { text-align: center; width: 200px; }
+        .sig-line { border-top: 1px solid #000; margin-top: 60px; padding-top: 5px; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+    <button class="no-print" onclick="window.print()" style="position:fixed; top:20px; right:20px; padding:10px 20px; background:#059669; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; z-index:100;">🖨️ Cetak Load Sheet</button>
+
+    <div class="header">
+        <div>
+            <h2 th:text="${company.name}">AnalisaKoe</h2>
+            <div>Logistics · Consolidated Loading Document</div>
+        </div>
+        <div class="doc-title">
+            <h1>LOAD SHEET (BATCH)</h1>
+            <div>Tanggal Cetak: <span th:text="${#temporals.format(#temporals.createNow(), 'dd-MM-yyyy HH:mm')}"></span></div>
+        </div>
+    </div>
+
+    <div class="header-info">
+            <!-- FORM PEMILIHAN (tidak dicetak) -->
+    <div class="no-print" style="background:#f0f9ff; padding:15px; border:2px dashed #3b82f6; border-radius:8px; margin-bottom:20px;">
+        <h4 style="margin:0 0 10px 0; color:#1e40af;">⚙️ Pilih Driver & Kendaraan Sebelum Cetak</h4>
+        <div style="display:flex; gap:15px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:200px;">
+                <label style="display:block; font-size:11px; font-weight:bold; margin-bottom:3px;">DRIVER</label>
+                <select id="driverSelect" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                    <option value="">-- Pilih Driver --</option>
+                </select>
+            </div>
+            <div style="flex:1; min-width:200px;">
+                <label style="display:block; font-size:11px; font-weight:bold; margin-bottom:3px;">KENDARAAN (NOPOL)</label>
+                <select id="vehicleSelect" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                    <option value="">-- Pilih Kendaraan --</option>
+                </select>
+            </div>
+            <div style="flex:0 0 auto; min-width:150px;">
+                <label style="display:block; font-size:11px; font-weight:bold; margin-bottom:3px;">JAM BERANGKAT</label>
+                <input type="time" id="departureTime" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINT VIEW -->
+    <div class="header-info">
+        <div class="info-box">
+            <label>Nama Supir</label>
+            <div id="driverNamePrint" style="font-size:14px; font-weight:bold; padding:5px 0; border-bottom:1px solid #333; min-height:20px;">-</div>
+        </div>
+        <div class="info-box">
+            <label>Nomor Kendaraan</label>
+            <div id="vehiclePlatePrint" style="font-size:14px; font-weight:bold; padding:5px 0; border-bottom:1px solid #333; min-height:20px;">-</div>
+        </div>
+        <div class="info-box">
+            <label>Jam Berangkat</label>
+            <div id="departurePrint" style="font-size:14px; font-weight:bold; padding:5px 0; border-bottom:1px solid #333; min-height:20px;">-</div>
+        </div>
+    </div>
+        <div class="info-box">
+            <label>Jam Berangkat</label>
+            <input type="time" style="width:100%; border:none; border-bottom:1px solid #333; font-size:14px; background:transparent;">
+        </div>
+    </div>
+
+    <!-- Per DO Section -->
+    <div th:each="d : ${dos}" class="do-section">
+        <div class="do-title">
+            <span>DO: <span th:text="${d.docNo}"></span></span>
+            <span>Customer: <span th:text="${d.customer}"></span></span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th width="40">NO</th>
+                    <th width="100">KODE</th>
+                    <th>NAMA BARANG</th>
+                    <th width="80" style="text-align:right;">QTY</th>
+                    <th width="60">UNIT</th>
+                    <th width="60" style="text-align:center;">✓ MUAT</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="it, st : ${d.items}">
+                    <td th:text="${st.count}" style="text-align:center;">1</td>
+                    <td th:text="${it.code}">-</td>
+                    <td th:text="${it.name}">-</td>
+                    <td th:text="${@qtyDisplay.format(#numbers.formatDecimal(it.qty, 1, 'POINT', 0, 'COMMA'))}" style="text-align:right; font-weight:bold;">0</td>
+                    <td th:text="${it.uom}" style="text-align:center;">-</td>
+                    <td style="text-align:center;"><div class="check"></div></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="signatures">
+        <div class="sig-box"><div>Checker Gudang</div><div class="sig-line">Nama & Tgl</div></div>
+        <div class="sig-box"><div>Supir</div><div class="sig-line">Nama & Tgl</div></div>
+    </div>
+	
+	<script th:inline="javascript">
+    const CONTEXT_PATH = /*[[@{/}]]*/ '/';
+
+    // Load drivers & vehicles dari API
+    async function loadMasterData() {
+        try {
+            // Fetch drivers
+            const resDrv = await fetch(CONTEXT_PATH + 'ui/print/api/drivers');
+            const drivers = await resDrv.json();
+            const drvSelect = document.getElementById('driverSelect');
+            drivers.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.id;
+                opt.text = d.name + ' (' + d.licenseNo + ')';
+                drvSelect.appendChild(opt);
+            });
+
+            // Fetch vehicles
+            const resVeh = await fetch(CONTEXT_PATH + 'ui/print/api/vehicles');
+            const vehicles = await resVeh.json();
+            const vehSelect = document.getElementById('vehicleSelect');
+            vehicles.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v.id;
+                opt.text = v.plateNo + ' - ' + v.vehicleType;
+                vehSelect.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('[loadMasterData] Error:', e);
+        }
+    }
+
+    // Update print view saat driver/vehicle dipilih
+    document.addEventListener('DOMContentLoaded', function() {
+        loadMasterData();
+
+        // Driver change
+        document.getElementById('driverSelect').addEventListener('change', function() {
+            const opt = this.options[this.selectedIndex];
+            document.getElementById('driverNamePrint').textContent = 
+                this.value ? opt.text : '-';
+        });
+
+        // Vehicle change
+        document.getElementById('vehicleSelect').addEventListener('change', function() {
+            const opt = this.options[this.selectedIndex];
+            document.getElementById('vehiclePlatePrint').textContent = 
+                this.value ? opt.text.split(' - ')[0] : '-';
+        });
+
+        // Departure time change
+        document.getElementById('departureTime').addEventListener('change', function() {
+            document.getElementById('departurePrint').textContent = this.value || '-';
+        });
+    });
+</script>
+</body>
+</html>

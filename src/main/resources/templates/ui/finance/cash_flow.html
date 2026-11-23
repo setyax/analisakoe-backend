@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px;">
+                <h3 style="margin:0 0 15px 0;">[F0404] Arus Kas (Cash Flow)</h3>
+
+                <div th:if="${error}" style="padding:10px; background:#fee2e2; color:#991b1b; border-radius:4px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <form method="get" action="/api/ui/finance/reports/cash-flow" style="background:#f8fafc; padding:15px; border-radius:8px; margin-bottom:20px; display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+                    <div>
+                        <label style="display:block; font-weight:600; font-size:12px; margin-bottom:5px;">Dari Tanggal:</label>
+                        <input type="date" name="startDate" th:value="${startDate}" required style="padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-weight:600; font-size:12px; margin-bottom:5px;">Sampai Tanggal:</label>
+                        <input type="date" name="endDate" th:value="${endDate}" required style="padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+                    <button type="submit" style="padding:9px 20px; background:#2563eb; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">🔍 Tampilkan</button>
+                    <button type="button" onclick="window.print()" style="padding:9px 20px; background:#059669; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; margin-left:auto;">🖨️ Print</button>
+                </form>
+
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <tbody>
+                        <tr style="background:#f1f5f9;">
+                            <td colspan="2" style="padding:10px; font-weight:bold;">Saldo Awal Kas/Bank</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:8px;">Saldo per awal periode</td>
+                            <td style="padding:8px; text-align:right; font-weight:bold;" th:text="${#numbers.formatDecimal(saldoAwal, 1, 'POINT', 2, 'COMMA')}">0</td>
+                        </tr>
+
+                        <tr><td colspan="2" style="padding:10px; background:#dcfce7; font-weight:bold; font-size:14px;">KAS MASUK (INFLOWS)</td></tr>
+                        <tr th:each="i : ${inflows}" style="border-bottom:1px solid #eee;">
+                            <td style="padding:8px;" th:text="${i.kategori}">Kategori</td>
+                            <td style="padding:8px; text-align:right; color:#166534;" th:text="'+ ' + ${#numbers.formatDecimal(i.nilai, 1, 'POINT', 2, 'COMMA')}">0</td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(inflows)}">
+                            <td colspan="2" style="padding:8px; text-align:center; color:#94a3b8;">Tidak ada penerimaan</td>
+                        </tr>
+                        <tr style="background:#dcfce7; font-weight:bold;">
+                            <td style="padding:10px;">Total Kas Masuk</td>
+                            <td style="padding:10px; text-align:right;" th:text="${#numbers.formatDecimal(totalIn, 1, 'POINT', 2, 'COMMA')}">0</td>
+                        </tr>
+
+                        <tr><td colspan="2" style="padding:10px; background:#fee2e2; font-weight:bold; font-size:14px;">KAS KELUAR (OUTFLOWS)</td></tr>
+                        <tr th:each="o : ${outflows}" style="border-bottom:1px solid #eee;">
+                            <td style="padding:8px;" th:text="${o.kategori}">Kategori</td>
+                            <td style="padding:8px; text-align:right; color:#991b1b;" th:text="'- ' + ${#numbers.formatDecimal(o.nilai, 1, 'POINT', 2, 'COMMA')}">0</td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(outflows)}">
+                            <td colspan="2" style="padding:8px; text-align:center; color:#94a3b8;">Tidak ada pengeluaran</td>
+                        </tr>
+                        <tr style="background:#fee2e2; font-weight:bold;">
+                            <td style="padding:10px;">Total Kas Keluar</td>
+                            <td style="padding:10px; text-align:right;" th:text="${#numbers.formatDecimal(totalOut, 1, 'POINT', 2, 'COMMA')}">0</td>
+                        </tr>
+
+                        <tr style="background:#1e293b; color:white; font-weight:bold; font-size:15px;">
+                            <td style="padding:15px;">SALDO AKHIR KAS/BANK</td>
+                            <td style="padding:15px; text-align:right;" th:text="${#numbers.formatDecimal(saldoAkhir, 1, 'POINT', 2, 'COMMA')}">0</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="margin-top:15px; padding:12px; background:#f8fafc; border-left:4px solid #3b82f6; font-size:12px;">
+                    <strong>Catatan:</strong> Laporan ini menghitung mutasi akun Kas/Bank (kode 11xx). Klasifikasi berdasarkan ref_type jurnal (SALES_INVOICE, CUSTOMER_RECEIPT, AP_PAYMENT, dll).
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

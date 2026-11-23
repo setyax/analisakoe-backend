@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0201] Purchase Order List</h3>
+
+                <div th:if="${success}" class="success-msg" th:text="${success}" style="margin-bottom:10px;"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}" style="margin-bottom:10px;"></div>
+
+                <table class="erp-table" style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                    <thead>
+                        <tr style="background-color:#1e293b; color:white; text-align:left;">
+                            <th style="padding:10px; width:30px;"></th>
+                            <th style="padding:10px;">DATE</th>
+                            <th style="padding:10px;">DOC NO</th>
+                            <th style="padding:10px;">SUPPLIER</th>
+                            <th style="padding:10px;">CURRENCY</th>
+                            <th style="padding:10px; text-align:right;">TOTAL AMOUNT</th>
+                            <th style="padding:10px;">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${#lists.isEmpty(orders)}">
+                            <td colspan="7" style="text-align:center; padding:20px;">Belum ada data.</td>
+                        </tr>
+                        <tr th:each="o : ${orders}" style="border-bottom:1px solid #eee;">
+                            <td style="padding:10px; text-align:center;">
+                                <input type="radio" name="selRow" th:value="${o.id}" th:attr="data-status=${o.status}">
+                            </td>
+                            <td style="padding:10px;" th:text="${o.docDate != null ? #temporals.format(o.docDate, 'dd-MM-yyyy') : '-'}">-</td>
+                            <td style="padding:10px; font-weight:bold;" th:text="${o.docNo}">-</td>
+                            <td style="padding:10px;" th:text="${o.supplierName}">-</td>
+                            <td style="padding:10px;" th:text="${o.currency}">IDR</td>
+                            <td style="padding:10px; text-align:right; font-weight:bold;" th:text="${o.totalAmount != null ? #numbers.formatDecimal(o.totalAmount, 1, 'POINT', 0, 'COMMA') : '0'}">0</td>
+                            <td style="padding:10px;">
+                                <span style="background:#e2e8f0; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:bold;" th:text="${o.status}">-</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="background:#e2e8f0; padding:10px; border-radius:5px; display:flex; gap:8px; flex-wrap:wrap;">
+                    <a th:href="@{/ui/purchasing/po/new}" style="background:#d97706; color:white; padding:6px 15px; border-radius:3px; text-decoration:none; font-weight:bold;">Insert</a>
+                    
+        <button type="button" style="background:#0ea5e9; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doPrint()">🖨️ Print</button>
+        <button type="button" style="background:#3b82f6; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('view')">View</button>
+                    <button type="button" style="background:#8b5cf6; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('change')">Change</button>
+                    <button type="button" style="background:#10b981; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('confirm')">Confirm</button>
+                    <button type="button" style="background:#f59e0b; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('unconfirm')">Unconfirm</button>
+                    <button type="button" style="background:#dc2626; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('void')">Void</button>
+                    <button type="button" style="background:#6b7280; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="doAction('delete')">Delete</button>
+                </div>
+
+                <div style="margin-top:10px; font-size:12px; color:#64748b;">
+                    Pilih baris dengan klik radio di kiri, lalu klik tombol aksi.
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+
+<script th:inline="javascript">
+    // Thymeleaf akan otomatis mengisi ini dengan '/api/'
+    const CONTEXT_PATH = /*[[@{/}]]*/ '/';
+    window.selectedId = null;
+
+    // Pastikan tombol "Pilih" di tabel memanggil fungsi ini
+    function selectRowById(id) {
+        window.selectedId = id;
+        // (Kode highlight baris Anda yang lain...)
+    }
+
+    function doPrint() {
+        // Fallback jika window.selectedId belum di-set tapi radio button dipilih
+        if (!window.selectedId) {
+            const checked = document.querySelector('input[name="selRow"]:checked');
+            if (checked) window.selectedId = checked.value;
+        }
+
+        if (!window.selectedId) { 
+            alert('Pilih PO terlebih dahulu dengan menekan tombol "Pilih" atau radio button di kiri!'); 
+            return; 
+        }
+
+        // Buka tab baru dengan URL yang benar (/api/ui/print/po/{id})
+        window.open(CONTEXT_PATH + 'ui/print/po/' + window.selectedId, '_blank');
+    }
+</script>
+
+<script>
+function doAction(action) {
+    var sel = document.querySelector('input[name="selRow"]:checked');
+    if (!sel) {
+        alert('Pilih data terlebih dahulu dengan klik radio di kolom kiri!');
+        return;
+    }
+    var id = sel.value;
+    var status = sel.getAttribute('data-status');
+    var baseUrl = '/api/ui/purchasing/po/' + id;
+
+    if (action === 'print') { doPrint(); return; }
+    if (action === 'view') {
+        window.location.href = baseUrl + '/view';
+        return;
+    }
+    if (action === 'change') {
+        if (status !== 'DRAFT') {
+            alert('Hanya PO DRAFT yang bisa diedit. Status: ' + status + '. Gunakan View.');
+            return;
+        }
+        window.location.href = baseUrl + '/edit';
+        return;
+    }
+    if (action === 'confirm' && status !== 'DRAFT') {
+        alert('Hanya PO DRAFT yang bisa di-confirm. Status: ' + status);
+        return;
+    }
+    if (action === 'unconfirm' && status !== 'CONFIRMED' && status !== 'RECEIVED') {
+        alert('Hanya PO CONFIRMED/RECEIVED yang bisa di-unconfirm. Status: ' + status);
+        return;
+    }
+    if (action === 'void' && status === 'VOID') {
+        alert('PO sudah VOID.');
+        return;
+    }
+    if (action === 'delete' && status !== 'DRAFT') {
+        alert('Hanya PO DRAFT yang bisa dihapus. Status: ' + status);
+        return;
+    }
+
+    if (action === 'delete') { if (!confirm('Hapus PO ini?')) return; }
+    else if (action === 'confirm') { if (!confirm('Confirm PO ini?')) return; }
+    else if (action === 'unconfirm') { if (!confirm('Unconfirm PO ini?')) return; }
+    else if (action === 'void') { if (!confirm('Void PO ini?')) return; }
+
+    var f = document.createElement('form');
+    f.method = 'POST';
+    f.action = baseUrl + '/' + action;
+    document.body.appendChild(f);
+    f.submit();
+}
+</script>
+</body>
+</html>

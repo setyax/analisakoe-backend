@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;" th:text="${isNew} ? '[HR] New Employee' : '[HR] Edit Employee'"></h3>
+                <form th:action="${isNew} ? @{/ui/hr/employees} : @{/ui/hr/employees/{id}(id=${emp.id})}" method="post">
+                    <div class="erp-form-grid">
+                        <label>NIP:</label>
+                        <input type="text" name="nip" th:value="${emp.nip}" required>
+                        
+                        <label>Nama Lengkap:</label>
+                        <input type="text" name="name" th:value="${emp.name}" required>
+                        
+                        <label>Departemen:</label>
+                        <input type="text" name="department" th:value="${emp.department}">
+                        
+                        <label>Jabatan:</label>
+                        <input type="text" name="position" th:value="${emp.position}">
+                        
+                        <label>Status:</label>
+                        <select name="status">
+                            <option value="ACTIVE" th:selected="${emp.status == 'ACTIVE'}">ACTIVE</option>
+                            <option value="INACTIVE" th:selected="${emp.status == 'INACTIVE'}">INACTIVE</option>
+                        </select>
+                    </div>
+                    <div style="margin-top: 20px;">
+                        <button type="submit" class="erp-btn erp-btn-primary" style="padding: 8px 30px;">Simpan</button>
+                        <a th:href="@{/ui/hr/employees}" class="erp-btn" style="text-decoration:none; padding: 8px 20px; margin-left:10px;">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

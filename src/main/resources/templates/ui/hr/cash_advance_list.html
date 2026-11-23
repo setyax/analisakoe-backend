@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="margin: 0;">[HR] Cash Advances (Kas Bon)</h3>
+                    <a th:href="@{/ui/hr/cash-advance/new}" class="erp-btn erp-btn-primary" style="background:#3b82f6; color:white; text-decoration:none; padding: 8px 15px; border-radius:4px; font-weight:bold;">+ Ajukan Kas Bon</a>
+                </div>
+
+                <!-- Flash Messages -->
+                <div th:if="${success}" style="background:#dcfce7; border:1px solid #16a34a; color:#14532d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${success}"></div>
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <table class="erp-table" style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                    <thead>
+                        <tr style="background-color:#1e293b; color:white; text-align:left;">
+                            <th style="width:120px;">NO. DOKUMEN</th>
+                            <th style="width:90px;">TANGGAL</th>
+                            <th>KARYAWAN</th>
+                            <th style="width:110px;">SUMBER DANA</th>
+                            <th style="width:105px; text-align:right;">NOMINAL</th>
+                            <th style="width:85px;">STATUS</th>
+                            <th style="width:195px; text-align:center;">AKSI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Looping Data -->
+                        <tr th:each="ca : ${advances}" style="border-bottom: 1px solid #eee;">
+                            
+                            <td style="overflow:hidden; text-overflow:ellipsis; font-weight:bold;" th:text="${ca.docNo} ?: '-'">-</td>
+                            <td th:text="${ca.docDate != null ? #temporals.format(ca.docDate, 'dd-MM-yyyy') : '-'}">-</td>
+                            
+                            <!-- Kolom Karyawan -->
+                            <td style="overflow:hidden; text-overflow:ellipsis;">
+                                <span th:if="${ca.employeeId != null and employeeMap != null and employeeMap[ca.employeeId] != null}" 
+                                      th:text="${employeeMap[ca.employeeId].nip} + ' - ' + ${employeeMap[ca.employeeId].name}">-</span>
+                                <span th:if="${ca.employeeId == null or employeeMap == null or employeeMap[ca.employeeId] == null}" 
+                                      th:text="${ca.employeeId}">-</span>
+                            </td>
+                            
+                            <!-- Kolom Sumber Dana -->
+                            <td style="overflow:hidden; text-overflow:ellipsis;">
+                                <span th:if="${ca.bankId == null}">Kas Kecil</span>
+                                <span th:if="${ca.bankId != null and bankMap != null and bankMap[ca.bankId] != null}" 
+                                      th:text="${bankMap[ca.bankId].name}">-</span>
+                                <span th:if="${ca.bankId != null and (bankMap == null or bankMap[ca.bankId] == null)}" 
+                                      th:text="'Bank ID: ' + ${ca.bankId}">-</span>
+                            </td>
+                            
+                            <td style="text-align:right; font-weight:bold;" 
+                                th:text="${ca.amount != null ? #numbers.formatDecimal(ca.amount, 1, 'POINT', 2, 'COMMA') : '0'}">0</td>
+                            
+                            <td>
+                                <span style="padding:3px 8px; border-radius:12px; font-size:11px; font-weight:bold; color:white;"
+                                      th:style="${ca.status == 'DRAFT'} ? 'background:#f59e0b;' : (${ca.status == 'SETTLED'} ? 'background:#3b82f6;' : (${ca.status == 'VOID'} ? 'background:#64748b;' : 'background:#10b981;'))" 
+                                      th:text="${ca.status} ?: 'UNKNOWN'">-</span>
+                            </td>
+                            
+                            <td style="text-align:center; white-space: nowrap;">
+                                
+                                <!-- Tombol Cairkan (Hanya DRAFT) -->
+                                <form th:if="${ca.status == 'DRAFT'}" th:action="@{/ui/hr/cash-advance/{id}/post(id=${ca.id})}" method="post" style="display:inline-block; margin-right:1px;" onsubmit="return confirm('Cairkan kas bon ini?');">
+                                    <button type="submit" style="background:#10b981; color:white; border:none; padding:3px 6px; border-radius:4px; cursor:pointer; font-size:10px; font-weight:bold;">Cairkan</button>
+                                </form>
+
+                                <!-- Tombol LPJ (Hanya POSTED) -->
+                                <a th:if="${ca.status == 'POSTED'}" th:href="@{/ui/hr/cash-advance/{id}/settle(id=${ca.id})}" style="background:#3b82f6; color:white; text-decoration:none; padding:3px 6px; border-radius:4px; font-size:10px; font-weight:bold; display:inline-block;">LPJ</a>
+
+                                <!-- Tombol Batal Cair (Hanya POSTED) -->
+                                <form th:if="${ca.status == 'POSTED'}" th:action="@{/ui/hr/cash-advance/{id}/unpost(id=${ca.id})}" method="post" style="display:inline-block; margin-right:1px;" onsubmit="return confirm('Batal cair kas bon ini? Jurnal & kas keluar akan dihapus, kembali ke DRAFT.');">
+                                    <button type="submit" style="background:#64748b; color:white; border:none; padding:3px 6px; border-radius:4px; cursor:pointer; font-size:10px; font-weight:bold;">Batal Cair</button>
+                                </form>
+
+                                <!-- Tombol Batal LPJ (Hanya SETTLED) -->
+                                <form th:if="${ca.status == 'SETTLED'}" th:action="@{/ui/hr/cash-advance/{id}/unpost-settle(id=${ca.id})}" method="post" style="display:inline-block; margin-right:1px;" onsubmit="return confirm('Batal LPJ kas bon ini? Jurnal LPJ & kas masuk sisa akan dihapus, kembali ke POSTED.');">
+                                    <button type="submit" style="background:#64748b; color:white; border:none; padding:3px 6px; border-radius:4px; cursor:pointer; font-size:10px; font-weight:bold;">Batal LPJ</button>
+                                </form>
+
+                                <!-- Tombol Edit (Hanya DRAFT) -->
+                                <a th:if="${ca.status == 'DRAFT'}" th:href="@{/ui/hr/cash-advance/{id}/edit(id=${ca.id})}" style="background:#f59e0b; color:white; text-decoration:none; padding:3px 6px; border-radius:4px; font-size:10px; font-weight:bold; display:inline-block;">Edit</a>
+                                
+                                <!-- Tombol Hapus (Hanya DRAFT) -->
+                                <form th:if="${ca.status == 'DRAFT'}" th:action="@{/ui/hr/cash-advance/{id}/delete(id=${ca.id})}" method="post" style="display:inline-block; margin-right:1px;" onsubmit="return confirm('Yakin hapus kas bon ini?');">
+                                    <button type="submit" style="background:#ef4444; color:white; border:none; padding:3px 6px; border-radius:4px; cursor:pointer; font-size:10px; font-weight:bold;">Hapus</button>
+                                </form>
+
+                                <!-- Tombol Print (Selalu Ada) -->
+                                <a th:href="@{/ui/hr/cash-advance/{id}/print(id=${ca.id})}" target="_blank" style="background:#64748b; color:white; text-decoration:none; padding:3px 6px; border-radius:4px; font-size:10px; font-weight:bold; display:inline-block;">🖨 Print</a>
+                                
+                            </td>
+                        </tr>
+                        
+                        <!-- Jika Kosong -->
+                        <tr th:if="${advances == null or advances.isEmpty()}">
+                            <td colspan="7" style="padding: 20px; text-align: center; color: #64748b;">Belum ada data Kas Bon.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

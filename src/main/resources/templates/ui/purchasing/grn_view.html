@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">
+                    [Purchasing] View GRN: <span th:text="${grn.docNo}">-</span>
+                </h3>
+
+                <div th:if="${success}" style="background:#d4edda;color:#155724;padding:8px 12px;border-radius:4px;margin-bottom:10px;" th:text="${success}"></div>
+                <div th:if="${error}" style="background:#f8d7da;color:#721c24;padding:8px 12px;border-radius:4px;margin-bottom:10px;" th:text="${error}"></div>
+
+                <div class="erp-form-grid">
+                    <label>Tanggal Terima:</label>
+                    <input type="text" th:value="${@dateFmt.format(grn.docDate)}" readonly style="background:#e0e0e0;">
+
+                    <label>Ref PO ID:</label>
+                    <input type="text" th:value="${refPoNo}" readonly style="background:#e0e0e0;">
+
+                    <label>Status:</label>
+                    <input type="text" th:value="${grn.status}" readonly style="background:#e0e0e0;">
+
+                    <label>Keterangan:</label>
+                    <input type="text" th:value="${grn.remarks}" readonly style="background:#e0e0e0;">
+                </div>
+
+                <h4 style="margin-top:20px;">Rincian Barang Diterima</h4>
+
+                <form th:if="${grn.status == 'DRAFT'}"
+                      th:action="@{/ui/purchasing/grn/{id}/update-qty(id=${grn.id})}" method="post">
+                    <table class="erp-table">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;">No</th>
+                                <th>Nama Barang</th>
+                                <th style="width:130px;">Qty Diterima</th>
+                                <th style="width:80px;">Unit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="row, stat : ${detailRows}">
+                                <td style="text-align:center;" th:text="${stat.count}">-</td>
+                                <td th:text="${row.itemName}">-</td>
+                                <td style="text-align:right;">
+                                    <input type="hidden" name="detailId" th:value="${row.detailId}">
+                                    <input type="number" name="qty" step="any" min="0.01" required
+                                           th:value="${row.qty}"
+                                           style="text-align:right; width:110px; max-width:100%; box-sizing:border-box; font-weight:bold;">
+                                </td>
+                                <td th:text="${row.uomCode}">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div style="margin-top:10px;">
+                        <button type="submit" class="erp-btn erp-btn-primary" style="padding:8px 20px;"
+                                onclick="return confirm('Update qty GRN?')">Update Qty</button>
+                    </div>
+                </form>
+
+                <table th:unless="${grn.status == 'DRAFT'}" class="erp-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px;">No</th>
+                            <th>Nama Barang</th>
+                            <th style="width:130px;">Qty Diterima</th>
+                            <th style="width:80px;">Unit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="row, stat : ${detailRows}">
+                            <td style="text-align:center;" th:text="${stat.count}">-</td>
+                            <td th:text="${row.itemName}">-</td>
+                            <td style="font-weight:bold; text-align:right;" th:text="${row.qty != null and !row.qty.isEmpty() ? row.qty : '0'}">-</td>
+                            <td th:text="${row.uomCode}">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="margin-top: 20px;">
+                    <form th:if="${grn.status == 'DRAFT'}"
+                          th:action="@{/ui/purchasing/grn/{id}/confirm(id=${grn.id})}" method="post" style="display:inline;">
+                        <button type="submit" class="erp-btn erp-btn-primary" style="padding: 8px 20px;"
+                                onclick="return confirm('Confirm GRN? Stok inventory akan bertambah dan qty tidak bisa diubah lagi.')">Confirm</button>
+                    </form>
+                    <form th:if="${grn.status == 'CONFIRMED'}"
+                          th:action="@{/ui/purchasing/grn/{id}/unconfirm(id=${grn.id})}" method="post" style="display:inline;">
+                        <button type="submit" class="erp-btn" style="padding: 8px 20px;"
+                                onclick="return confirm('Unconfirm GRN? Stok akan dikurangi kembali.')">Unconfirm</button>
+                    </form>
+                                        <a th:if="${grn.status == 'CONFIRMED'}"
+                       th:href="@{/ui/purchasing/invoices/new(grnId=${grn.id})}"
+                       class="erp-btn"
+                       style="text-decoration:none; padding: 8px 20px; background-color: #3b82f6; color: white; margin-right: 5px; border-radius: 4px;">
+                       Create Invoice
+                    </a>
+                    <a th:href="@{/ui/purchasing/grn}" class="erp-btn" style="text-decoration:none; padding: 8px 20px;">Close</a>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

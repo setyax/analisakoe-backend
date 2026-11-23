@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+
+<body>
+
+<div class="app-layout">
+
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <main class="app-main">
+
+        <header th:replace="~{fragments/header :: header}"></header>
+
+        <section class="app-content">
+
+            <div class="erp-container"
+                 style="padding:20px;background:white;border-radius:8px;">
+
+                <h3>Preview Copy Supplier Price List</h3>
+
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;padding:15px;border-radius:6px;margin-bottom:20px;">
+
+                    <div style="color:#64748b;font-size:12px;">
+                        Supplier Sumber
+                    </div>
+
+                    <h3 style="margin:5px 0;"
+                        th:text="${sourceSupplierName}">
+                    </h3>
+
+                    <div>
+                        Total Price Entries:
+                        <strong th:text="${totalSource}"></strong>
+                    </div>
+
+                </div>
+
+                <h4>Ringkasan Supplier Tujuan</h4>
+
+                <div style="overflow-x:auto;">
+
+                    <table class="erp-table" style="width:100%;">
+
+                        <thead>
+                            <tr>
+                                <th>Supplier Tujuan</th>
+                                <th style="text-align:right;">Sumber</th>
+                                <th style="text-align:right;color:#16a34a;">Baru Disalin</th>
+                                <th style="text-align:right;color:#d97706;">Dilewati</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            <tr th:each="p : ${plans}">
+
+                                <td th:text="${p.supplierName}"></td>
+
+                                <td style="text-align:right;"
+                                    th:text="${p.sourceCount}">
+                                </td>
+
+                                <td style="text-align:right;font-weight:bold;color:#16a34a;"
+                                    th:text="${p.newCount}">
+                                </td>
+
+                                <td style="text-align:right;color:#d97706;"
+                                    th:text="${p.skipCount}">
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:20px 0;">
+
+                    <div style="background:#dcfce7;padding:15px;border-radius:6px;">
+                        <div style="color:#166534;font-size:12px;">Akan Disalin</div>
+                        <h2 th:text="${totalNew}" style="color:#166534;margin:5px 0;"></h2>
+                    </div>
+
+                    <div style="background:#fef3c7;padding:15px;border-radius:6px;">
+                        <div style="color:#92400e;font-size:12px;">Akan Dilewati</div>
+                        <h2 th:text="${totalSkipped}" style="color:#92400e;margin:5px 0;"></h2>
+                    </div>
+
+                </div>
+
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:6px;margin-bottom:20px;">
+
+                    <strong>Data yang akan disalin:</strong>
+
+                    <p>
+                        Item, Price, Currency, Price UOM,
+                        Valid From, Valid To, dan Min Qty.
+                    </p>
+
+                    <strong>Perhatian:</strong>
+
+                    <p>
+                        Data yang sudah ada pada supplier tujuan tidak akan ditimpa.
+                        Periksa ringkasan sebelum menekan tombol Copy Sekarang.
+                    </p>
+
+                </div>
+
+                <form th:action="@{/ui/purchasing/price-list/copy-wizard/execute}"
+                      method="post"
+                      style="display:flex;gap:10px;flex-wrap:wrap;">
+
+                    <input type="hidden"
+                           name="sourceSupplierId"
+                           th:value="${sourceSupplierId}">
+
+                    <input type="hidden"
+                           name="targetSupplierIds"
+                           th:each="id : ${targetSupplierIds}"
+                           th:value="${id}">
+
+                    <button type="submit"
+                            th:disabled="${totalNew == 0}"
+                            onclick="return confirm('Copy seluruh Price List yang belum tersedia pada supplier tujuan?')"
+                            style="background:#16a34a;color:white;border:0;padding:11px 22px;border-radius:5px;font-weight:bold;"
+                            th:style="${totalNew == 0} ? 'background:#94a3b8;color:white;border:0;padding:11px 22px;border-radius:5px;' : 'background:#16a34a;color:white;border:0;padding:11px 22px;border-radius:5px;font-weight:bold;'">
+                        Copy Sekarang
+                    </button>
+
+                    <a th:href="@{/ui/purchasing/price-list/copy-wizard}"
+                       style="background:#64748b;color:white;padding:11px 22px;border-radius:5px;text-decoration:none;">
+                        Kembali
+                    </a>
+
+                    <a th:href="@{/ui/purchasing/price-list}"
+                       style="background:#e2e8f0;color:#334155;padding:11px 22px;border-radius:5px;text-decoration:none;">
+                        Batal
+                    </a>
+
+                </form>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+</body>
+</html>

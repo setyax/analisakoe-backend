@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <article>
+                <h2>Buat Transaksi Inventory</h2>
+                <form th:action="@{/ui/inventory/transactions}" method="post">
+                    <div class="grid">
+                        <label>Tipe Transaksi
+                            <select name="docType" required>
+                                <option value="IN">Barang Masuk (IN)</option>
+                                <option value="OUT">Barang Keluar (OUT)</option>
+                            </select>
+                        </label>
+                        <label>Tanggal
+                            <input type="date" name="docDate" th:value="${today}" required>
+                        </label>
+                    </div>
+                    <div class="grid">
+                        <label>Gudang
+                            <select name="warehouseId" required>
+                                <option th:each="w : ${warehouses}" th:value="${w.id}" th:text="${w.name}"></option>
+                            </select>
+                        </label>
+                        <label>Keterangan (Opsional)
+                            <input type="text" name="remarks" maxlength="255">
+                        </label>
+                    </div>
+
+                    <h4 style="margin-top:2rem;">Detail Barang</h4>
+                    <table role="grid" id="itemTable">
+                        <thead>
+                            <tr><th>Barang</th><th>Satuan (UOM)</th><th style="width:150px;">Qty</th><th style="width:80px;">Aksi</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <select name="itemId" required style="margin:0;">
+                                        <option value="">-- Pilih Barang --</option>
+                                        <option th:each="i : ${items}" th:value="${i.id}" th:text="${i.code} + ' - ' + ${i.name}"></option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select name="uomId" required style="margin:0;">
+                                        <option th:each="u : ${uoms}" th:value="${u.id}" th:text="${u.code}"></option>
+                                    </select>
+                                </td>
+                                <td><input type="number" name="qty" step="0.0001" min="0.0001" required style="margin:0;"></td>
+                                <td><button type="button" class="secondary outline" onclick="this.closest('tr').remove()" style="margin:0; padding:4px 8px;">Hapus</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <button type="button" class="secondary" onclick="addRow()" style="margin-bottom: 2rem;">+ Tambah Baris</button>
+
+                    <div style="display:flex; gap:0.5rem;">
+                        <button type="submit">Simpan & Update Stok</button>
+                        <a th:href="@{/ui/inventory/transactions}" role="button" class="secondary">Batal</a>
+                    </div>
+                </form>
+            </article>
+        </section>
+    </main>
+</div>
+
+<script th:inline="javascript">
+    function addRow() {
+        const tbody = document.querySelector('#itemTable tbody');
+        const tr = tbody.querySelector('tr').cloneNode(true);
+        // Reset values
+        tr.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+        tr.querySelector('input[type="number"]').value = '';
+        tbody.appendChild(tr);
+    }
+</script>
+</body>
+</html>

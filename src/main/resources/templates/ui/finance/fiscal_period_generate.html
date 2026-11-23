@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="max-width:500px;">
+                <h3>Generate Fiscal Periods</h3>
+                <p style="color:#64748b;">Generate 12 periode (Januari - Desember) untuk tahun tertentu.</p>
+                <form th:action="@{/ui/finance/fiscal-periods/generate}" method="post">
+                    <div style="margin-bottom:15px;"><label style="font-weight:bold;">Tahun</label>
+                        <input type="number" name="year" required th:value="${currentYear}" min="2000" max="2100" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:4px;"/></div>
+                    <button type="submit" style="background:#10b981;color:white;padding:10px 20px;border:none;border-radius:4px;font-weight:bold;cursor:pointer;">Generate</button>
+                    <a th:href="@{/ui/finance/fiscal-periods}" style="color:#64748b;text-decoration:none;margin-left:10px;">Batal</a>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

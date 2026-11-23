@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="max-width:600px;">
+                <h3 th:text="${isNew} ? 'New Payment Method' : 'Edit Payment Method'"></h3>
+                <form th:action="@{/ui/master/payment-methods/save}" method="post">
+                    <input type="hidden" name="id" th:if="${!isNew}" th:value="${c.id}"/>
+                    <div style="margin-bottom:15px;"><label style="font-weight:bold;">Code</label>
+                        <input type="text" name="code" required th:value="${!isNew ? c.code : ''}" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:4px;"/></div>
+                    <div style="margin-bottom:15px;"><label style="font-weight:bold;">Name</label>
+                        <input type="text" name="name" required th:value="${!isNew ? c.name : ''}" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:4px;"/></div>
+                    <div style="margin-bottom:15px;"><label><input type="checkbox" name="isActive" value="true" th:checked="${isNew or c.isActive}"/> Active</label></div>
+                    <button type="submit" style="background:#10b981;color:white;padding:10px 20px;border:none;border-radius:4px;font-weight:bold;cursor:pointer;">Simpan</button>
+                    <a th:href="@{/ui/master/payment-methods}" style="color:#64748b;text-decoration:none;margin-left:10px;">Batal</a>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

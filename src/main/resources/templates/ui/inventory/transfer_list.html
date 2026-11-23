@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">[Inventory] Stock Transfers</h3>
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+                
+                <a th:href="@{/ui/inventory/transfers/new}" class="erp-btn erp-btn-primary" style="text-decoration:none; display:inline-block; margin-bottom:10px;">+ New Transfer</a>
+
+                <table class="erp-table">
+                    <thead>
+                        <tr>
+                            <th>No. Transfer</th>
+                            <th>Tanggal</th>
+                            <th>Dari Gudang</th>
+                            <th>Ke Gudang</th>
+                            <th>Status</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${#lists.isEmpty(transfers)}">
+                            <td colspan="6" style="text-align:center;">Belum ada data.</td>
+                        </tr>
+                        <tr th:each="t : ${transfers}">
+                            <td><strong th:text="${t.docNo}"></strong></td>
+                            <td th:text="${@dateFmt.format(t.transferDate)}"></td>
+                            <td th:text="${whMap[t.fromWarehouseId]} ?: '-'"></td>
+                            <td th:text="${whMap[t.toWarehouseId]} ?: '-'"></td>
+                            <td><span class="badge" th:text="${t.status}"></span></td>
+                            <td>
+                                <a th:href="@{/ui/inventory/transfers/{id}/view(id=${t.id})}" class="erp-btn-sm" style="background:#3b82f6; color:#fff; padding:3px 10px; text-decoration:none; border-radius:3px;">View</a>
+                                <form th:if="${t.status == 'DRAFT'}" th:action="@{/ui/inventory/transfers/{id}/confirm(id=${t.id})}" method="post" style="display:inline; margin:0;" onsubmit="return confirm('Confirm transfer ini? Stok akan dipindahkan.');">
+                                    <button type="submit" class="erp-btn-sm" style="background:#10b981; color:#fff; padding:3px 10px; border:none; border-radius:3px; cursor:pointer;">Confirm</button>
+                                </form>
+                                <form th:if="${t.status == 'CONFIRMED'}" th:action="@{/ui/inventory/transfers/{id}/unconfirm(id=${t.id})}" method="post" style="display:inline; margin:0;" onsubmit="return confirm('Unconfirm transfer ini? Stok akan dikembalikan ke gudang asal.');">
+                                    <button type="submit" class="erp-btn-sm" style="background:#f59e0b; color:#fff; padding:3px 10px; border:none; border-radius:3px; cursor:pointer;">Unconfirm</button>
+                                </form>
+                                <form th:if="${t.status == 'DRAFT'}" th:action="@{/ui/inventory/transfers/{id}/void(id=${t.id})}" method="post" style="display:inline; margin:0;" onsubmit="return confirm('VOID transfer ini?');">
+                                    <button type="submit" class="erp-btn-sm" style="background:#64748b; color:#fff; padding:3px 10px; border:none; border-radius:3px; cursor:pointer;">Void</button>
+                                </form>
+                                <form th:if="${t.status == 'DRAFT' or t.status == 'VOID'}" th:action="@{/ui/inventory/transfers/{id}/delete(id=${t.id})}" method="post" style="display:inline; margin:0;" onsubmit="return confirm('Hapus transfer ini?');">
+                                    <button type="submit" class="erp-btn-sm" style="background:#ef4444; color:#fff; padding:3px 10px; border:none; border-radius:3px; cursor:pointer;">Hapus</button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

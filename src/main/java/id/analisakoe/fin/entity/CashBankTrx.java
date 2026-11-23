@@ -1,0 +1,30 @@
+package id.analisakoe.fin.entity;
+import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+@Entity @Table(name = "cash_bank_trx", schema = "fin")
+public class CashBankTrx {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
+    
+    @Column(name = "tenant_id", nullable = false) private Long tenantId;
+    @Column(name = "company_id", nullable = false) private Long companyId;
+    @Column(name = "doc_no") private String docNo;
+    @Column(name = "doc_date") private LocalDate docDate;
+    @Column(name = "trx_type") private String trxType;
+    @Column(name = "bank_id") private Long bankId;
+    private BigDecimal amount;
+    private String remarks;
+    private String status;
+
+    public Long getId() { return id; }
+    public Long getTenantId() { return tenantId; } public void setTenantId(Long v) { this.tenantId = v; }
+    public Long getCompanyId() { return companyId; } public void setCompanyId(Long v) { this.companyId = v; }
+    public String getDocNo() { return docNo; } public void setDocNo(String v) { this.docNo = v; }
+    public LocalDate getDocDate() { return docDate; } public void setDocDate(LocalDate v) { this.docDate = v; }
+    public String getTrxType() { return trxType; } public void setTrxType(String v) { this.trxType = v; }
+    public Long getBankId() { return bankId; } public void setBankId(Long v) { this.bankId = v; }
+    public BigDecimal getAmount() { return amount; } public void setAmount(BigDecimal v) { this.amount = v; }
+    public String getRemarks() { return remarks; } public void setRemarks(String v) { this.remarks = v; }
+    public String getStatus() { return status; } public void setStatus(String v) { this.status = v; }
+}

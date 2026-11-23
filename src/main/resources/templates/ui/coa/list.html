@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <div style="display:flex;justify-content:space-between;margin-bottom:15px;align-items:center;">
+                    <h3 style="margin:0;">[F0101] Chart of Accounts</h3>
+                    <a th:href="@{/ui/coa/new}" class="erp-btn erp-btn-primary" style="background:#3b82f6;color:white;text-decoration:none;">+ New Account</a>
+                </div>
+
+                <!-- SEARCH -->
+                <form th:action="@{/ui/coa}" method="get" style="margin-bottom:15px;display:flex;gap:8px;">
+                    <input type="text" name="q" th:value="${q}" placeholder="Cari kode / nama akun..." style="flex:1;padding:8px;border:1px solid #cbd5e1;border-radius:4px;"/>
+                    <button type="submit" class="erp-btn erp-btn-primary" style="background:#3b82f6;color:white;cursor:pointer;">Cari</button>
+                    <a th:href="@{/ui/coa}" style="padding:8px 15px;color:#64748b;text-decoration:none;">Reset</a>
+                </form>
+
+                <div th:if="${success}" style="background:#dcfce7;border:1px solid #16a34a;color:#14532d;padding:10px;border-radius:6px;margin-bottom:15px;" th:text="${success}"></div>
+                <div th:if="${error}" style="background:#fee2e2;border:1px solid #dc2626;color:#7f1d1d;padding:10px;border-radius:6px;margin-bottom:15px;" th:text="${error}"></div>
+
+                <style>
+                    /* Layout FIXED: tabel dijamin tidak pernah melebihi lebar kontainer */
+                    .coa-table { table-layout: fixed; }
+                    .coa-table th, .coa-table td { padding: 7px 8px !important; overflow: hidden; }
+                    .coa-table th { font-size: 11px !important; }
+                    .coa-table td { font-size: 13px; word-wrap: break-word; }
+                    .coa-table .badge {
+                        display: inline-block;
+                        padding: 2px 7px;
+                        border-radius: 10px;
+                        font-size: 10px;
+                        font-weight: bold;
+                        white-space: nowrap;
+                    }
+                    .coa-table .aksi-cell { white-space: nowrap; text-align: center; }
+                    .coa-table .aksi-cell a, .coa-table .aksi-cell button {
+                        display: inline-block;
+                        width: auto !important;
+                        padding: 3px 7px !important;
+                        font-size: 10.5px;
+                        font-weight: bold;
+                        border-radius: 4px;
+                        border: none;
+                        cursor: pointer;
+                        vertical-align: middle;
+                        line-height: 1.4;
+                        margin: 0;
+                        max-width: 100%;
+                    }
+                </style>
+
+                <table class="erp-table coa-table" style="width:100%;border-collapse:collapse;table-layout:fixed;">
+                    <thead>
+                        <tr style="background:#1e293b;color:white;text-align:left;">
+                            <th style="width:78px;">KODE</th>
+                            <th>NAMA AKUN</th>
+                            <th style="width:96px;">TIPE</th>
+                            <th style="width:56px;text-align:center;">HDR</th>
+                            <th style="width:46px;">CUR</th>
+                            <th style="width:88px;">STATUS</th>
+                            <th style="width:120px;text-align:center;">AKSI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="acc : ${coas.content}" th:style="${acc.isHeader} ? 'background:#f1f5f9;font-weight:600;border-bottom:1px solid #eee;' : 'border-bottom:1px solid #eee;'">
+                            <td style="font-family:monospace;font-weight:bold;" th:text="${acc.code}">-</td>
+                            <td th:text="${acc.name}">-</td>
+                            <td>
+                                <span th:switch="${acc.accountType}">
+                                    <span th:case="'ASSET'" class="badge" style="background:#dbeafe;color:#1e40af;">ASSET</span>
+                                    <span th:case="'LIABILITY'" class="badge" style="background:#fee2e2;color:#991b1b;">LIABILITY</span>
+                                    <span th:case="'EQUITY'" class="badge" style="background:#f3e8ff;color:#6b21a8;">EQUITY</span>
+                                    <span th:case="'REVENUE'" class="badge" style="background:#dcfce7;color:#14532d;">REVENUE</span>
+                                    <span th:case="'EXPENSE'" class="badge" style="background:#fef3c7;color:#92400e;">EXPENSE</span>
+                                    <span th:case="*" th:text="${acc.accountType}">-</span>
+                                </span>
+                            </td>
+                            <td style="text-align:center;" th:text="${acc.isHeader ? 'Ya' : '-'}"></td>
+                            <td th:text="${acc.currency != null ? acc.currency : 'IDR'}"></td>
+                            <td>
+                                <span class="badge"
+                                      th:style="${acc.status == 'ACTIVE' ? 'background:#dcfce7;color:#14532d;' : 'background:#fee2e2;color:#991b1b;'}"
+                                      th:text="${acc.status}">-</span>
+                            </td>
+                            <td class="aksi-cell">
+                                <a th:href="@{/ui/coa/{id}/edit(id=${acc.id})}" style="background:#f59e0b;color:white;margin-right:3px;">Edit</a>
+                                <form th:action="@{/ui/coa/{id}/delete(id=${acc.id})}" method="post" style="display:inline;margin:0;" onsubmit="return confirm('Hapus akun ini?');">
+                                    <button type="submit" style="background:#ef4444;color:white;">Hapus</button>
+                                </form>
+                            </td>
+                        </tr>
+                        <tr th:if="${coas.content == null or coas.content.isEmpty()}">
+                            <td colspan="7" style="padding:40px;text-align:center;color:#64748b;">
+                                Belum ada Chart of Accounts.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="margin-top:10px;font-size:12px;color:#64748b;">
+                    Total: <strong th:text="${coas.totalElements}">0</strong> akun
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

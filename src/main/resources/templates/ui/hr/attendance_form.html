@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                
+                <!-- JUDUL DINAMIS -->
+                <h3 style="margin-top:0; margin-bottom:20px;" th:text="${attendance != null ? '[HR] Edit Attendance' : '[HR] New Attendance'}">[HR] Attendance</h3>
+                
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <!-- FORM DINAMIS (Action berubah jika mode Edit) -->
+                <form th:action="${attendance != null} ? @{/ui/hr/attendance/{id}(id=${attendance.id})} : @{/ui/hr/attendance}" method="post">
+                    
+                    <!-- Hidden ID untuk mode Edit (opsional, berguna untuk Javascript) -->
+                    <input type="hidden" th:if="${attendance != null}" name="id" th:value="${attendance.id}"/>
+
+                    <div class="erp-form-grid">
+                        <label>Karyawan:</label>
+                        <select name="employeeId" required>
+                            <option th:each="e : ${employees}" 
+                                    th:value="${e.id}" 
+                                    th:text="${e.nip} + ' - ' + ${e.name}"
+                                    th:selected="${attendance != null && attendance.employeeId == e.id}">
+                            </option>
+                        </select>
+                        
+                        <label>Tanggal:</label>
+                        <!-- Isi tanggal otomatis 'today' jika baru, atau 'attDate' jika edit -->
+                        <input type="date" name="attDate" required 
+                               th:value="${attendance != null ? attendance.attDate : today}">
+
+                        <label>Status:</label>
+                        <select name="status" required>
+                            <option value="HADIR" th:selected="${attendance != null && attendance.status == 'HADIR'}">HADIR</option>
+                            <option value="SAKIT" th:selected="${attendance != null && attendance.status == 'SAKIT'}">SAKIT</option>
+                            <option value="IZIN" th:selected="${attendance != null && attendance.status == 'IZIN'}">IZIN</option>
+                            <option value="ALPHA" th:selected="${attendance != null && attendance.status == 'ALPHA'}">ALPHA (Tanpa Kabar)</option>
+                            <option value="CUTI" th:selected="${attendance != null && attendance.status == 'CUTI'}">CUTI</option>
+                        </select>
+
+                        <label>Terlambat (menit):</label>
+                        <input type="number" name="lateMinutes" min="0" 
+                               th:value="${attendance != null ? attendance.lateMinutes : 0}">
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <label>Remarks:</label>
+                        <input type="text" name="remarks" style="width: 50%; display:block; margin-top:5px; padding:8px; border:1px solid #cbd5e1; border-radius:4px;" 
+                               th:value="${attendance != null ? attendance.remarks : ''}">
+                    </div>
+                    
+                    <div style="margin-top: 25px;">
+                        <button type="submit" class="erp-btn erp-btn-primary" style="padding: 8px 30px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;" 
+                                th:text="${attendance != null ? 'Update Data' : 'Simpan'}">Simpan</button>
+                        <a th:href="@{/ui/hr/attendance}" class="erp-btn" style="text-decoration:none; padding: 8px 20px; margin-left:10px; color:#64748b;">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

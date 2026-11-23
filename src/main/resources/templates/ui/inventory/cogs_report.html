@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0302] COGS / HPP Report</h3>
+
+                <div th:if="${error}" style="margin-bottom:10px; padding:10px; background:#fee2e2; color:#991b1b; border-radius:4px;" th:text="${error}"></div>
+
+                <!-- FILTER -->
+                <form th:action="@{/ui/inventory/cogs}" method="get"
+                      style="background:#f8fafc; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #e2e8f0; display:flex; gap:15px; align-items:flex-end; flex-wrap:wrap;">
+                    <div>
+                        <label style="display:block; font-weight:600; margin-bottom:5px; font-size:12px;">Dari Tanggal:</label>
+                        <input type="date" name="startDate" th:value="${startDate}" required
+                               style="padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-weight:600; margin-bottom:5px; font-size:12px;">Sampai Tanggal:</label>
+                        <input type="date" name="endDate" th:value="${endDate}" required
+                               style="padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-weight:600; margin-bottom:5px; font-size:12px;">Item (Opsional):</label>
+                        <select name="itemId" style="padding:8px; border:1px solid #ddd; border-radius:4px; min-width:200px;">
+                            <option value="">-- Semua Item --</option>
+                            <option th:each="it : ${items}" th:value="${it.id}"
+        th:text="|${it.code} - ${it.name}|"
+        th:selected="${itemIdFilter != null and it.id == itemIdFilter}"></option>
+                        </select>
+                    </div>
+                    <button type="submit" style="padding:9px 20px; background:#2563eb; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">
+                        🔍 Filter
+                    </button>
+                </form>
+
+                <!-- SUMMARY -->
+                <div style="display:flex; gap:15px; margin-bottom:20px;">
+                    <div style="flex:1; background:#eff6ff; padding:15px; border-radius:8px; border-left:4px solid #2563eb;">
+                        <div style="font-size:12px; color:#64748b;">Total Rows</div>
+                        <div style="font-size:24px; font-weight:bold; color:#1e40af;" th:text="${rowCount}">0</div>
+                    </div>
+                    <div style="flex:1; background:#f0fdf4; padding:15px; border-radius:8px; border-left:4px solid #16a34a;">
+                        <div style="font-size:12px; color:#64748b;">Total Qty Terjual</div>
+                        <div style="font-size:24px; font-weight:bold; color:#166534;"
+                             th:text="${@qtyDisplay.format(#numbers.formatDecimal(grandTotalQty, 1, 'POINT', 2, 'COMMA'))}">0</div>
+                    </div>
+                    <div style="flex:1; background:#fef2f2; padding:15px; border-radius:8px; border-left:4px solid #dc2626;">
+                        <div style="font-size:12px; color:#64748b;">Total HPP (COGS)</div>
+                        <div style="font-size:24px; font-weight:bold; color:#991b1b;"
+                             th:text="'Rp ' + ${#numbers.formatDecimal(grandTotalCogs, 1, 'POINT', 2, 'COMMA')}">Rp 0</div>
+                    </div>
+                </div>
+
+                <!-- TABLE -->
+                <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:4px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead>
+                            <tr style="background-color:#1e293b; color:white;">
+                                <th style="padding:10px; width:40px;">NO</th>
+                                <th style="padding:10px;">TANGGAL</th>
+                                <th style="padding:10px;">NO. DO</th>
+                                <th style="padding:10px;">KODE ITEM</th>
+                                <th style="padding:10px;">NAMA ITEM</th>
+                                <th style="padding:10px; text-align:right;">QTY</th>
+                                <th style="padding:10px;">UNIT</th>
+                                <th style="padding:10px; text-align:right;">HPP/UNIT</th>
+                                <th style="padding:10px; text-align:right;">TOTAL HPP</th>
+                            </tr>
+                        </thead>
+                                                <tbody>
+                            <tr th:if="${#lists.isEmpty(cogsList)}">
+                                <td colspan="9" style="text-align:center; padding:20px; color:#94a3b8;">
+                                    Belum ada transaksi HPP pada periode ini.
+                                </td>
+                            </tr>
+                            <tr th:each="c, stat : ${cogsList}" style="border-bottom:1px solid #eee;">
+                                <td style="padding:8px; text-align:center;" th:text="${stat.count}">1</td>
+                                <td style="padding:8px; text-align:center;"
+                                    th:text="${c.doDate != null ? #temporals.format(c.doDate, 'dd-MM-yyyy') : '-'}">-</td>
+                                <td style="padding:8px; font-weight:bold;" th:text="${c.doNo}">-</td>
+                                <td style="padding:8px;" th:text="${c.itemCode}">-</td>
+                                <td style="padding:8px;" th:text="${c.itemName}">-</td>
+                                <td style="padding:8px; text-align:right;"
+                                    th:text="${@qtyDisplay.format(#numbers.formatDecimal(c.qty, 1, 'POINT', 2, 'COMMA'))}">0</td>
+                                <td style="padding:8px; text-align:center;" th:text="${c.uomCode}">-</td>
+                                <td style="padding:8px; text-align:right;"
+                                    th:text="'Rp ' + ${#numbers.formatDecimal(c.cogsUnit, 1, 'POINT', 2, 'COMMA')}">-</td>
+                                <td style="padding:8px; text-align:right; font-weight:bold; color:#991b1b;"
+                                    th:text="'Rp ' + ${#numbers.formatDecimal(c.cogsTotal, 1, 'POINT', 2, 'COMMA')}">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

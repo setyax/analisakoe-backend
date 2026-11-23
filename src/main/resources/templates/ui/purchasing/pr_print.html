@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Purchase Request</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            color: #1e293b;
+            margin: 25px;
+            font-size: 12px;
+        }
+
+        .company {
+            font-size: 21px;
+            font-weight: bold;
+            border-bottom: 2px solid #1e293b;
+            padding-bottom: 12px;
+        }
+
+        .title {
+            text-align: center;
+            margin: 24px 0;
+        }
+
+        .info {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .info td {
+            padding: 5px;
+            vertical-align: top;
+        }
+
+        table.items {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table.items th,
+        table.items td {
+            border: 1px solid #94a3b8;
+            padding: 7px;
+        }
+
+        table.items th {
+            background: #e2e8f0;
+        }
+
+        .right { text-align: right; }
+        .center { text-align: center; }
+
+        .signatures {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 70px;
+            text-align: center;
+        }
+
+        .signatures div {
+            min-height: 75px;
+        }
+
+        .remarks {
+            margin-top: 15px;
+            border: 1px solid #cbd5e1;
+            padding: 10px;
+        }
+
+        .toolbar {
+            margin-bottom: 20px;
+        }
+
+        .toolbar button,
+        .toolbar a {
+            display: inline-block;
+            padding: 8px 15px;
+            border: 0;
+            text-decoration: none;
+            color: white;
+            background: #2563eb;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+
+        @media print {
+            body { margin: 0; }
+            .toolbar { display: none; }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="toolbar">
+    <button onclick="window.print()">Print Purchase Request</button>
+    <a href="javascript:window.close()">Tutup</a>
+</div>
+
+<div class="company" th:text="${companyName}">Company</div>
+
+<div class="title">
+    <h2>PURCHASE REQUEST</h2>
+    <strong th:text="${docNo}"></strong>
+</div>
+
+<table class="info">
+    <tr>
+        <td width="18%">PR Number</td>
+        <td width="32%" th:text="${docNo}"></td>
+        <td width="18%">Requestor</td>
+        <td width="32%" th:text="${requestor}"></td>
+    </tr>
+
+    <tr>
+        <td>Date</td>
+        <td th:text="${docDate != null ? #temporals.format(docDate,'dd-MM-yyyy') : '-'}"></td>
+        <td>Status</td>
+        <td th:text="${status}"></td>
+    </tr>
+</table>
+
+<h4>Item Details</h4>
+
+<table class="items">
+    <thead>
+        <tr>
+            <th width="35">No</th>
+            <th>Item Code</th>
+            <th>Description</th>
+            <th class="right">Quantity</th>
+            <th>UOM</th>
+            <th>Delivery Date</th>
+            <th class="right">Estimated Price</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        <tr th:each="item,stat : ${items}">
+            <td class="center" th:text="${stat.count}"></td>
+            <td th:text="${item.code}"></td>
+            <td>
+                <span th:text="${item.name}"></span>
+                <span th:if="${item.description != ''}"
+                      th:text="' - ' + ${item.description}"></span>
+            </td>
+            <td class="right"
+                th:text="${@qtyDisplay.format(item.qty)}"></td>
+            <td th:text="${item.uom}"></td>
+            <td th:text="${@dateFmt.format(item.deliveryDate)}"></td>
+            <td class="right"
+                th:text="${#numbers.formatDecimal(item.estimatedPrice,1,'POINT',2,'COMMA')}"></td>
+        </tr>
+
+        <tr th:if="${#lists.isEmpty(items)}">
+            <td colspan="7" class="center">Tidak ada detail item.</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="remarks">
+    <strong>Remarks:</strong>
+    <span th:text="${remarks}"></span>
+</div>
+
+<div class="signatures">
+    <div>
+        Requested By
+        <br><br><br><br>
+        <strong th:text="${requestor}"></strong>
+    </div>
+
+    <div>
+        Checked By
+        <br><br><br><br>
+        ______________________
+    </div>
+
+    <div>
+        Approved By
+        <br><br><br><br>
+        ______________________
+    </div>
+</div>
+
+</body>
+</html>

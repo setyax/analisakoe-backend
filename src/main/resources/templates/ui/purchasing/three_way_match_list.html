@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0205] 3-Way Match Report (PO vs GRN vs Invoice)</h3>
+
+                <div th:if="${error}" style="margin-bottom:10px; padding:10px; background:#fee2e2; color:#991b1b; border-radius:4px;" th:text="${error}"></div>
+
+                <div style="margin-bottom:15px; display:flex; gap:8px; flex-wrap:wrap;">
+                    <a th:href="@{/ui/purchasing/three-way-match}" style="padding:8px 15px; border-radius:4px; text-decoration:none; font-weight:bold; background:#e2e8f0; color:#333;">Semua</a>
+                    <a th:href="@{/ui/purchasing/three-way-match(statusFilter='MATCH')}" style="padding:8px 15px; border-radius:4px; text-decoration:none; font-weight:bold; background:#dcfce7; color:#166534;">✅ Match</a>
+                    <a th:href="@{/ui/purchasing/three-way-match(statusFilter='PARTIAL')}" style="padding:8px 15px; border-radius:4px; text-decoration:none; font-weight:bold; background:#fef3c7; color:#b45309;">⚠️ Partial</a>
+                    <a th:href="@{/ui/purchasing/three-way-match(statusFilter='OVER_RECEIVE')}" style="padding:8px 15px; border-radius:4px; text-decoration:none; font-weight:bold; background:#dbeafe; color:#1e40af;">📦 Over Receive</a>
+                    <a th:href="@{/ui/purchasing/three-way-match(statusFilter='OVER_INVOICE')}" style="padding:8px 15px; border-radius:4px; text-decoration:none; font-weight:bold; background:#fee2e2; color:#991b1b;">💰 Over Invoice</a>
+                </div>
+
+                <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:4px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead>
+                            <tr style="background-color:#1e293b; color:white;">
+                                <th style="padding:10px;">TANGGAL</th>
+                                <th style="padding:10px;">NO. PO</th>
+                                <th style="padding:10px;">SUPPLIER</th>
+                                <th style="padding:10px; text-align:right;">QTY PO</th>
+                                <th style="padding:10px; text-align:right;">QTY GRN</th>
+                                <th style="padding:10px; text-align:right;">QTY INVOICE</th>
+                                <th style="padding:10px; text-align:center;">3-WAY MATCH</th>
+                                <th style="padding:10px; text-align:center; width:80px;">AKSI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${#lists.isEmpty(orders)}">
+                                <td colspan="8" style="text-align:center; padding:20px; color:#94a3b8;">Belum ada data PO.</td>
+                            </tr>
+                            <tr th:each="o : ${orders}" style="border-bottom:1px solid #eee;">
+                                <td style="padding:10px;" th:text="${o.docDate != null ? #temporals.format(o.docDate, 'dd-MM-yyyy') : '-'}"></td>
+                                <td style="padding:10px; font-weight:bold;" th:text="${o.docNo}"></td>
+                                <td style="padding:10px;" th:text="${o.supplierName}"></td>
+                                <td style="padding:10px; text-align:right;" th:text="${#numbers.formatDecimal(o.totalPo, 1, 'POINT', 2, 'COMMA')}"></td>
+                                <td style="padding:10px; text-align:right;" th:text="${#numbers.formatDecimal(o.totalGrn, 1, 'POINT', 2, 'COMMA')}"></td>
+                                <td style="padding:10px; text-align:right;" th:text="${#numbers.formatDecimal(o.totalInv, 1, 'POINT', 2, 'COMMA')}"></td>
+                                <td style="padding:10px; text-align:center;">
+                                    <span th:styleappend="${o.matchStatus == 'MATCH' ? 'background:#dcfce7; color:#166534;' : (o.matchStatus == 'PARTIAL' ? 'background:#fef3c7; color:#b45309;' : (o.matchStatus == 'OVER_RECEIVE' ? 'background:#dbeafe; color:#1e40af;' : (o.matchStatus == 'OVER_INVOICE' ? 'background:#fee2e2; color:#991b1b;' : 'background:#e2e8f0; color:#475569;')))}"
+                                          style="padding:4px 12px; border-radius:12px; font-size:11px; font-weight:bold;"
+                                          th:text="${o.matchStatus}"></span>
+                                </td>
+                                <td style="padding:10px; text-align:center;">
+                                    <a th:href="@{/ui/purchasing/three-way-match/{id}(id=${o.id})}" 
+                                       style="background:#3b82f6; color:white; padding:4px 10px; border-radius:3px; text-decoration:none; font-size:11px; font-weight:bold;">Detail</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top:15px; padding:12px; background:#f8fafc; border-left:4px solid #3b82f6; font-size:12px;">
+                    <strong>Penjelasan Status:</strong>
+                    <ul style="margin:5px 0 0 15px; padding:0;">
+                        <li><span style="background:#dcfce7; padding:2px 6px; border-radius:3px;">MATCH</span> — Qty PO = Qty GRN = Qty Invoice ✅</li>
+                        <li><span style="background:#fef3c7; padding:2px 6px; border-radius:3px;">PARTIAL</span> — Belum semua barang diterima/ditagih</li>
+                        <li><span style="background:#dbeafe; padding:2px 6px; border-radius:3px;">OVER_RECEIVE</span> — GRN melebihi Qty PO (⚠️ perlu investigasi)</li>
+                        <li><span style="background:#fee2e2; padding:2px 6px; border-radius:3px;">OVER_INVOICE</span> — Invoice melebihi Qty GRN (❌ fraud risk)</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

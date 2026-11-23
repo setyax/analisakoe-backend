@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+
+<body>
+
+<div class="app-layout">
+
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <main class="app-main">
+
+        <header th:replace="~{fragments/header :: header}"></header>
+
+        <section class="app-content">
+
+            <div class="erp-container"
+                 style="padding:20px;background:white;border-radius:8px;">
+
+                <h3>Wizard Copy Supplier Price List</h3>
+
+                <p style="color:#64748b;">
+                    Salin seluruh Item Price dari satu supplier ke beberapa supplier tujuan.
+                    Harga, UOM, Currency, Validity, dan Min Qty akan dipertahankan.
+                </p>
+
+                <form th:action="@{/ui/purchasing/price-list/copy-wizard/preview}"
+                      method="post"
+                      id="copyForm">
+
+                    <div style="margin-bottom:20px;max-width:750px;">
+
+                        <label style="display:block;font-weight:bold;margin-bottom:7px;">
+                            1. Supplier Sumber
+                        </label>
+
+                        <select name="sourceSupplierId"
+                                id="sourceSupplierId"
+                                required
+                                style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:5px;">
+
+                            <option value="">-- Pilih Supplier Sumber --</option>
+
+                            <option th:each="s : ${suppliers}"
+                                    th:if="${s.priceCount > 0}"
+                                    th:value="${s.id}"
+                                    th:text="${s.name} + ' (' + ${s.priceCount} + ' Price Entries)'">
+                            </option>
+
+                        </select>
+
+                        <small style="color:#64748b;">
+                            Hanya supplier yang telah memiliki Price List yang dapat menjadi sumber.
+                        </small>
+
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+
+                        <label style="display:block;font-weight:bold;margin-bottom:10px;">
+                            2. Supplier Tujuan
+                        </label>
+
+                        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+
+                            <button type="button"
+                                    onclick="selectAllTargets(true)"
+                                    style="background:#2563eb;color:white;border:0;padding:7px 12px;border-radius:4px;">
+                                Pilih Semua
+                            </button>
+
+                            <button type="button"
+                                    onclick="selectAllTargets(false)"
+                                    style="background:#64748b;color:white;border:0;padding:7px 12px;border-radius:4px;">
+                                Kosongkan
+                            </button>
+
+                        </div>
+
+                        <div style="max-width:750px;border:1px solid #e2e8f0;border-radius:6px;padding:12px;max-height:420px;overflow:auto;">
+
+                            <div th:each="s : ${suppliers}"
+                                 class="target-row"
+                                 th:attr="data-supplier-id=${s.id}"
+                                 style="padding:9px;border-bottom:1px solid #f1f5f9;">
+
+                                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+
+                                    <input type="checkbox"
+                                           name="targetSupplierIds"
+                                           class="target-checkbox"
+                                           th:value="${s.id}">
+
+                                    <span th:text="${s.name}"
+                                          style="font-weight:600;">
+                                    </span>
+
+                                    <span style="margin-left:auto;color:#64748b;font-size:12px;"
+                                          th:text="${s.priceCount + ' price entries saat ini'}">
+                                    </span>
+
+                                </label>
+
+                            </div>
+
+                        </div>
+
+                        <small style="color:#64748b;">
+                            Supplier yang sudah memiliki sebagian Price List tetap dapat dipilih.
+                            Entri yang sudah ada akan dilewati.
+                        </small>
+
+                    </div>
+
+                    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:12px;margin-bottom:20px;max-width:750px;">
+
+                        <strong>Aturan Copy</strong>
+
+                        <ul style="margin-bottom:0;">
+                            <li>Harga supplier sumber tidak diubah.</li>
+                            <li>Price UOM dan Min Qty ikut disalin.</li>
+                            <li>Harga tujuan yang sudah ada tidak ditimpa.</li>
+                            <li>Duplikat dilewati secara otomatis.</li>
+                            <li>Copy hanya dalam tenant yang sama.</li>
+                        </ul>
+
+                    </div>
+
+                    <div style="display:flex;gap:10px;">
+
+                        <button type="submit"
+                                style="background:#2563eb;color:white;padding:10px 20px;border:0;border-radius:4px;font-weight:bold;">
+                            Preview Copy
+                        </button>
+
+                        <a th:href="@{/ui/purchasing/price-list}"
+                           style="background:#64748b;color:white;padding:10px 20px;border-radius:4px;text-decoration:none;">
+                            Kembali
+                        </a>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<script>
+const sourceSelect =
+    document.getElementById("sourceSupplierId");
+
+function updateTargetSelection() {
+
+    const sourceId = sourceSelect.value;
+
+    document.querySelectorAll(".target-row").forEach(function(row) {
+
+        const checkbox = row.querySelector("input[type=checkbox]");
+
+        const isSource =
+            row.dataset.supplierId === sourceId;
+
+        if (isSource) {
+            checkbox.checked = false;
+            checkbox.disabled = true;
+            row.style.opacity = "0.4";
+        } else {
+            checkbox.disabled = false;
+            row.style.opacity = "1";
+        }
+    });
+}
+
+sourceSelect.addEventListener("change", updateTargetSelection);
+
+function selectAllTargets(select) {
+
+    document.querySelectorAll(".target-checkbox").forEach(function(cb) {
+
+        if (!cb.disabled) {
+            cb.checked = select;
+        }
+
+    });
+}
+
+document.getElementById("copyForm").addEventListener("submit", function(event) {
+
+    const selected =
+        document.querySelectorAll(
+            ".target-checkbox:checked:not(:disabled)"
+        );
+
+    if (!sourceSelect.value) {
+        event.preventDefault();
+        alert("Pilih supplier sumber.");
+        return;
+    }
+
+    if (selected.length === 0) {
+        event.preventDefault();
+        alert("Pilih minimal satu supplier tujuan.");
+    }
+
+});
+</script>
+
+</body>
+</html>

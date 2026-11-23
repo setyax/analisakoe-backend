@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+
+<body>
+
+<div class="app-layout">
+
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <main class="app-main">
+
+        <header th:replace="~{fragments/header :: header}"></header>
+
+        <section class="app-content">
+
+            <div class="erp-container">
+
+                <h3>Master Item Price</h3>
+
+                <div th:if="${success}"
+                     th:text="${success}"
+                     style="background:#dcfce7;border:1px solid #16a34a;color:#14532d;padding:10px;border-radius:6px;margin-bottom:12px;">
+                </div>
+
+                <div th:if="${error}"
+                     th:text="${error}"
+                     style="background:#fee2e2;border:1px solid #dc2626;color:#7f1d1d;padding:10px;border-radius:6px;margin-bottom:12px;">
+                </div>
+
+                <details id="formContainer"
+                         style="margin-bottom:20px;"
+                         open>
+
+                    <summary id="formTitle"
+                             style="cursor:pointer;font-weight:bold;color:#1e293b;padding:8px;">
+                        + Tambah Harga Baru
+                    </summary>
+
+                    <form id="priceForm"
+                          th:action="@{/ui/master/item-price/save}"
+                          method="post"
+                          style="display:grid;grid-template-columns:150px 1fr;gap:10px;margin-top:15px;max-width:650px;padding:15px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;">
+
+                        <input type="hidden" id="priceId" name="id">
+
+                        <label style="font-weight:bold;">Item:</label>
+
+                        <select id="itemId"
+                                name="itemId"
+                                required
+                                style="padding:8px;border:1px solid #cbd5e1;border-radius:4px;">
+
+                            <option value="">-- Pilih Item --</option>
+
+                            <option th:each="i : ${items}"
+                                    th:value="${i.id}"
+                                    th:text="${i.code} + ' - ' + ${i.name}">
+                            </option>
+
+                        </select>
+
+                        <label style="font-weight:bold;">Price UOM:</label>
+
+                        <select id="uomId"
+                                name="uomId"
+                                required
+                                style="padding:8px;border:1px solid #cbd5e1;border-radius:4px;">
+
+                            <option value="">-- Pilih UOM Harga --</option>
+
+                            <option th:each="u : ${uoms}"
+                                    th:value="${u.id}"
+                                    th:text="${u.code}">
+                            </option>
+
+                        </select>
+
+                        <label style="font-weight:bold;">Currency:</label>
+
+                        <select id="currency"
+                                name="currency"
+                                required
+                                style="padding:8px;border:1px solid #cbd5e1;border-radius:4px;">
+
+                            <option value="IDR">IDR</option>
+                            <option value="USD">USD</option>
+
+                        </select>
+
+                        <label style="font-weight:bold;">Price:</label>
+
+                        <div style="flex:1;">
+    <input type="text"
+           id="priceDisplay"
+           inputmode="decimal"
+           autocomplete="off"
+           required
+           placeholder="Contoh: 1.500.000,50"
+           style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:4px;">
+
+    <input type="hidden" name="price" id="price">
+
+    <small style="color:#64748b;">
+        Titik untuk ribuan, koma untuk desimal.
+    </small>
+</div>
+
+                        <label style="font-weight:bold;">Valid From:</label>
+
+                        <input type="date"
+                               id="validFrom"
+                               name="validFrom"
+                               required
+                               style="padding:8px;border:1px solid #cbd5e1;border-radius:4px;">
+
+                        <label style="font-weight:bold;">Valid To (Opsional):</label>
+
+                        <input type="date"
+                               id="validTo"
+                               name="validTo"
+                               style="padding:8px;border:1px solid #cbd5e1;border-radius:4px;">
+
+                        <label style="font-weight:bold;">Status:</label>
+
+                        <select id="status"
+                                name="status"
+                                style="padding:8px;border:1px solid #cbd5e1;border-radius:4px;">
+
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="INACTIVE">INACTIVE</option>
+
+                        </select>
+
+                        <div></div>
+
+                        <div style="display:flex;gap:10px;">
+
+                            <button type="submit"
+                                    class="erp-btn erp-btn-primary">
+                                Simpan
+                            </button>
+
+                            <button type="button"
+                                    id="btnCancel"
+                                    class="erp-btn"
+                                    style="background:#64748b;color:white;display:none;"
+                                    onclick="resetForm()">
+                                Batal Edit
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                </details>
+
+                <div style="overflow-x:auto;">
+
+                    <table class="erp-table" style="width:100%;">
+
+                        <thead>
+
+                            <tr>
+                                <th>Kode Item</th>
+                                <th>Nama Item</th>
+                                <th>Price UOM</th>
+                                <th>Currency</th>
+                                <th style="text-align:right;">Harga</th>
+                                <th>Valid From</th>
+                                <th>Valid To</th>
+                                <th>Status</th>
+                                <th style="text-align:center;">Aksi</th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody>
+
+                            <tr th:if="${#lists.isEmpty(prices)}">
+                                <td colspan="9"
+                                    style="text-align:center;padding:20px;">
+                                    Belum ada data harga.
+                                </td>
+                            </tr>
+
+                            <tr th:each="p : ${prices}">
+
+                                <td th:text="${p.itemCode}"></td>
+
+                                <td th:text="${p.itemName}"></td>
+
+                                <td th:text="${p.uomCode}"></td>
+
+                                <td th:text="${p.currency}"></td>
+
+                                <td style="text-align:right;font-weight:bold;"
+                                    th:text="${#numbers.formatDecimal(p.price,1,'POINT',2,'COMMA')}">
+                                </td>
+
+                                <td th:text="${p.validFrom}"></td>
+
+                                <td th:text="${p.validTo != '' ? p.validTo : '-'}"></td>
+
+                                <td th:text="${p.status}"></td>
+
+                                <td style="text-align:center;">
+
+                                    <div style="display:flex;gap:6px;justify-content:center;align-items:center;">
+
+                                        <button type="button"
+                                                class="erp-btn erp-btn-sm btn-edit-price"
+                                                style="background:#f59e0b;color:white;margin:0;"
+                                                th:attr="
+                                                    data-id=${p.id},
+                                                    data-item-id=${p.itemId},
+                                                    data-uom-id=${p.uomId},
+                                                    data-currency=${p.currency},
+                                                    data-price=${p.price},
+                                                    data-valid-from=${p.validFrom},
+                                                    data-valid-to=${p.validTo},
+                                                    data-status=${p.status}">
+                                            Edit
+                                        </button>
+
+                                        <form th:action="@{/ui/master/item-price/{id}/delete(id=${p.id})}"
+                                              method="post"
+                                              style="margin:0;padding:0;"
+                                              onsubmit="return confirm('Hapus harga ini?');">
+
+                                            <button type="submit"
+                                                    class="erp-btn erp-btn-sm"
+                                                    style="background:#dc2626;color:#fff;margin:0;">
+                                                Hapus
+                                            </button>
+
+                                        </form>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<script>
+(function () {
+
+    "use strict";
+
+    const form = document.getElementById("priceForm");
+
+    function editPrice(button) {
+
+        const d = button.dataset;
+
+        document.getElementById("priceId").value = d.id || "";
+        document.getElementById("itemId").value = d.itemId || "";
+        document.getElementById("uomId").value = d.uomId || "";
+        document.getElementById("currency").value = d.currency || "IDR";
+        document.getElementById("price").value = d.price || "0";
+        window.formatItemPriceDisplay(d.price || "0");
+        document.getElementById("validFrom").value = d.validFrom || "";
+        document.getElementById("validTo").value = d.validTo || "";
+        document.getElementById("status").value = d.status || "ACTIVE";
+
+        document.getElementById("formTitle").textContent =
+            "Edit Harga: " + d.id;
+
+        document.getElementById("btnCancel").style.display =
+            "inline-block";
+
+        document.getElementById("formContainer").open = true;
+
+        document.getElementById("formContainer").scrollIntoView({
+            behavior: "smooth"
+        });
+    }
+
+    document.querySelectorAll(".btn-edit-price").forEach(function (button) {
+        button.addEventListener("click", function () {
+            editPrice(this);
+        });
+    });
+
+    window.resetForm = function () {
+
+        form.reset();
+
+        document.getElementById("priceId").value = "";
+
+        document.getElementById("formTitle").textContent =
+            "+ Tambah Harga Baru";
+
+        document.getElementById("btnCancel").style.display =
+            "none";
+    };
+
+    form.addEventListener("submit", function (event) {
+
+        const itemId = document.getElementById("itemId").value;
+        const uomId = document.getElementById("uomId").value;
+        const price = document.getElementById("price").value;
+
+        if (!itemId || !uomId || price === "") {
+            event.preventDefault();
+            alert("Item, Price UOM dan Price wajib diisi.");
+        }
+
+    });
+
+})();
+</script>
+
+<!-- item-price-thousand-separator-v1 -->
+<script>
+(function () {
+    "use strict";
+
+    const display = document.getElementById("priceDisplay");
+    const hidden = document.getElementById("price");
+
+    if (!display || !hidden) return;
+
+    function groupThousands(value) {
+        return value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    function fromRaw(raw) {
+        const value = String(raw || "").trim();
+        const index = value.lastIndexOf(".");
+
+        let integer = index >= 0
+            ? value.substring(0, index).replace(/\D/g, "")
+            : value.replace(/\D/g, "");
+
+        let decimal = index >= 0
+            ? value.substring(index + 1).replace(/\D/g, "")
+            : "";
+
+        decimal = decimal.replace(/0+$/, "");
+
+        return { integer: integer || "0", decimal };
+    }
+
+    function formatRaw(raw) {
+        const value = fromRaw(raw);
+
+        hidden.value = value.integer +
+            (value.decimal ? "." + value.decimal : "");
+
+        display.value = groupThousands(value.integer) +
+            (value.decimal ? "," + value.decimal : "");
+    }
+
+    window.formatItemPriceDisplay = formatRaw;
+
+    function syncValue(trimZeros, preserveCaret) {
+        const original = display.value || "";
+        const caret = display.selectionStart || original.length;
+        const beforeCaret = original.substring(0, caret);
+        const hadComma = original.includes(",");
+
+        let parts = original.split(",");
+        let integer = (parts.shift() || "").replace(/\D/g, "") || "";
+        let decimal = parts.join("").replace(/\D/g, "");
+
+        if (trimZeros) {
+            decimal = decimal.replace(/0+$/, "");
+        }
+
+        const formattedInteger = groupThousands(integer);
+
+        display.value = formattedInteger +
+            (hadComma && decimal.length ? "," + decimal :
+             hadComma && !trimZeros ? "," : "");
+
+        hidden.value = (integer || "0") +
+            (decimal.length ? "." + decimal : "");
+
+        if (preserveCaret) {
+            const digitsBefore = beforeCaret.replace(/\D/g, "").length;
+            let position = 0;
+            let count = 0;
+
+            while (position < display.value.length &&
+                   count < digitsBefore) {
+                if (/\d/.test(display.value[position])) count++;
+                position++;
+            }
+
+            if (beforeCaret.includes(",")) {
+                const comma = display.value.indexOf(",");
+                if (comma >= 0) {
+                    const decimalBefore =
+                        beforeCaret.substring(
+                            beforeCaret.indexOf(",") + 1
+                        ).replace(/\D/g, "").length;
+
+                    position = comma + 1 + decimalBefore;
+                }
+            }
+
+            display.setSelectionRange(position, position);
+        }
+    }
+
+    display.addEventListener("input", function () {
+        display.setCustomValidity("");
+        syncValue(false, true);
+    });
+
+    display.addEventListener("blur", function () {
+        syncValue(true, false);
+    });
+
+    const form = display.closest("form");
+
+    if (form) {
+        form.addEventListener("submit", function (event) {
+            syncValue(true, false);
+
+            if (!hidden.value ||
+                !/^\d+(\.\d+)?$/.test(hidden.value)) {
+                event.preventDefault();
+                display.setCustomValidity("Price harus diisi dengan angka yang valid.");
+                display.reportValidity();
+                return;
+            }
+
+            display.setCustomValidity("");
+        });
+    }
+
+})();
+</script>
+</body>
+</html>

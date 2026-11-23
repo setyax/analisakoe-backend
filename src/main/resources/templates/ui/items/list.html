@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+
+        <section class="app-content">
+            <div class="erp-container">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+                    <div>
+                        <h3 style="margin:0 0 4px 0;">Item Master</h3>
+                        <div style="color:#64748b; font-size:13px;">Maintain item codes, descriptions, inventory controls and valuation settings.</div>
+                    </div>
+                    <a th:href="@{/ui/items/new}" class="erp-btn-sm" style="text-decoration:none;">+ Add New Item</a>
+                </div>
+
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+
+                <form th:action="@{/ui/items}" method="get"
+                      style="display:flex; align-items:end; gap:8px; flex-wrap:wrap; margin:0 0 14px 0; padding:12px; background:#f8fafc; border:1px solid #e2e8f0;">
+                    <label style="display:block; min-width:240px; margin:0;">
+                        Search item
+                        <input type="search" name="q" th:value="${q}" placeholder="Search by item name..." style="margin:4px 0 0 0;">
+                    </label>
+                    <input type="hidden" name="size" value="20">
+                    <button type="submit" class="erp-btn-sm">Search</button>
+                    <a th:href="@{/ui/items}" class="erp-btn-sm" style="text-decoration:none; background:#64748b;">Reset</a>
+                </form>
+
+                <div style="overflow-x:auto; width:100%;">
+                    <table class="erp-table" style="min-width:1250px; margin-bottom:15px;">
+                        <thead>
+                        <tr>
+                            <th style="width:55px;">No.</th>
+                            <th>Item Code</th>
+                            <th>Item Name / Description</th>
+                            <th>Type</th>
+                            <th>Base UOM ID</th>
+                            <th>Barcode</th>
+                            <th>Lot</th>
+                            <th>Serial</th>
+                            <th>Purch. Group</th>
+                            <th>Lead Time</th>
+                            <th>Price Control</th>
+                            <th>Valuation Class</th>
+                            <th style="text-align:right;">Standard Price</th>
+                            <th>DJP Goods Code</th>
+                            <th>Status</th>
+                            <th style="width:145px;">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(items.content)}">
+                            <td colspan="16" class="center" style="padding:24px;">No items found.</td>
+                        </tr>
+                        <tr th:each="item,iter : ${items.content}">
+                            <td class="center" th:text="${iter.count}">1</td>
+                            <td><strong th:text="${item.code}">ITEM-001</strong></td>
+                            <td>
+                                <div style="font-weight:600;" th:text="${item.name}">Item name</div>
+                                <div th:if="${item.description != null and !#strings.isEmpty(item.description)}"
+                                     style="font-size:12px; color:#64748b; max-width:280px; white-space:normal;"
+                                     th:text="${item.description}">Description</div>
+                            </td>
+                            <td th:text="${item.itemType != null ? item.itemType : '-'}">STOCK</td>
+                            <td class="center" th:text="${item.baseUomId != null ? item.baseUomId : '-'}">1</td>
+                            <td th:text="${item.barcode != null and !#strings.isEmpty(item.barcode) ? item.barcode : '-'}">-</td>
+                            <td class="center" th:text="${item.trackLot ? 'Yes' : 'No'}">No</td>
+                            <td class="center" th:text="${item.trackSerial ? 'Yes' : 'No'}">No</td>
+                            <td th:text="${item.purchasingGroup != null ? item.purchasingGroup : '-'}">-</td>
+                            <td class="center" th:text="${item.leadTimeDays != null ? item.leadTimeDays : '-'}">0</td>
+                            <td class="center" th:text="${item.priceControl != null ? item.priceControl : '-'}">V</td>
+                            <td th:text="${item.valuationClass != null ? item.valuationClass : '-'}">-</td>
+                            <td style="text-align:right;" th:text="${item.standardPrice != null ? #numbers.formatDecimal(item.standardPrice, 1, 'POINT', 2, 'COMMA') : '-'}">0,00</td>
+                            <td th:text="${item.djpGoodsCode != null ? item.djpGoodsCode : '-'}">-</td>
+                            <td>
+                                <span class="badge"
+                                      th:text="${item.status}"
+                                      th:style="${item.status == 'ACTIVE'} ? 'background:#dcfce7;color:#166534;' : 'background:#e2e8f0;color:#475569;'">ACTIVE</span>
+                            </td>
+                            <td style="white-space:nowrap;">
+                                <a th:href="@{/ui/items/{id}/edit(id=${item.id})}"
+                                   class="erp-btn-sm" style="display:inline-block; text-decoration:none;">Change</a>
+                                <button type="button" class="erp-btn-sm"
+                                        style="background:#dc2626;"
+                                        th:attr="data-delete-url=@{/ui/items/{id}(id=${item.id})},data-item-code=${item.code}"
+                                        onclick="deleteItem(this)">Delete</button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="color:#64748b; font-size:12px;">
+                    Displaying the current page of item records. Use Search to filter by item name.
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script>
+    async function deleteItem(button) {
+        const itemCode = button.dataset.itemCode || 'this item';
+        const deleteUrl = button.dataset.deleteUrl;
+
+        if (!deleteUrl) {
+            alert('Delete URL is missing. Please refresh the page.');
+            return;
+        }
+        if (!confirm('Delete item ' + itemCode + '?')) return;
+
+        button.disabled = true;
+        try {
+            const response = await fetch(deleteUrl, {
+                method: 'DELETE',
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!response.ok) {
+                const detail = await response.text();
+                throw new Error(detail || ('HTTP ' + response.status));
+            }
+            window.location.reload();
+        } catch (error) {
+            button.disabled = false;
+            alert('Unable to delete item: ' + error.message);
+        }
+    }
+</script>
+</body>
+</html>

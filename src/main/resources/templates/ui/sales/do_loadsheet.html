@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Loadsheet</title>
+    <style>
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #111; margin: 20px; }
+        h2 { margin: 0 0 4px 0; letter-spacing: 1px; }
+        .meta { color: #444; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        th, td { border: 1px solid #333; padding: 5px 8px; text-align: left; }
+        th { background: #e5e7eb; }
+        td.num, th.num { text-align: right; }
+        td.ctr, th.ctr { text-align: center; }
+        .vehicle { border: 1px solid #333; padding: 8px 10px; margin-bottom: 14px; }
+        .vehicle span { display: inline-block; min-width: 230px; margin-right: 18px; }
+        .vehicle .fill { display: inline-block; border-bottom: 1px solid #111; min-width: 150px; }
+        .order { border: 1px solid #333; margin-bottom: 14px; page-break-inside: avoid; }
+        .order-head { background: #f3f4f6; padding: 6px 10px; border-bottom: 1px solid #333; }
+        .order-head .addr { color: #444; margin-top: 2px; }
+        .order table { margin: 0; }
+        .order th, .order td { border-left: none; border-right: none; }
+        .box { display: inline-block; width: 16px; height: 16px; border: 1.5px solid #111; }
+        .err { background: #fee2e2; border: 1px solid #dc2626; color: #7f1d1d; padding: 8px; margin-bottom: 12px; }
+        .sign { display: flex; gap: 40px; margin-top: 26px; }
+        .sign div { flex: 1; text-align: center; }
+        .sign .line { margin-top: 55px; border-top: 1px solid #111; padding-top: 4px; }
+        .no-print { margin-bottom: 14px; }
+        .no-print button { padding: 6px 14px; margin-right: 6px; cursor: pointer; }
+        @media print { .no-print { display: none; } body { margin: 8mm; } }
+    </style>
+</head>
+<body>
+<div class="no-print">
+    <button onclick="window.print()">🖨 Print</button>
+    <button onclick="window.close()">Tutup</button>
+</div>
+
+<h2>LOADSHEET</h2>
+<div class="meta">
+    Cabang: <strong th:text="${user != null ? user.activeCompanyName : '-'}">-</strong>
+    &nbsp;|&nbsp; Dicetak: <span th:text="${printedAt}">-</span>
+    &nbsp;|&nbsp; Jumlah DO: <strong th:text="${orders.size()}">0</strong>
+    &nbsp;|&nbsp; Total Qty: <strong th:text="${@qtyDisplay.format(#numbers.formatDecimal(totalQty, 1, 'POINT', 2, 'COMMA'))}">0</strong>
+</div>
+
+<div class="vehicle">
+    <span>Driver: <span class="fill"></span></span>
+    <span>No. Polisi: <span class="fill"></span></span>
+    <span>Tanggal Kirim: <span class="fill"></span></span>
+</div>
+
+<div class="err" th:if="${error}" th:text="${error}"></div>
+
+<div class="order" th:each="o, ost : ${orders}">
+    <div class="order-head">
+        <strong th:text="${ost.count} + '. ' + ${o.docNo}">1. DO-2026-0001</strong>
+        &nbsp;|&nbsp; Customer: <strong th:text="${o.customer}">-</strong>
+        &nbsp;|&nbsp; No. SO: <span th:text="${o.soNo}">-</span>
+        <div class="addr">Alamat: <span th:text="${o.address}">-</span></div>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th class="ctr" style="width:35px;">No</th>
+                <th>Kode</th>
+                <th>Nama Item</th>
+                <th class="ctr">UOM</th>
+                <th class="num">Qty</th>
+                <th class="ctr" style="width:60px;">Loaded</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="it, st : ${o.items}">
+                <td class="ctr" th:text="${st.count}">1</td>
+                <td th:text="${it[0]}">-</td>
+                <td th:text="${it[1]}">-</td>
+                <td class="ctr" th:text="${it[2]}">-</td>
+                <td class="num" th:text="${#numbers.formatDecimal(it[3], 1, 'POINT', 2, 'COMMA')}">0</td>
+                <td class="ctr"><span class="box"></span></td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <th colspan="4" class="num">Subtotal Qty</th>
+                <th class="num" th:text="${@qtyDisplay.format(#numbers.formatDecimal(o.totalQty, 1, 'POINT', 2, 'COMMA'))}">0</th>
+                <th></th>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<div class="sign">
+    <div>Dibuat oleh<div class="line">(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div></div>
+    <div>Checker Gudang<div class="line">(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div></div>
+    <div>Driver<div class="line">(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div></div>
+    <div>Security<div class="line">(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div></div>
+</div>
+</body>
+</html>

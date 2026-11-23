@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;" th:text="${pr != null ? '[Purchasing] Edit Request — ' + pr.docNo : '[Purchasing] New Request'}"></h3>
+                
+                <form th:action="@{${pr != null ? '/ui/my-requests/' + pr.id + '/update' : '/ui/my-requests'}}" method="post" id="requestForm">
+                    <input type="hidden" name="id" th:if="${pr != null}" th:value="${pr.id}"/>
+                    <div class="erp-form-grid">
+                        <label>Tanggal Request:</label>
+                        <input type="date" name="docDate" th:value="${pr != null ? pr.docDate : today}" required>
+                        
+                        <label>Status:</label>
+                        <input type="text" value="Menunggu Persetujuan Purchasing" readonly style="background:#e0e0e0;">
+                    </div>
+
+                    <table class="erp-table" id="itemTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 30px; text-align:center;">No</th>
+                                <th>Item / Barang</th>
+                                <th style="width: 150px;">Keterangan / Keperluan</th>
+                                <th style="width: 80px;">Qty</th>
+                                <th style="width: 70px;">Unit</th>
+                                <th style="width: 120px;">Tgl Dibutuhkan</th>
+                                <th style="width: 40px;">X</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="text-align:center;">1</td>
+                                <td><select name="itemId" required style="width:100%;"><option value="">-- Pilih --</option><option th:each="i : ${items}" th:value="${i.id}" th:text="${i.code} + ' - ' + ${i.name}"></option></select></td>
+                                <td><input type="text" name="shortText" placeholder="Misal: Untuk meeting" style="width:100%;"></td>
+                                <td><input type="number" name="qty" step="0.01" min="0.01" required style="text-align:right;"></td>
+                                <td><select name="uomId" required style="width:100%;"><option th:each="u : ${uoms}" th:value="${u.id}" th:text="${u.code}"></option></select></td>
+                                <td><input type="date" name="deliveryDate" th:value="${today}" required style="width:100%;"></td>
+                                <td style="text-align:center;"><button type="button" class="erp-btn" style="padding:2px 5px; margin:0;" onclick="this.closest('tr').remove(); updateNo();">X</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div style="margin-bottom: 20px;">
+                        <button type="button" class="erp-btn" onclick="addRow()">+ Tambah Barang</button>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="font-weight: bold; margin-bottom: 5px; display: block;">Catatan Tambahan:</label>
+                        <textarea name="remarks" style="width: 50%; height: 60px; padding: 5px;" th:text="${pr != null and pr.remarks != null ? pr.remarks : ''}"></textarea>
+                    </div>
+
+                    <div style="margin-top: 20px; border-top: 1px solid #a0a0a0; padding-top: 15px;">
+                        <button type="submit" class="erp-btn erp-btn-primary" style="padding: 8px 30px; font-weight: bold;">Kirim Permintaan</button>
+                        <a th:href="@{/ui/my-requests}" class="erp-btn" style="text-decoration:none; display:inline-block; padding: 8px 20px; margin-left: 10px;">Batal</a>
+                    </div>
+                </form>
+                <input type="hidden" id="prefillLines" th:if="${pr != null}" th:value="${prefillLines}"/>
+            </div>
+        </section>
+    </main>
+</div>
+<script>
+    function addRow() {
+        const tbody = document.querySelector('#itemTable tbody');
+        const tr = tbody.querySelector('tr').cloneNode(true);
+        tr.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+        tr.querySelector('input[name="shortText"]').value = '';
+        tr.querySelector('input[name="qty"]').value = '';
+        tbody.appendChild(tr);
+        updateNo();
+    }
+    function updateNo() {
+        document.querySelectorAll('#itemTable tbody tr').forEach((row, index) => { row.cells[0].innerText = index + 1; });
+    }
+    // Prefill untuk mode edit
+    document.addEventListener('DOMContentLoaded', function() {
+        const prefill = JSON.parse(document.getElementById('prefillLines')?.value || '[]');
+        if (!prefill.length) return;
+        const tbody = document.querySelector('#itemTable tbody');
+        const rows = tbody.querySelectorAll('tr');
+        prefill.forEach((d, idx) => {
+            let tr = idx < rows.length ? rows[idx] : null;
+            if (!tr) {
+                tr = rows[0].cloneNode(true);
+                tbody.appendChild(tr);
+            }
+            const sel = tr.querySelector('select[name="itemId"]');
+            for (const opt of sel.options) if (opt.value == d.itemId) { sel.value = opt.value; break; }
+            tr.querySelector('input[name="shortText"]').value = d.shortText || '';
+            tr.querySelector('input[name="qty"]').value = d.qty;
+            const uomsel = tr.querySelector('select[name="uomId"]');
+            for (const opt of uomsel.options) if (opt.value == d.uomId) { uomsel.value = opt.value; break; }
+            tr.querySelector('input[name="deliveryDate"]').value = d.deliveryDate;
+        });
+        updateNo();
+    });
+</script>
+</body>
+</html>

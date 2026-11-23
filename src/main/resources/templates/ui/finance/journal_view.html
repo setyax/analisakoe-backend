@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">[F0701] Journal Detail <span th:text="${docNo}">-</span></h3>
+                    <span style="padding:4px 12px; border-radius:12px; font-size:12px; font-weight:bold;"
+                          th:styleappend="${status == 'DRAFT' ? 'background:#e2e8f0; color:#475569;' : (status == 'POSTED' ? 'background:#dcfce7; color:#166534;' : 'background:#fee2e2; color:#991b1b;')}"
+                          th:text="${status}">-</span>
+                </div>
+
+                <div th:if="${error}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;" th:text="${error}"></div>
+
+                <div class="erp-form-grid">
+                    <label>No. Jurnal:</label>
+                    <input type="text" readonly style="background:#f1f5f9;" th:value="${docNo}">
+                    <label>Tanggal:</label>
+                    <input type="text" readonly style="background:#f1f5f9;" th:value="${docDate}">
+                    <label>Tipe:</label>
+                    <input type="text" readonly style="background:#f1f5f9;" th:value="${journalType}">
+                    <label>Company:</label>
+                    <input type="text" readonly style="background:#f1f5f9;" th:value="${companyName}">
+                    <label>Keterangan:</label>
+                    <input type="text" readonly style="background:#f1f5f9;" th:value="${remarks}">
+                </div>
+
+                <h4 style="margin-top:20px; margin-bottom:10px;">Rincian Jurnal</h4>
+                <table class="erp-table" style="table-layout: fixed;">
+                    <thead>
+                        <tr>
+                            <th style="width:40px; text-align:center;">NO</th>
+                            <th style="width:90px;">KODE AKUN</th>
+                            <th>NAMA AKUN</th>
+                            <th style="width:26%;">KETERANGAN</th>
+                            <th style="width:130px; text-align:right;">DEBIT</th>
+                            <th style="width:130px; text-align:right;">KREDIT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${lines.isEmpty()}">
+                            <td colspan="6" style="text-align:center; padding:20px;">Belum ada baris jurnal.</td>
+                        </tr>
+                        <tr th:each="l : ${lines}">
+                            <td style="text-align:center;" th:text="${l.no}">-</td>
+                            <td th:text="${l.coaCode}">-</td>
+                            <td style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" th:text="${l.coaName}">-</td>
+                            <td style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" th:text="${l.description}">-</td>
+                            <td style="text-align:right;" th:text="${l.debit.compareTo(java.math.BigDecimal.ZERO) != 0 ? #numbers.formatDecimal(l.debit, 1, 'POINT', 2, 'COMMA') : '-'}">-</td>
+                            <td style="text-align:right;" th:text="${l.credit.compareTo(java.math.BigDecimal.ZERO) != 0 ? #numbers.formatDecimal(l.credit, 1, 'POINT', 2, 'COMMA') : '-'}">-</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr style="font-weight:bold; background:#f1f5f9;">
+                            <td colspan="4" style="text-align:right; padding:10px;">TOTAL</td>
+                            <td style="text-align:right;" th:text="${#numbers.formatDecimal(totalDebit, 1, 'POINT', 2, 'COMMA')}">-</td>
+                            <td style="text-align:right;" th:text="${#numbers.formatDecimal(totalCredit, 1, 'POINT', 2, 'COMMA')}">-</td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div style="margin-top:20px; display:flex; gap:10px;">
+                    <a th:href="@{/ui/finance/journals}" class="erp-btn" style="text-decoration:none;">⬅ Kembali ke List</a>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

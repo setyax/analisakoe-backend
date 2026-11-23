@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">[Finance] Cash & Bank Transactions</h3>
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+                
+                <!-- RINGKASAN SALDO BANK -->
+                <h4 style="margin-top:0; margin-bottom:5px;">Saldo Kas & Bank Saat Ini</h4>
+                <table class="erp-table" style="margin-bottom: 25px; width: 80%;">
+                    <thead>
+                        <tr style="background:#4b5563;">
+                            <th style="color:white;">Nama Akun / Bank</th>
+                            <th style="color:white;">No. Rekening</th>
+                            <th style="color:white; text-align:right;">Total Masuk (IN)</th>
+                            <th style="color:white; text-align:right;">Total Keluar (OUT)</th>
+                            <th style="color:white; text-align:right;">Saldo Akhir</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="b : ${balances}">
+                            <td><strong th:text="${b.bankName}"></strong></td>
+                            <td th:text="${b.accountNo} ?: '—'"></td>
+                            <td style="text-align:right; color:green;" th:text="${#numbers.formatDecimal(b.totalIn, 1, 'POINT', 2, 'COMMA')}"></td>
+                            <td style="text-align:right; color:red;" th:text="${#numbers.formatDecimal(b.totalOut, 1, 'POINT', 2, 'COMMA')}"></td>
+                            <td style="text-align:right; font-weight:bold; background:#e6f7ff;" th:text="${#numbers.formatDecimal(b.balance, 1, 'POINT', 2, 'COMMA')}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <hr style="margin-bottom: 20px; border-color:#ccc;"/>
+
+                <!-- DAFTAR TRANSAKSI -->
+                <h4 style="margin-top:0; margin-bottom:5px;">Riwayat Transaksi</h4>
+                <table class="erp-table" style="margin-bottom: 15px;">
+                    <thead><tr><th>No. Dokumen</th><th>Tanggal</th><th>Tipe</th><th>Bank ID</th><th style="text-align:right;">Amount</th><th>Keterangan</th></tr></thead>
+                    <tbody>
+                        <tr th:if="${trxs.isEmpty()}"><td colspan="6" class="center">Belum ada transaksi.</td></tr>
+                        <tr th:each="t : ${trxs}">
+                            <td><strong th:text="${t.docNo}"></strong></td>
+                            <td th:text="${#temporals.format(t.docDate, 'dd-MM-yyyy')}"></td>
+                            <td>
+                                <span th:if="${t.trxType == 'IN'}" style="color:green; font-weight:bold;">MASUK (IN)</span>
+                                <span th:if="${t.trxType == 'OUT'}" style="color:red; font-weight:bold;">KELUAR (OUT)</span>
+                            </td>
+                            <td th:text="${t.bankId}"></td>
+                            <td style="text-align:right;" th:text="${#numbers.formatDecimal(t.amount, 1, 'POINT', 2, 'COMMA')}"></td>
+                            <td th:text="${t.remarks} ?: '—'"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div style="background: #f0f0f0; padding: 10px; border: 1px solid #a0a0a0;">
+                    <a th:href="@{/ui/finance/cashbank/new}" class="erp-btn-sm" style="text-decoration:none;">+ Buat Transaksi</a>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

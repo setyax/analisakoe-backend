@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3>View Stock Transfer: <span th:text="${trf.docNo}"></span></h3>
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+
+                <div class="erp-form-grid">
+                    <label>Tanggal:</label> <input type="text" th:value="${@dateFmt.format(trf.transferDate)}" readonly>
+                    <label>Dari:</label> <input type="text" th:value="${whMap[trf.fromWarehouseId]}" readonly>
+                    <label>Ke:</label> <input type="text" th:value="${whMap[trf.toWarehouseId]}" readonly>
+                    <label>Status:</label> <input type="text" th:value="${trf.status}" readonly>
+                </div>
+
+                <table class="erp-table" style="margin-top:20px;">
+                    <thead><tr><th>No</th><th>Item</th><th>Qty</th><th>UOM</th></tr></thead>
+                    <tbody>
+                        <tr th:each="d, stat : ${trf.details}">
+                            <td th:text="${stat.count}"></td>
+                            <td th:text="${itemMap[d.itemId]} ?: ${d.itemId}"></td>
+                            <td th:text="${@qtyDisplay.format(d.qty)}"></td>
+                            <td th:text="${uomMap[d.uomId]} ?: ${d.uomId}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="margin-top:20px;">
+                    <form th:if="${trf.status == 'DRAFT'}" th:action="@{/ui/inventory/transfers/{id}/confirm(id=${trf.id})}" method="post" style="display:inline;">
+                        <button type="submit" class="erp-btn erp-btn-primary" onclick="return confirm('Confirm Transfer? Stok akan dipindahkan.')">Confirm</button>
+                    </form>
+                    <a th:href="@{/ui/inventory/transfers}" class="erp-btn" style="text-decoration:none;">Close</a>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

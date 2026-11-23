@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;"
+                    th:text="${isNew} ? '[Master] New Exchange Rate' : '[Master] Edit Exchange Rate'"></h3>
+
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+
+                <form th:action="${isNew} ? @{/ui/exchange-rates} : @{/ui/exchange-rates/{id}(id=${xrate.id})}"
+                      method="post">
+                    <div class="erp-form-grid">
+                        <label>Dari Mata Uang:</label>
+                        <select name="fromCurrency" required>
+                            <option value="">-- Pilih mata uang --</option>
+                            <option th:each="c : ${currencies}"
+                                    th:value="${c.code}"
+                                    th:text="${c.code} + ' - ' + ${c.name}"
+                                    th:selected="${xrate.fromCurrency != null and xrate.fromCurrency == c.code}"></option>
+                        </select>
+
+                        <label>Ke Mata Uang:</label>
+                        <select name="toCurrency" required>
+                            <option value="">-- Pilih mata uang --</option>
+                            <option th:each="c : ${currencies}"
+                                    th:value="${c.code}"
+                                    th:text="${c.code} + ' - ' + ${c.name}"
+                                    th:selected="${xrate.toCurrency != null and xrate.toCurrency == c.code}"></option>
+                        </select>
+
+                        <label>Kurs (Rate):</label>
+                        <input type="number" name="rate" step="0.00000001" min="0.00000001"
+                               th:value="${xrate.rate}" required placeholder="Contoh: 15500">
+
+                        <label>Tanggal Berlaku:</label>
+                        <input type="date" name="effectiveDate"
+                               th:value="${xrate.effectiveDate != null ? #temporals.format(xrate.effectiveDate, 'yyyy-MM-dd') : today}"
+                               required>
+                    </div>
+
+                    <div style="margin-top:20px; border-top:1px solid #a0a0a0; padding-top:10px; display:flex; gap:6px;">
+                        <button type="submit" class="erp-btn erp-btn-primary" style="padding:5px 20px;"
+                                th:text="${isNew} ? 'Save' : 'Update'">Save</button>
+                        <a th:href="@{/ui/exchange-rates}" class="erp-btn"
+                           style="text-decoration:none; display:inline-block;">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RFQ Approval Matrix</title>
+    <style>
+        body{font-family:Arial,sans-serif;background:#f4f6f9;color:#263238;margin:0;padding:24px}
+        .wrap{max-width:1180px;margin:0 auto}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+        h1{margin:0 0 6px;font-size:25px}.muted{color:#64748b;font-size:13px}.panel{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin-top:18px}
+        .btn{display:inline-block;padding:9px 13px;border-radius:6px;text-decoration:none;border:0;cursor:pointer;font-size:13px}
+        .primary{background:#155eef;color:#fff}.secondary{background:#e8edf5;color:#243247}.danger{background:#fee2e2;color:#991b1b}.success{background:#dcfce7;color:#166534}
+        table{width:100%;border-collapse:collapse;margin-top:12px}th,td{padding:11px 10px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:13px}th{background:#f8fafc}
+        .num{text-align:right;font-variant-numeric:tabular-nums}.actions{display:flex;gap:6px;flex-wrap:wrap}.flash{padding:11px 13px;border-radius:7px;margin-top:12px}.error{background:#fee2e2;color:#991b1b}.ok{background:#dcfce7;color:#166534}.warn{background:#fef3c7;color:#92400e}
+        .badge{padding:4px 8px;border-radius:20px;font-size:11px;font-weight:bold}.on{background:#dcfce7;color:#166534}.off{background:#e5e7eb;color:#475569}
+        .note{font-size:12px;color:#475569;line-height:1.6;margin-top:14px}.inline{display:inline}
+        @media(max-width:760px){body{padding:12px}.panel{overflow-x:auto}table{min-width:750px}}
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="top">
+        <div>
+            <h1>RFQ Approval Matrix</h1>
+            <div class="muted">Pengaturan approver RFQ berdasarkan rentang nilai per tenant.</div>
+        </div>
+        <div class="actions">
+            <a class="btn secondary" th:href="@{/ui/purchasing/rfq}">Kembali ke RFQ</a>
+            <a class="btn primary" th:href="@{/ui/purchasing/rfq/approval-matrix/new}">+ Tambah Matrix</a>
+        </div>
+    </div>
+
+    <div th:if="${success}" class="flash ok" th:text="${success}"></div>
+    <div th:if="${error}" class="flash error" th:text="${error}"></div>
+    <div th:if="${warning}" class="flash warn" th:text="${warning}"></div>
+
+    <div class="panel">
+        <table>
+            <thead>
+            <tr>
+                <th>Level</th>
+                <th class="num">Nominal Minimal (Rp)</th>
+                <th class="num">Nominal Maksimal (Rp)</th>
+                <th>Role Approver</th>
+                <th>Status</th>
+                <th>Dibuat</th>
+                <th style="min-width:230px">Tindakan</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${#lists.isEmpty(matrices)}"><td colspan="7" style="text-align:center;color:#64748b">Belum ada matrix RFQ.</td></tr>
+            <tr th:each="m : ${matrices}">
+                <td th:text="${m.level}"></td>
+                <td class="num" th:text="${#numbers.formatDecimal(m.minAmount, 1, 'POINT', 2, 'COMMA')}"></td>
+                <td class="num" th:text="${#numbers.formatDecimal(m.maxAmount, 1, 'POINT', 2, 'COMMA')}"></td>
+                <td><strong th:text="${m.roleRequired}"></strong></td>
+                <td><span class="badge" th:classappend="${m.isActive} ? ' on' : ' off'" th:text="${m.isActive} ? 'AKTIF' : 'NONAKTIF'"></span></td>
+                <td th:text="${m.createdAt}"></td>
+                <td>
+                    <div class="actions">
+                        <a class="btn secondary" th:href="@{/ui/purchasing/rfq/approval-matrix/{id}/edit(id=${m.id})}">Ubah</a>
+                        <form class="inline" method="post" th:action="@{/ui/purchasing/rfq/approval-matrix/{id}/toggle(id=${m.id})}">
+                            <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                            <button class="btn" th:classappend="${m.isActive} ? ' danger' : ' success'" type="submit" th:text="${m.isActive} ? 'Nonaktifkan' : 'Aktifkan'"></button>
+                        </form>
+                        <form class="inline" method="post" th:action="@{/ui/purchasing/rfq/approval-matrix/{id}/delete(id=${m.id})}" onsubmit="return confirm('Hapus matrix ini secara permanen? Data yang sudah dipakai tidak dapat dihapus.');">
+                            <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                            <button class="btn danger" type="submit">Hapus</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+        <div class="note">
+            <strong>Aturan rentang:</strong> rentang menggunakan pola nominal minimal termasuk dan nominal maksimal tidak termasuk ([min, max)).
+            Contoh: Rp0 sampai Rp50.000.000 berarti nilai tepat Rp50.000.000 masuk ke rentang berikutnya.
+            Matrix yang sudah memiliki histori approval atau masih dipakai RFQ pending tidak dapat dihapus; gunakan Nonaktifkan.
+        </div>
+    </div>
+</div>
+</body>
+</html>

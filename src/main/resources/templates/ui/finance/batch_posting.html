@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">[Finance] Batch Posting & Unposting</h3>
+                
+                <!-- Alert Messages -->
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+
+                <form th:action="@{/ui/finance/batch-posting/post}" method="post">
+                    <div class="grid">
+                        <!-- KOLOM KIRI: AR COLLECTION DRAFT -->
+                        <article>
+                            <h4>Draft AR Collections</h4>
+                            <table class="erp-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:30px;"><input type="checkbox" onclick="toggleAll(this, 'arIds')"></th>
+                                        <th>No. AR</th><th>Tanggal</th><th style="text-align:right;">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:if="${draftArs.isEmpty()}"><td colspan="4" class="center">Tidak ada Draft AR.</td></tr>
+                                    <tr th:each="ar : ${draftArs}">
+                                        <td class="center"><input type="checkbox" name="arIds" th:value="${ar.id}" class="ar-check"></td>
+                                        <td><strong th:text="${ar.docNo}"></strong></td>
+                                        <td th:text="${#temporals.format(ar.docDate, 'dd-MM-yyyy')}"></td>
+                                        <td style="text-align:right;" th:text="${#numbers.formatDecimal(ar.amount, 1, 'POINT', 2, 'COMMA')}"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </article>
+
+                        <!-- KOLOM KANAN: AP PAYMENT DRAFT -->
+                        <article>
+                            <h4>Draft AP Payments</h4>
+                            <table class="erp-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:30px;"><input type="checkbox" onclick="toggleAll(this, 'apIds')"></th>
+                                        <th>No. AP</th><th>Tanggal</th><th style="text-align:right;">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:if="${draftAps.isEmpty()}"><td colspan="4" class="center">Tidak ada Draft AP.</td></tr>
+                                    <tr th:each="ap : ${draftAps}">
+                                        <td class="center"><input type="checkbox" name="apIds" th:value="${ap.id}" class="ap-check"></td>
+                                        <td><strong th:text="${ap.docNo}"></strong></td>
+                                        <td th:text="${#temporals.format(ap.docDate, 'dd-MM-yyyy')}"></td>
+                                        <td style="text-align:right;" th:text="${#numbers.formatDecimal(ap.amount, 1, 'POINT', 2, 'COMMA')}"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </article>
+                    </div>
+
+                    <div style="margin-top: 20px; border-top: 1px solid #a0a0a0; padding-top: 15px;">
+                        <button type="submit" class="erp-btn erp-btn-primary" style="padding: 8px 30px; font-weight: bold;">Post Selected to GL</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+<script>
+    function toggleAll(source, name) {
+        document.querySelectorAll(`input[name="${name}"]`).forEach(cb => cb.checked = source.checked);
+    }
+</script>
+</body>
+</html>

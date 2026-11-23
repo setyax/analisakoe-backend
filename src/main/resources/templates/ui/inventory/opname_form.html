@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px;">
+                <h3 style="margin-top:0;">[Inventory] Input Stock Opname</h3>
+                <form th:action="@{/ui/inventory/opname}" method="post">
+                    <div style="display:grid; grid-template-columns:180px 1fr; gap:10px; margin-bottom:20px; max-width:600px;">
+                        <label>Tanggal:</label> <input type="date" name="docDate" th:value="${today}" required>
+                        <label>Gudang:</label>
+                        <select name="warehouseId" style="padding:8px;">
+                            <option value="">-- Semua Gudang --</option>
+                            <option th:each="w : ${warehouses}" th:value="${w.id}" th:text="${w.name}"></option>
+                        </select>
+                        <label>Keterangan:</label> <input type="text" name="remarks">
+                    </div>
+
+                    <table class="erp-table" id="itemTable" style="width:100%;">
+                        <thead>
+                            <tr style="background-color:#1e293b; color:white;">
+                                <th style="width:40px;">NO</th>
+                                <th>ITEM</th>
+                                <th style="width:100px;">UOM</th>
+                                <th style="width:130px;">QTY SISTEM</th>
+                                <th style="width:130px;">QTY FISIK</th>
+                                <th style="width:130px;">SELISIH</th>
+                                <th style="width:50px;">X</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="row-no" style="text-align:center;">1</td>
+                                <td>
+                                    <select name="itemId" required style="width:100%; padding:5px;">
+                                        <option th:each="i : ${items}" th:value="${i.id}" th:text="${i.code} + ' - ' + ${i.name}"></option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select name="uomId" required style="width:100%; padding:5px;">
+                                        <option th:each="u : ${uoms}" th:value="${u.id}" th:text="${u.code}"></option>
+                                    </select>
+                                </td>
+                                <td><input type="number" name="systemQty" step="any" value="0" style="width:100%; padding:5px; text-align:right;" oninput="calcDiff(this)"></td>
+                                <td><input type="number" name="physicalQty" step="any" value="0" style="width:100%; padding:5px; text-align:right;" oninput="calcDiff(this)"></td>
+                                <td><input type="text" class="diff" readonly style="width:100%; padding:5px; text-align:right; background:#f1f5f9; border:1px solid #ccc;"></td>
+                                <td style="text-align:center;"><button type="button" onclick="removeRow(this)" style="background:#d1d5db; border:none; padding:5px 10px;">X</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <button type="button" onclick="addRow()" class="erp-btn" style="margin-top:10px;">+ Tambah Item</button>
+
+                    <div style="margin-top:20px;">
+                        <button type="submit" class="erp-btn erp-btn-primary">Save Opname</button>
+                        <a th:href="@{/ui/inventory/opname}" class="erp-btn" style="text-decoration:none;">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+</div>
+<script>
+    function addRow() {
+        const tbody = document.querySelector('#itemTable tbody');
+        const tr = tbody.querySelector('tr').cloneNode(true);
+        tr.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+        tr.querySelectorAll('input').forEach(i => i.value = '0');
+        tr.querySelector('.diff').value = '';
+        tbody.appendChild(tr);
+        updateRowNumbers();
+    }
+    function removeRow(btn) {
+        const tbody = document.querySelector('#itemTable tbody');
+        if(tbody.rows.length > 1) { btn.closest('tr').remove(); updateRowNumbers(); }
+    }
+    function updateRowNumbers() {
+        document.querySelectorAll('#itemTable tbody tr').forEach((row, i) => row.querySelector('.row-no').innerText = i + 1);
+    }
+    function calcDiff(input) {
+        const row = input.closest('tr');
+        const sys = parseFloat(row.querySelector('input[name="systemQty"]').value) || 0;
+        const phys = parseFloat(row.querySelector('input[name="physicalQty"]').value) || 0;
+        row.querySelector('.diff').value = (phys - sys).toFixed(2);
+    }
+</script>
+</body>
+</html>

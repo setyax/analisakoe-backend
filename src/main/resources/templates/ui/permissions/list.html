@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">Daftar Permission (Hak Akses)</h3>
+
+                <p style="color:#64748b; font-size:12.5px; margin:0 0 15px;">
+                    Permission adalah kode hak akses bawaan sistem, dikelompokkan per modul.
+                    Permission dipasangkan ke role lewat menu
+                    <a th:href="@{/ui/roles}" style="color:#3b82f6;">Roles</a> → Edit Role.
+                </p>
+
+                <div th:each="group : ${permGrouped}" style="margin-bottom:18px;">
+                    <div style="font-weight:bold; font-size:13px; color:#1e293b; text-transform:uppercase; border-bottom:2px solid #1e293b; padding-bottom:4px; margin-bottom:8px;"
+                         th:text="${group.key} + ' (' + ${#lists.size(group.value)} + ')'"></div>
+                    <table class="erp-table" style="width:100%;border-collapse:collapse;table-layout:fixed;">
+                        <thead>
+                            <tr style="background:#334155; color:white; text-align:left;">
+                                <th style="width:220px;">KODE</th>
+                                <th>DESKRIPSI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="p : ${group.value}" style="border-bottom:1px solid #e2e8f0;">
+                                <td style="font-family:monospace; font-size:12px;" th:text="${p.code}"></td>
+                                <td style="color:#475569;" th:text="${p.description != null and !p.description.isEmpty() ? p.description : '-'}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+            <article>
+                <h2 th:text="${pageTitle}"></h2>
+                <form th:action="${isNew} ? @{/ui/customers} : @{'/ui/customers/' + ${customer.id}}" method="post">
+                    <div class="grid">
+                        <label>Code
+                            <input type="text" name="code" th:value="${customer.code}" required maxlength="20">
+                        </label>
+                        <label>Name
+                            <input type="text" name="name" th:value="${customer.name}" required maxlength="255">
+                        </label>
+                    </div>
+                    <div class="grid">
+                        <label>Tax ID
+                            <input type="text" name="taxId" th:value="${customer.taxId}" maxlength="50">
+                        </label>
+                        <label>Currency
+                            <select name="currency">
+                                <option value="">—</option>
+                                <option th:each="cur : ${currencies}"
+                                        th:value="${cur.code}"
+                                        th:text="${cur.code} + ' — ' + ${cur.name}"
+                                        th:selected="${customer.currency == cur.code}">
+                                </option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="grid">
+                        <label>Credit Limit
+                            <input type="number" step="0.0001" name="creditLimit" th:value="${customer.creditLimit}">
+                        </label>
+                        <label>Payment Term (hari)
+                            <input type="number" name="paymentTermDays" th:value="${customer.paymentTermDays}" min="0">
+                        </label>
+                    </div>
+                    <label>Status
+                        <select name="status">
+                            <option value="ACTIVE" th:selected="${customer.status == 'ACTIVE'}">ACTIVE</option>
+                            <option value="INACTIVE" th:selected="${customer.status == 'INACTIVE'}">INACTIVE</option>
+                            <option value="BLOCKED" th:selected="${customer.status == 'BLOCKED'}">BLOCKED</option>
+                        </select>
+                    </label>
+                    <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+                        <button type="submit" th:text="${isNew} ? 'Simpan' : 'Update'">Simpan</button>
+                        <a th:href="@{/ui/customers}" role="button" class="secondary">Batal</a>
+                    </div>
+                </form>
+            </article>
+        </section>
+    </main>
+</div>
+</body>
+</html>

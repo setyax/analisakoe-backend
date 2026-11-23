@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">[F0102] Sales Order List</h3>
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+
+                <table class="erp-table" style="margin-bottom: 15px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 30px;"></th>
+                            <th>TANGGAL</th>
+                            <th>NO. SO</th>
+                            <th>CUSTOMER</th>
+                            <th style="text-align:center;">CURRENCY</th>
+                            <th style="text-align:right;">TOTAL AMOUNT</th>
+                            <th>REMARKS</th>
+                            <th>STATUS</th>
+                            <th>SALESPERSON</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${salesOrders == null or salesOrders.isEmpty()}">
+                            <td colspan="9" class="center" style="padding:20px;">Belum ada data Sales Order untuk cabang ini.</td>
+                        </tr>
+                        <tr th:each="so : ${salesOrders}" onclick="selectRow(this)" style="cursor: pointer;">
+                            <td class="center">
+                                <input type="radio" name="selRow" th:value="${so[0]}" th:attr="data-status=${so[7]}">
+                            </td>
+                            <td th:text="${so[1]}"></td>
+                            <td><strong th:text="${so[2]}"></strong></td>
+                            <td th:text="${so[3]}"></td>
+                            <td style="text-align:center;" th:text="${so[4]}"></td>
+                            <td style="text-align:right; font-weight:bold;" th:text="${#numbers.formatDecimal(so[5], 1, 'POINT', 2, 'COMMA')}"></td>
+                            <td th:text="${so[6]}"></td>
+                            <td><span class="badge" th:text="${so[7]}"></span></td>
+                            <td th:text="${so[8] != null ? so[8] : '-'}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="background: #f0f0f0; padding: 10px; border: 1px solid #a0a0a0;">
+                    <div class="erp-action-bar" style="margin: 0; display: flex; gap: 5px;">
+                        <a th:href="@{/ui/sales/orders/new}" class="erp-btn-sm" style="text-decoration:none;">Insert</a>
+                        <button type="button" class="erp-btn-sm" id="btnEdit" disabled onclick="actionEdit()">Change</button>
+                        <button type="button" class="erp-btn-sm" id="btnDelete" disabled onclick="actionDelete()">Delete</button>
+                        <button type="button" class="erp-btn-sm" id="btnApprove" disabled onclick="actionConfirm()">Confirm</button>
+                        <button type="button" class="erp-btn-sm" id="btnUnconfirm" disabled onclick="actionUnconfirm()" style="background:#f59e0b;">Unconfirm</button>
+                        <button type="button" class="erp-btn-sm" id="btnVoidSo" disabled onclick="actionVoidSo()" style="background:#dc2626;">Void</button>
+                        <button type="button" class="erp-btn-sm" id="btnDo" disabled onclick="actionDo()" style="background:#10b981;">Kirim Barang (DO)</button>
+                        <button type="button" class="erp-btn-sm" id="btnPrint" disabled onclick="actionPrint()" style="background:#0ea5e9;">🖨 Print</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+<script>
+    let selectedId = null;
+    let selectedStatus = null;
+
+    function selectRow(tr) {
+        document.querySelectorAll('.erp-table tbody tr').forEach(r => r.classList.remove('selected'));
+        tr.classList.add('selected');
+        const radio = tr.querySelector('input[type="radio"]');
+        if (radio) {
+            radio.checked = true;
+            selectedId = radio.value;
+            selectedStatus = radio.getAttribute('data-status');
+            
+            document.getElementById('btnEdit').disabled = false;
+            document.getElementById('btnDelete').disabled = false;
+            
+            if(selectedStatus === 'DRAFT') {
+                document.getElementById('btnApprove').disabled = false;
+                document.getElementById('btnUnconfirm').disabled = true;
+                document.getElementById('btnVoidSo').disabled = false;
+                document.getElementById('btnDo').disabled = true;
+            } else if(selectedStatus === 'CONFIRMED') {
+                document.getElementById('btnApprove').disabled = true;
+                document.getElementById('btnUnconfirm').disabled = false;
+                document.getElementById('btnVoidSo').disabled = true;
+                document.getElementById('btnDo').disabled = false;
+            } else if(selectedStatus === 'DELIVERED') {
+                document.getElementById('btnApprove').disabled = true;
+                document.getElementById('btnUnconfirm').disabled = false;
+                document.getElementById('btnVoidSo').disabled = true;
+                document.getElementById('btnDo').disabled = true;
+            } else {
+                document.getElementById('btnApprove').disabled = true;
+                document.getElementById('btnUnconfirm').disabled = true;
+                document.getElementById('btnVoidSo').disabled = true;
+                document.getElementById('btnDo').disabled = true;
+            }
+            document.getElementById('btnPrint').disabled = false;
+        }
+    }
+
+    function actionEdit() { if(selectedId) window.location.href = '/api/ui/sales/orders/' + selectedId + '/edit'; }
+    function actionPrint() { if(selectedId) window.open('/api/ui/print/so/' + selectedId, '_blank'); }
+    function actionUnconfirm() { if(selectedId) { const form = document.createElement('form'); form.method = 'POST'; form.action = '/api/ui/sales/orders/' + selectedId + '/unconfirm'; document.body.appendChild(form); form.submit(); } }
+    function actionVoidSo() { if(selectedId && confirm('Void SO ini?')) { const form = document.createElement('form'); form.method = 'POST'; form.action = '/api/ui/sales/orders/' + selectedId + '/void'; document.body.appendChild(form); form.submit(); } }
+    function actionDelete() { if(selectedId && confirm('Hapus SO ini?')) fetch('/api/ui/sales/orders/' + selectedId, { method: 'DELETE' }).then(() => window.location.reload()); }
+    function actionConfirm() { if(selectedId) { const form = document.createElement('form'); form.method = 'POST'; form.action = '/api/ui/sales/orders/' + selectedId + '/confirm'; document.body.appendChild(form); form.submit(); } }
+    function actionDo() { if(selectedId) { const form = document.createElement('form'); form.method = 'POST'; form.action = '/api/ui/sales/do/create-from-so/' + selectedId; document.body.appendChild(form); form.submit(); } }
+</script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;">[F0105] Sales Return List</h3>
+
+                <div th:if="${success}" class="success-msg" th:text="${success}" style="margin-bottom:10px;"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}" style="margin-bottom:10px;"></div>
+
+                <table class="erp-table" style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                    <thead>
+                        <tr style="background-color:#1e293b; color:white; text-align:left;">
+                            <th style="padding:10px; width:30px;"></th>
+                            <th style="padding:10px;">DOC NO</th>
+                            <th style="padding:10px;">DATE</th>
+                            <th style="padding:10px;">CUSTOMER</th>
+                            <th style="padding:10px;">REMARKS</th>
+                            <th style="padding:10px; text-align:right;">TOTAL AMOUNT</th>
+                            <th style="padding:10px;">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${#lists.isEmpty(returns)}">
+                            <td colspan="7" style="text-align:center; padding:20px;">Belum ada data.</td>
+                        </tr>
+                        <tr th:each="r : ${returns}" style="border-bottom:1px solid #eee;">
+                            <td style="padding:10px; text-align:center;"><input type="radio" name="selRow" th:value="${r.id}" onclick="selectRow(this)"></td>
+                            <td style="padding:10px; font-weight:bold;" th:text="${r.docNo}">-</td>
+                            <td style="padding:10px;" th:text="${r.docDate != null ? #temporals.format(r.docDate, 'dd-MM-yyyy') : '-'}">-</td>
+                            <td style="padding:10px;" th:text="${r.customerName}">-</td>
+                            <td style="padding:10px;" th:text="${r.remarks}">-</td>
+                            <td style="padding:10px; text-align:right; font-weight:bold;" th:text="${r.totalAmount != null ? #numbers.formatDecimal(r.totalAmount, 1, 'POINT', 2, 'COMMA') : '0,00'}">0,00</td>
+                            <td style="padding:10px;">
+                                <span style="background:#e2e8f0; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:bold;" th:text="${r.status}">-</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="background:#e2e8f0; padding:10px; border-radius:5px; display:flex; gap:10px;">
+                    <a th:href="@{/ui/sales/returns/new}" style="background:#d97706; color:white; padding:5px 15px; border-radius:3px; text-decoration:none; font-weight:bold;">Insert</a>
+                    <button type="button" style="background:#94a3b8; color:white; padding:5px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="actionSelected('edit')">Change</button>
+                    <button type="button" style="background:#94a3b8; color:white; padding:5px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="actionSelected('delete')">Delete</button>
+                    <button type="button" style="background:#10b981; color:white; padding:5px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="actionSelected('confirm')">Confirm</button>
+                    <button type="button" style="background:#fcd34d; color:white; padding:5px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="actionSelected('unconfirm')">Unconfirm</button>
+                    <button type="button" style="background:#f87171; color:white; padding:5px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;" onclick="actionSelected('void')">Void</button>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+<script>
+function actionSelected(action) {
+    const selected = document.querySelector('input[name="selRow"]:checked');
+    if (!selected) { alert('Pilih data terlebih dahulu!'); return; }
+    const id = selected.value;
+    if (action === 'edit') window.location.href = '/api/ui/sales/returns/' + id + '/edit';
+    else if (action === 'delete') { if(confirm('Hapus data ini?')) submitForm('/api/ui/sales/returns/' + id + '/delete'); }
+    else if (action === 'confirm') { if(confirm('Confirm data ini?')) submitForm('/api/ui/sales/returns/' + id + '/confirm'); }
+    else if (action === 'unconfirm') { if(confirm('Unconfirm data ini?')) submitForm('/api/ui/sales/returns/' + id + '/unconfirm'); }
+    else if (action === 'void') { if(confirm('Void data ini?')) submitForm('/api/ui/sales/returns/' + id + '/void'); }
+}
+function submitForm(url) {
+    const form = document.createElement('form');
+    form.method = 'POST'; form.action = url;
+    document.body.appendChild(form); form.submit();
+}
+</script>
+</body>
+</html>

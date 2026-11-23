@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+
+<header class="app-header">
+    <h3 th:text="${pageTitle}">Anlisakoe</h3>
+	<button id="sidebarToggle" title="Sembunyikan / Tampilkan Menu">
+        <i class="fas fa-bars"></i>
+    </button>
+	<div th:if="${session.user != null and session.user.allowedCompanies != null}" style="display:flex; align-items:center; margin-right: 20px;">
+    <form th:action="@{/ui/switch-branch}" method="post" style="margin:0;">
+        <label style="font-size:12px; font-weight:bold; color:#64748b; margin-right:8px;">CABANG AKTIF:</label>
+        
+        <!-- Hidden input untuk menyimpan nama cabang -->
+        <input type="hidden" name="companyName" id="hiddenCompanyName" />
+        
+        <select name="companyId" onchange="updateBranchName(this)" style="padding: 6px 30px 6px 10px; border-radius: 6px; border:1px solid #cbd5e1; font-weight: bold; color: #0f172a; background: white; cursor: pointer;">
+            <option th:each="comp : ${session.user.allowedCompanies}" 
+                    th:value="${comp['id']}" 
+                    th:text="${comp['name']}"
+                    th:selected="${comp['id'] == session.user.activeCompanyId}">
+            </option>
+        </select>
+    </form>
+</div>
+
+<script>
+    // Script untuk mengambil teks cabang yang dipilih dan memasukkannya ke input hidden sebelum form disubmit
+    function updateBranchName(selectElement) {
+        var selectedText = selectElement.options[selectElement.selectedIndex].text;
+        document.getElementById('hiddenCompanyName').value = selectedText;
+        selectElement.form.submit();
+    }
+</script>
+    <div class="user-info">
+        <span th:text="${user.fullName} ?: ${user.username}">User</span>
+        <form th:action="@{/ui/logout}" method="post" style="display:inline;">
+            <button type="submit" class="secondary outline">Logout</button>
+        </form>
+    </div>
+</header>
