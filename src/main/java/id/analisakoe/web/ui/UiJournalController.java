@@ -120,8 +120,8 @@ public class UiJournalController {
         model.addAttribute("status", h[5]);
         model.addAttribute("companyName", h[6]);
 
-        List<Map<String, Object>> lines = new ArrayList<>();
         BigDecimal totalDebit = BigDecimal.ZERO, totalCredit = BigDecimal.ZERO;
+        List<Map<String, Object>> lines = new ArrayList<>();
         List<?> lineRows = em.createNativeQuery(
             "SELECT d.id, c.code, c.name, COALESCE(d.description, ''), COALESCE(d.debit, 0), COALESCE(d.credit, 0) " +
             "FROM fin.journal_dtl d " +
@@ -138,6 +138,12 @@ public class UiJournalController {
             m.put("description", r[3] != null ? r[3].toString() : "-");
             BigDecimal debit = new BigDecimal(r[4].toString());
             BigDecimal credit = new BigDecimal(r[5].toString());
+            java.text.DecimalFormat nf = new java.text.DecimalFormat("#,##0.00");
+            java.text.DecimalFormatSymbols sym = nf.getDecimalFormatSymbols();
+            sym.setDecimalSeparator(','); sym.setGroupingSeparator('.');
+            nf.setDecimalFormatSymbols(sym);
+            m.put("debitStr", debit.compareTo(BigDecimal.ZERO) != 0 ? nf.format(debit) : "-");
+            m.put("creditStr", credit.compareTo(BigDecimal.ZERO) != 0 ? nf.format(credit) : "-");
             m.put("debit", debit);
             m.put("credit", credit);
             totalDebit = totalDebit.add(debit);
@@ -145,8 +151,12 @@ public class UiJournalController {
             lines.add(m);
         }
         model.addAttribute("lines", lines);
-        model.addAttribute("totalDebit", totalDebit);
-        model.addAttribute("totalCredit", totalCredit);
+        java.text.DecimalFormat nfT = new java.text.DecimalFormat("#,##0.00");
+        java.text.DecimalFormatSymbols symT = nfT.getDecimalFormatSymbols();
+        symT.setDecimalSeparator(','); symT.setGroupingSeparator('.');
+        nfT.setDecimalFormatSymbols(symT);
+        model.addAttribute("totalDebitStr", nfT.format(totalDebit));
+        model.addAttribute("totalCreditStr", nfT.format(totalCredit));
         return "ui/finance/journal_view";
     }
 

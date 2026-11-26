@@ -51,15 +51,15 @@
                             <td th:text="${l.coaCode}">-</td>
                             <td style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" th:text="${l.coaName}">-</td>
                             <td style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" th:text="${l.description}">-</td>
-                            <td style="text-align:right;" th:text="${l.debit.compareTo(java.math.BigDecimal.ZERO) != 0 ? #numbers.formatDecimal(l.debit, 1, 'POINT', 2, 'COMMA') : '-'}">-</td>
-                            <td style="text-align:right;" th:text="${l.credit.compareTo(java.math.BigDecimal.ZERO) != 0 ? #numbers.formatDecimal(l.credit, 1, 'POINT', 2, 'COMMA') : '-'}">-</td>
+                            <td style="text-align:right;" th:text="${l.debitStr}">-</td>
+                            <td style="text-align:right;" th:text="${l.creditStr}">-</td>
                         </tr>
                     </tbody>
                     <tfoot>
                         <tr style="font-weight:bold; background:#f1f5f9;">
                             <td colspan="4" style="text-align:right; padding:10px;">TOTAL</td>
-                            <td style="text-align:right;" th:text="${#numbers.formatDecimal(totalDebit, 1, 'POINT', 2, 'COMMA')}">-</td>
-                            <td style="text-align:right;" th:text="${#numbers.formatDecimal(totalCredit, 1, 'POINT', 2, 'COMMA')}">-</td>
+                            <td style="text-align:right;" th:text="${totalDebitStr}">-</td>
+                            <td style="text-align:right;" th:text="${totalCreditStr}">-</td>
                         </tr>
                     </tfoot>
                 </table>

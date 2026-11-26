@@ -2,6 +2,7 @@ package id.analisakoe.web.ui;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
@@ -49,11 +50,17 @@ public class UiPrintController {
         try { return new BigDecimal(obj.toString()); } catch (Exception e) { return BigDecimal.ZERO; }
     }
 
-    private Map<String, Object> getCompanyInfo() {
+    private Map<String, Object> getCompanyInfo(HttpSession session) {
         Map<String, Object> c = new HashMap<>();
         c.put("name", "AnalisaKoe ERP");
+        Long compId = 1L;
         try {
-            List<?> rows = em.createNativeQuery("SELECT name FROM core.company WHERE id = 1").getResultList();
+            SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
+            if (user != null && user.getActiveCompanyId() != null) compId = user.getActiveCompanyId();
+        } catch (Exception e) { /* fallback */ }
+        try {
+            List<?> rows = em.createNativeQuery("SELECT name FROM core.company WHERE id = :id")
+                .setParameter("id", compId).getResultList();
             if (!rows.isEmpty()) {
                 Object r = rows.get(0);
                 if (r instanceof Object[]) r = ((Object[]) r)[0];
@@ -68,7 +75,7 @@ public class UiPrintController {
     // ============================================
     @GetMapping("/si/{id}")
     @Transactional(readOnly = true)
-    public String printSI(@PathVariable Long id, Model model) {
+    public String printSI(@PathVariable Long id, HttpSession session, Model model) {
         try {
             List<?> hdrRows = em.createNativeQuery(
                 "SELECT h.doc_no, h.invoice_date, h.due_date, h.total_amount, h.tax_amount, h.remarks, " +
@@ -118,7 +125,7 @@ public class UiPrintController {
                 items.add(m);
             }
             model.addAttribute("items", items);
-            model.addAttribute("company", getCompanyInfo());
+            model.addAttribute("company", getCompanyInfo(session));
         } catch (Exception e) {
             System.out.println("[PRINT-SI] ERROR: " + e.getMessage());
             return "redirect:/ui/sales/invoices";
@@ -131,7 +138,7 @@ public class UiPrintController {
     // ============================================
     @GetMapping("/so/{id}")
     @Transactional(readOnly = true)
-    public String printSO(@PathVariable Long id, Model model) {
+    public String printSO(@PathVariable Long id, HttpSession session, Model model) {
         try {
             List<?> hdrRows = em.createNativeQuery(
                 "SELECT h.doc_no, h.doc_date, h.total_amount, h.currency, COALESCE(h.remarks,''), c.name, " +
@@ -180,7 +187,7 @@ public class UiPrintController {
                 items.add(m);
             }
             model.addAttribute("items", items);
-            model.addAttribute("company", getCompanyInfo());
+            model.addAttribute("company", getCompanyInfo(session));
         } catch (Exception e) {
             System.out.println("[printSO] ERROR: " + e.getMessage());
             return "redirect:/ui/sales/orders";
@@ -192,7 +199,7 @@ public class UiPrintController {
     // PURCHASE INVOICE
     // ============================================
     @GetMapping("/pi/{id}")
-    public String printPI(@PathVariable Long id, Model model) {
+    public String printPI(@PathVariable Long id, HttpSession session, Model model) {
         try {
             List<?> hdrRows = em.createNativeQuery(
                 "SELECT h.doc_no, h.invoice_date, h.due_date, h.total_amount, h.supplier_invoice_no, h.remarks, " +
@@ -236,7 +243,7 @@ public class UiPrintController {
                 items.add(m);
             }
             model.addAttribute("items", items);
-            model.addAttribute("company", getCompanyInfo());
+            model.addAttribute("company", getCompanyInfo(session));
         } catch (Exception e) {
             System.out.println("[printPI] ERROR: " + e.getMessage());
             return "redirect:/ui/purchasing/invoices";
@@ -249,7 +256,7 @@ public class UiPrintController {
     // ============================================
     @GetMapping("/do/{id}")
     @Transactional(readOnly = true)
-    public String printDO(@PathVariable Long id, Model model) {
+    public String printDO(@PathVariable Long id, HttpSession session, Model model) {
         try {
             List<?> hdrRows = em.createNativeQuery(
                 "SELECT h.doc_no, h.doc_date, h.remarks, c.name, so.doc_no " +
@@ -285,7 +292,7 @@ public class UiPrintController {
                 items.add(m);
             }
             model.addAttribute("items", items);
-            model.addAttribute("company", getCompanyInfo());
+            model.addAttribute("company", getCompanyInfo(session));
         } catch (Exception e) {
             return "redirect:/ui/sales/delivery-orders";
         }
@@ -296,7 +303,7 @@ public class UiPrintController {
     // PURCHASE ORDER
     // ============================================
     @GetMapping("/po/{id}")
-    public String printPO(@PathVariable Long id, Model model) {
+    public String printPO(@PathVariable Long id, HttpSession session, Model model) {
         try {
             List<?> hdrRows = em.createNativeQuery(
                 "SELECT h.doc_no, h.doc_date, h.total_amount, h.currency, h.remarks, s.name, " +
@@ -338,7 +345,7 @@ public class UiPrintController {
                 items.add(m);
             }
             model.addAttribute("items", items);
-            model.addAttribute("company", getCompanyInfo());
+            model.addAttribute("company", getCompanyInfo(session));
         } catch (Exception e) {
             System.out.println("[printPO] ERROR: " + e.getMessage());
             return "redirect:/ui/purchasing/po";
@@ -351,7 +358,7 @@ public class UiPrintController {
     // ============================================
     @GetMapping("/picking/{id}")
     @Transactional(readOnly = true)
-    public String printPicking(@PathVariable Long id, Model model) {
+    public String printPicking(@PathVariable Long id, HttpSession session, Model model) {
         try {
             List<?> hdrRows = em.createNativeQuery(
                 "SELECT d.doc_no, d.doc_date, COALESCE(c.name, '-'), " +
@@ -387,7 +394,7 @@ public class UiPrintController {
                 items.add(m);
             }
             model.addAttribute("items", items);
-            model.addAttribute("company", getCompanyInfo());
+            model.addAttribute("company", getCompanyInfo(session));
         } catch (Exception e) {
             System.out.println("[printPicking] ERROR: " + e.getMessage());
             return "redirect:/ui/sales/delivery-orders";
@@ -400,7 +407,7 @@ public class UiPrintController {
     // ============================================
     @GetMapping("/loadsheet/{id}")
     @Transactional(readOnly = true)
-    public String printLoadSheet(@PathVariable Long id, Model model) {
+    public String printLoadSheet(@PathVariable Long id, HttpSession session, Model model) {
         try {
             List<?> hdrRows = em.createNativeQuery(
                 "SELECT d.doc_no, d.doc_date, COALESCE(c.name, '-'), " +
@@ -440,7 +447,7 @@ public class UiPrintController {
             }
             model.addAttribute("items", items);
             model.addAttribute("totalQty", totalQty);
-            model.addAttribute("company", getCompanyInfo());
+            model.addAttribute("company", getCompanyInfo(session));
         } catch (Exception e) {
             System.out.println("[printLoadSheet] ERROR: " + e.getMessage());
             return "redirect:/ui/sales/delivery-orders";
@@ -453,7 +460,7 @@ public class UiPrintController {
     // ============================================
     @GetMapping("/picking-batch")
     @Transactional(readOnly = true)
-    public String printPickingBatch(@RequestParam("ids") List<Long> ids, Model model) {
+    public String printPickingBatch(@RequestParam("ids") List<Long> ids, HttpSession session, Model model) {
         if (ids == null || ids.isEmpty()) return "redirect:/ui/sales/delivery-orders";
 
         try {
@@ -496,7 +503,7 @@ public class UiPrintController {
                 items.add(m);
             }
             model.addAttribute("items", items);
-            model.addAttribute("company", getCompanyInfo());
+            model.addAttribute("company", getCompanyInfo(session));
             
         } catch (Exception e) {
             return "redirect:/ui/sales/delivery-orders";
@@ -509,7 +516,7 @@ public class UiPrintController {
     // ============================================
     @GetMapping("/loadsheet-batch")
     @Transactional(readOnly = true)
-    public String printLoadSheetBatch(@RequestParam("ids") List<Long> ids, Model model) {
+    public String printLoadSheetBatch(@RequestParam("ids") List<Long> ids, HttpSession session, Model model) {
         if (ids == null || ids.isEmpty()) return "redirect:/ui/sales/delivery-orders";
 
         try {
@@ -552,7 +559,7 @@ public class UiPrintController {
                 dos.add(m);
             }
             model.addAttribute("dos", dos);
-            model.addAttribute("company", getCompanyInfo());
+            model.addAttribute("company", getCompanyInfo(session));
 
         } catch (Exception e) {
             return "redirect:/ui/sales/delivery-orders";
@@ -618,7 +625,7 @@ public class UiPrintController {
     // PRINT SALES QUOTATION (SPH)
     // ============================================
     @GetMapping("/quotation/{id}")
-    public String printQuotation(@PathVariable Long id, Model model) {
+    public String printQuotation(@PathVariable Long id, HttpSession session, Model model) {
         try {
             List<?> hdrRows = em.createNativeQuery(
                 "SELECT q.doc_no, q.doc_date, q.valid_until, " +
@@ -663,7 +670,7 @@ public class UiPrintController {
                 items.add(m);
             }
             model.addAttribute("items", items);
-            model.addAttribute("company", getCompanyInfo());
+            model.addAttribute("company", getCompanyInfo(session));
         } catch (Exception e) {
             System.err.println("[printQuotation] ERROR: " + e.getMessage());
             e.printStackTrace();
