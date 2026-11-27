@@ -1,6 +1,7 @@
 package id.analisakoe.config;
 
 import id.analisakoe.auth.jwt.JwtAuthFilter;
+import id.analisakoe.context.ContextFilter;
 import id.analisakoe.ratelimit.RateLimitFilter;
 import id.analisakoe.security.UserDetailsServiceImpl;
 import jakarta.servlet.http.HttpServletResponse;
@@ -27,12 +28,15 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final ContextFilter contextFilter;
     private final RateLimitFilter rateLimitFilter;
     private final UserDetailsServiceImpl userDetailsService;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter, RateLimitFilter rateLimitFilter,
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter, ContextFilter contextFilter,
+                          RateLimitFilter rateLimitFilter,
                           UserDetailsServiceImpl userDetailsService) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.contextFilter = contextFilter;
         this.rateLimitFilter = rateLimitFilter;
         this.userDetailsService = userDetailsService;
     }
@@ -47,6 +51,14 @@ public class SecurityConfig {
     @Bean
     public FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(RateLimitFilter filter) {
         FilterRegistrationBean<RateLimitFilter> reg = new FilterRegistrationBean<>(filter);
+        reg.setEnabled(false);
+        return reg;
+    }
+
+    /** ContextFilter hanya berjalan di dalam SecurityFilterChain, bukan sebagai servlet filter. */
+    @Bean
+    public FilterRegistrationBean<ContextFilter> contextFilterRegistration(ContextFilter filter) {
+        FilterRegistrationBean<ContextFilter> reg = new FilterRegistrationBean<>(filter);
         reg.setEnabled(false);
         return reg;
     }
@@ -124,7 +136,8 @@ public class SecurityConfig {
             )
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(rateLimitFilter, JwtAuthFilter.class);
+            .addFilterAfter(contextFilter, JwtAuthFilter.class)
+            .addFilterAfter(rateLimitFilter, ContextFilter.class);
 
         http.headers(headers -> headers
                 .cacheControl(cache -> cache.disable())

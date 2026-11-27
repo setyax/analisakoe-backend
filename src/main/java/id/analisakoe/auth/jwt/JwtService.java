@@ -16,6 +16,9 @@ import java.util.List;
 @Service
 public class JwtService {
 
+    /** Request attribute tempat JwtAuthFilter menyimpan Claims untuk ContextFilter. */
+    public static final String CLAIMS_REQUEST_ATTRIBUTE = "jwt.claims";
+
     private final SecretKey key;
     private final long ttlSeconds;
     private final String issuer;
@@ -30,7 +33,16 @@ public class JwtService {
         this.issuer = issuer;
     }
 
+    /** Generate token dengan company default milik user. */
     public String generateToken(UserPrincipal principal) {
+        return generateToken(principal, principal.getUser().getDefaultCompanyId());
+    }
+
+    /**
+     * Generate token dengan company/cabang aktif yang sudah divalidasi.
+     * Claim "company" dibaca ContextFilter sebagai CompanyContext untuk REST.
+     */
+    public String generateToken(UserPrincipal principal, Long companyId) {
         Date now = new Date();
         Date exp = new Date(now.getTime() + ttlSeconds * 1000);
 
@@ -45,6 +57,7 @@ public class JwtService {
             .expiration(exp)
             .claim("uid", principal.getUser().getId())
             .claim("tenant", principal.getUser().getTenantId())
+            .claim("company", companyId)
             .claim("auth", authorities)
             .signWith(key)
             .compact();

@@ -16,6 +16,10 @@ public class AppUser {
     @Column(name = "tenant_id", nullable = false)
     private Long tenantId;
 
+    /** Company/cabang aktif terakhir (dipakai sebagai claim company di JWT). */
+    @Column(name = "default_company_id")
+    private Long defaultCompanyId;
+
     @Column(nullable = false, length = 64)
     private String username;
 
@@ -76,6 +80,8 @@ public class AppUser {
     public Long getId() { return id; }
     public Long getTenantId() { return tenantId; }
     public void setTenantId(Long v) { this.tenantId = v; }
+    public Long getDefaultCompanyId() { return defaultCompanyId; }
+    public void setDefaultCompanyId(Long v) { this.defaultCompanyId = v; }
     public String getUsername() { return username; }
     public void setUsername(String v) { this.username = v; }
     public String getEmail() { return email; }

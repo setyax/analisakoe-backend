@@ -41,17 +41,22 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String token = header.substring(7);
         try {
             Claims claims = jwtService.parse(token);
+            request.setAttribute(JwtService.CLAIMS_REQUEST_ATTRIBUTE, claims);
             String username = claims.getSubject();
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails user = userDetailsService.loadUserByUsername(username);
 
-                List<SimpleGrantedAuthority> authorities = claims.get("auth", List.class) == null
-                    ? List.of()
-                    : ((List<?>) claims.get("auth")).stream()
-                        .map(Object::toString)
-                        .map(SimpleGrantedAuthority::new)
-                        .toList();
+                // Authority diambil dari DB saat request, bukan dari claim "auth" yang bisa stale.
+                if (!user.isEnabled() || !user.isAccountNonLocked()) {
+                    SecurityContextHolder.clearContext();
+                    chain.doFilter(request, response);
+                    return;
+                }
+
+                List<SimpleGrantedAuthority> authorities = user.getAuthorities().stream()
+                    .map(a -> new SimpleGrantedAuthority(a.getAuthority()))
+                    .toList();
 
                 var authToken = new UsernamePasswordAuthenticationToken(user, null, authorities);
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

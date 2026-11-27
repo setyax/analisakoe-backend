@@ -12,6 +12,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -38,6 +39,23 @@ public class AuthController {
         return authService.refresh(request, http.getHeader("User-Agent"), clientIp(http));
     }
 
+    /** Ganti company/cabang aktif untuk klien REST (JWT). */
+    @PostMapping("/switch-company")
+    public SwitchCompanyResponse switchCompany(
+            Authentication authentication,
+            @RequestBody @Valid SwitchCompanyRequest request,
+            HttpServletRequest http) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return authService.switchCompany(
+            principal.getUser().getId(),
+            principal.getUser().getTenantId(),
+            request.companyId(),
+            request.refreshToken(),
+            http.getHeader("User-Agent"),
+            clientIp(http)
+        );
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@RequestBody @Valid LogoutRequest request) {
         authService.logout(request.refreshToken());
@@ -51,15 +69,17 @@ public class AuthController {
             .map(GrantedAuthority::getAuthority)
             .collect(Collectors.toSet());
 
-        return Map.of(
-            "id", principal.getUser().getId(),
-            "username", principal.getUser().getUsername(),
-            "email", principal.getUser().getEmail(),
-            "fullName", principal.getUser().getFullName(),
-            "mustChangePwd", principal.getUser().getMustChangePwd(),
-            "roles", principal.getUser().getRoles().stream().map(r -> r.getCode()).toList(),
-            "authorities", authorities
-        );
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", principal.getUser().getId());
+        result.put("tenantId", principal.getUser().getTenantId());
+        result.put("companyId", principal.getUser().getDefaultCompanyId());
+        result.put("username", principal.getUser().getUsername());
+        result.put("email", principal.getUser().getEmail());
+        result.put("fullName", principal.getUser().getFullName());
+        result.put("mustChangePwd", principal.getUser().getMustChangePwd());
+        result.put("roles", principal.getUser().getRoles().stream().map(r -> r.getCode()).toList());
+        result.put("authorities", authorities);
+        return result;
     }
 
     @PostMapping("/change-password")

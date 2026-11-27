@@ -1,5 +1,6 @@
 package id.analisakoe.core.service;
 
+import id.analisakoe.context.ContextService;
 import id.analisakoe.core.entity.NumberRange;
 import id.analisakoe.core.repository.NumberRangeRepository;
 import org.springframework.stereotype.Service;
@@ -11,17 +12,20 @@ import java.time.format.DateTimeFormatter;
 @Service
 public class NumberRangeService {
     private final NumberRangeRepository repo;
+    private final ContextService context;
 
-    public NumberRangeService(NumberRangeRepository repo) {
+    public NumberRangeService(NumberRangeRepository repo, ContextService context) {
         this.repo = repo;
+        this.context = context;
     }
 
     @Transactional
     public String generate(String docType, String prefix) {
         String period = YearMonth.now().format(DateTimeFormatter.ofPattern("yyyyMM"));
         
-        NumberRange nr = repo.findForUpdate(1L, docType, period)
-            .orElseGet(() -> repo.save(new NumberRange(1L, docType, prefix, period, 0)));
+        Long tenantId = context.tenantId();
+        NumberRange nr = repo.findForUpdate(tenantId, docType, period)
+            .orElseGet(() -> repo.save(new NumberRange(tenantId, docType, prefix, period, 0)));
 
         nr.setCurrentNumber(nr.getCurrentNumber() + 1);
         repo.save(nr);

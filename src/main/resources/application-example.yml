@@ -2,6 +2,9 @@ app:
   jwt:
     secret: GANTI_DENGAN_NILAI_ASLI
     expiration: 86400000
+  context:
+    strict: false
+    warn-on-fallback: true
 server:
   port: 8085
   servlet:
