@@ -31,9 +31,39 @@
     }
 </script>
     <div class="user-info">
+        <!-- BEL NOTIFIKASI -->
+        <div id="notifBell" style="position:relative; margin-right:12px; cursor:pointer;" title="Notifikasi"
+             th:attr="data-list-url=@{/ui/notifications}" onclick="window.location.href=this.getAttribute('data-list-url')">
+            <i class="fas fa-bell" style="font-size:18px; color:#475569;"></i>
+            <span id="notifBadge" style="display:none; position:absolute; top:-6px; right:-8px; background:#dc2626; color:white; font-size:10px; font-weight:bold; min-width:16px; height:16px; line-height:16px; text-align:center; border-radius:8px;">0</span>
+        </div>
         <span th:text="${user.fullName} ?: ${user.username}">User</span>
         <form th:action="@{/ui/logout}" method="post" style="display:inline;">
             <button type="submit" class="secondary outline">Logout</button>
         </form>
     </div>
+
+    <script>
+    (function() {
+        var bell = document.getElementById('notifBell');
+        if (!bell) return;
+        var listUrl = bell.getAttribute('data-list-url');
+
+        function refreshNotif() {
+            fetch(listUrl + '/api/list', { headers: { 'Accept': 'application/json' } })
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(d) {
+                    if (!d || d.error) return;
+                    var badge = document.getElementById('notifBadge');
+                    var n = d.unread || 0;
+                    if (n > 0) { badge.textContent = n > 99 ? '99+' : n; badge.style.display = 'block'; }
+                    else { badge.style.display = 'none'; }
+                })
+                .catch(function() { /* abaikan error polling */ });
+        }
+
+        refreshNotif();
+        setInterval(refreshNotif, 30000);
+    })();
+    </script>
 </header>

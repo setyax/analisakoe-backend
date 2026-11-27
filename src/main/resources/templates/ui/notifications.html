@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="margin:0;">🔔 Notifikasi <span th:if="${unread > 0}" th:text="'(' + ${unread} + ' belum dibaca)'" style="color:#dc2626; font-size:15px;"></span></h3>
+                    <div>
+                        <a th:href="@{/ui/dashboard}" style="background:#6b7280; color:white; padding:6px 15px; border-radius:3px; text-decoration:none; font-weight:bold; margin-right:5px;">&larr; Kembali</a>
+                        <form th:action="@{/ui/notifications/read-all}" method="post" style="display:inline;">
+                            <button type="submit" style="background:#2563eb; color:white; padding:6px 15px; border:none; border-radius:3px; font-weight:bold; cursor:pointer;">Tandai semua dibaca</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:4px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead>
+                            <tr style="background-color:#1e293b; color:white;">
+                                <th style="padding:10px; width:50px;"></th>
+                                <th style="padding:10px;">NOTIFIKASI</th>
+                                <th style="padding:10px; width:120px;">OLEH</th>
+                                <th style="padding:10px; width:110px;">WAKTU</th>
+                                <th style="padding:10px; text-align:center; width:110px;">AKSI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${#lists.isEmpty(items)}">
+                                <td colspan="5" style="text-align:center; padding:30px; color:#94a3b8;">Belum ada notifikasi.</td>
+                            </tr>
+                            <tr th:each="n : ${items}"
+                                th:styleappend="${!n.isRead ? 'background:#eff6ff;' : ''}"
+                                style="border-bottom:1px solid #eee;">
+                                <td style="padding:10px; text-align:center; font-size:16px;">
+                                    <span th:switch="${n.type}">
+                                        <i th:case="'PR'" class="fas fa-file-signature" style="color:#d97706;"></i>
+                                        <i th:case="'PO'" class="fas fa-shopping-cart" style="color:#2563eb;"></i>
+                                        <i th:case="'GRN'" class="fas fa-boxes-packing" style="color:#10b981;"></i>
+                                        <i th:case="'INV'" class="fas fa-file-invoice-dollar" style="color:#8b5cf6;"></i>
+                                        <i th:case="'SYS'" class="fas fa-circle-info" style="color:#64748b;"></i>
+                                        <i th:case="*" class="fas fa-bell" style="color:#64748b;"></i>
+                                    </span>
+                                </td>
+                                <td style="padding:10px;">
+                                    <div style="font-weight:bold;" th:text="${n.title}"></div>
+                                    <div th:if="${n.message}" th:text="${n.message}" style="color:#64748b; font-size:12px;"></div>
+                                </td>
+                                <td style="padding:10px;" th:text="${n.actor} ?: '-'"></td>
+                                <td style="padding:10px;" th:text="${n.createdAt != null ? #temporals.format(n.createdAt, 'dd-MM-yyyy HH:mm') : '-'}"></td>
+                                <td style="padding:10px; text-align:center;">
+                                    <a th:if="${n.link}" th:href="${n.link}"
+                                       style="background:#2563eb; color:white; padding:4px 10px; border-radius:3px; text-decoration:none; font-size:11px; font-weight:bold; margin-right:4px;">Buka</a>
+                                    <form th:if="${!n.isRead}" th:action="@{/ui/notifications/{id}/read(id=${n.id})}" method="post" style="display:inline;">
+                                        <button type="submit" style="background:#e2e8f0; color:#334155; padding:4px 10px; border:none; border-radius:3px; font-size:11px; font-weight:bold; cursor:pointer;">Tandai dibaca</button>
+                                    </form>
+                                    <span th:if="${n.isRead}" style="color:#94a3b8; font-size:11px;">✓ dibaca</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>
