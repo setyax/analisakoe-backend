@@ -17,6 +17,13 @@ if not exist "%JAR%" (
     exit /b 1
 )
 
+netstat -ano | findstr ":8085" | findstr "LISTENING" >nul
+if %errorlevel%==0 (
+    echo Aplikasi sudah berjalan di port 8085. Tidak perlu start ulang.
+    timeout /t 5 >nul
+    exit /b 0
+)
+
 echo Menjalankan AnalisaKoe ERP...
 echo Buka: http://localhost:8085/api/ui/login
 echo Tutup jendela ini untuk menghentikan aplikasi.
