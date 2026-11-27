@@ -2,6 +2,7 @@ package id.analisakoe.web.ui;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
+import id.analisakoe.context.ContextService;
 import id.analisakoe.core.service.NumberRangeService;
 import id.analisakoe.core.menu.MenuService;
 import jakarta.persistence.EntityManager;
@@ -29,6 +30,7 @@ import java.util.Map;
 
 import id.analisakoe.pur.service.PurchasingService;          
 import id.analisakoe.pur.service.PurchasePolicyService;
+import id.analisakoe.pur.service.PriceDeterminationService;
 import org.springframework.web.bind.annotation.RequestBody;
 
 @Controller
@@ -38,12 +40,31 @@ public class UiPurchasingController {
     @Autowired
     private NumberRangeService numberRangeService;
 
+    @Autowired
+    private ContextService context;
+
+    @Autowired
+    private PriceDeterminationService priceDetermination;
+
     private final MenuService menuService;
     private final PurchasingService purchasingService;
     private final PurchasePolicyService policyService;
 
     @Autowired
     private EntityManager em;
+
+    @Autowired
+    private id.analisakoe.core.service.NotificationService notificationService;
+
+    /** Kirim notifikasi ke semua user lain (aman: gagal notifikasi tidak menggagalkan aksi utama). */
+    private void notif(SessionUser user, String type, String title, String message, String link) {
+        try {
+            if (user != null) {
+                notificationService.notifyAllUsers(context.tenantId(),
+                    user.getId(), user.getUsername(), type, title, message, link);
+            }
+        } catch (Exception ignored) { }
+    }
 
     @Autowired
     private TransactionTemplate transactionTemplate;
@@ -63,7 +84,6 @@ public class UiPurchasingController {
     @GetMapping("/pr")
     public String listPr(HttpSession session, Model model) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long compId = user.getActiveCompanyId(); // Auto-Injected by Wizard
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "Purchase Requests");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
@@ -72,11 +92,15 @@ public class UiPurchasingController {
                      "COALESCE(u.username, '-') AS requestor " +
                      "FROM pur.purchase_request_hdr h " +
                      "LEFT JOIN core.app_user u ON h.requisitioner_id = u.id " +
-                     "WHERE h.tenant_id = 1 ORDER BY h.id DESC";
+                     "WHERE h.tenant_id = :tenantId AND h.company_id = :companyId " +
+                     "ORDER BY h.id DESC";
 
         List<Map<String, Object>> list = new ArrayList<>();
         try {
-            List<Object[]> results = em.createNativeQuery(sql).getResultList();
+            List<Object[]> results = em.createNativeQuery(sql)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             for (Object[] row : results) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", row[0]);
@@ -105,7 +129,12 @@ public class UiPurchasingController {
         model.addAttribute("prId", null);
         
         try {
-            List<Object[]> itemsRaw = em.createNativeQuery("SELECT id, code, name FROM md.item WHERE tenant_id = 1 AND deleted_at IS NULL ORDER BY name").getResultList();
+            List<Object[]> itemsRaw = em.createNativeQuery(
+                "SELECT id, code, name FROM md.item " +
+                "WHERE tenant_id = :tenantId AND company_id = :companyId AND deleted_at IS NULL ORDER BY name")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             List<Map<String, Object>> items = new ArrayList<>();
             for (Object[] row : itemsRaw) {
                 Map<String, Object> map = new HashMap<>();
@@ -114,7 +143,10 @@ public class UiPurchasingController {
             }
             model.addAttribute("items", items);
             
-            List<Object[]> uomsRaw = em.createNativeQuery("SELECT id, code FROM md.uom WHERE tenant_id = 1 ORDER BY code").getResultList();
+            List<Object[]> uomsRaw = em.createNativeQuery(
+                "SELECT id, code FROM md.uom WHERE tenant_id = :tenantId ORDER BY code")
+                .setParameter("tenantId", context.tenantId())
+                .getResultList();
             List<Map<String, Object>> uoms = new ArrayList<>();
             for (Object[] row : uomsRaw) {
                 Map<String, Object> map = new HashMap<>();
@@ -139,7 +171,8 @@ public class UiPurchasingController {
                          RedirectAttributes ra) {
         try {
             SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long compId = user.getActiveCompanyId(); // Auto-Injected by Wizard
+            Long tenantId = context.tenantId();
+            Long companyId = context.companyId();
             Long requisitionerId = null;
             if (user != null && user.getUsername() != null) {
                 try {
@@ -153,12 +186,11 @@ public class UiPurchasingController {
             }
 
             String docNo = numberRangeService.generate("PR", "PR");
-            Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
             String sqlHdr = "INSERT INTO pur.purchase_request_hdr (tenant_id, company_id, doc_no, doc_date, remarks, status, requisitioner_id) " +
-                            "VALUES (:tenantId, :compId, :docNo, :docDate, :remarks, 'DRAFT', :requisitionerId) RETURNING id";
+                            "VALUES (:tenantId, :companyId, :docNo, :docDate, :remarks, 'DRAFT', :requisitionerId) RETURNING id";
             Long hdrId = ((Number) em.createNativeQuery(sqlHdr)
                 .setParameter("tenantId", tenantId)
-                .setParameter("compId", compId)
+                .setParameter("companyId", companyId)
                 .setParameter("docNo", docNo)
                 .setParameter("docDate", docDate)
                 .setParameter("remarks", remarks)
@@ -181,11 +213,26 @@ public class UiPurchasingController {
 
     @PostMapping("/pr/{id}/confirm")
     @Transactional
-    public String confirmPr(@PathVariable Long id, RedirectAttributes ra) {
+    public String confirmPr(@PathVariable Long id, HttpSession session, RedirectAttributes ra) {
+        SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
         try {
-            em.createNativeQuery("UPDATE pur.purchase_request_hdr SET status = 'CONFIRMED' WHERE id = :id")
-              .setParameter("id", id).executeUpdate();
+            em.createNativeQuery("UPDATE pur.purchase_request_hdr SET status = 'CONFIRMED' " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+              .setParameter("id", id)
+              .setParameter("tenantId", context.tenantId())
+              .setParameter("companyId", context.companyId())
+              .executeUpdate();
             ra.addFlashAttribute("success", "PR berhasil di-confirm.");
+            List<?> dn = em.createNativeQuery("SELECT doc_no FROM pur.purchase_request_hdr " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
+            String docNo = dn.isEmpty() ? "PR#" + id : dn.get(0).toString();
+            notif(user, "PR", "PR " + docNo + " dikonfirmasi",
+                "Purchase Request " + docNo + " telah dikonfirmasi dan siap diproses menjadi RFQ/PO.",
+                "/api/ui/purchasing/pr/" + id + "/view");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/ui/purchasing/pr";
     }
@@ -194,8 +241,12 @@ public class UiPurchasingController {
     @Transactional
     public String unconfirmPr(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("UPDATE pur.purchase_request_hdr SET status = 'DRAFT' WHERE id = :id")
-              .setParameter("id", id).executeUpdate();
+            em.createNativeQuery("UPDATE pur.purchase_request_hdr SET status = 'DRAFT' " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+              .setParameter("id", id)
+              .setParameter("tenantId", context.tenantId())
+              .setParameter("companyId", context.companyId())
+              .executeUpdate();
             ra.addFlashAttribute("success", "PR berhasil di-unconfirm.");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/ui/purchasing/pr";
@@ -205,8 +256,12 @@ public class UiPurchasingController {
     @Transactional
     public String voidPr(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("UPDATE pur.purchase_request_hdr SET status = 'VOID' WHERE id = :id")
-              .setParameter("id", id).executeUpdate();
+            em.createNativeQuery("UPDATE pur.purchase_request_hdr SET status = 'VOID' " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+              .setParameter("id", id)
+              .setParameter("tenantId", context.tenantId())
+              .setParameter("companyId", context.companyId())
+              .executeUpdate();
             ra.addFlashAttribute("success", "PR berhasil di-void.");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/ui/purchasing/pr";
@@ -216,10 +271,18 @@ public class UiPurchasingController {
     @Transactional
     public String deletePr(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            List<?> statusList = em.createNativeQuery("SELECT status FROM pur.purchase_request_hdr WHERE id = :id")
-                .setParameter("id", id).getResultList();
+            List<?> statusList = em.createNativeQuery("SELECT status FROM pur.purchase_request_hdr " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             String status = statusList.isEmpty() ? "" : statusList.get(0).toString();
 
+            if (statusList.isEmpty()) {
+                ra.addFlashAttribute("error", "PR tidak ditemukan.");
+                return "redirect:/ui/purchasing/pr";
+            }
             if (!"DRAFT".equals(status)) {
                 ra.addFlashAttribute("error", "Hanya PR berstatus DRAFT yang bisa dihapus. Status: " + status);
                 return "redirect:/ui/purchasing/pr";
@@ -232,8 +295,14 @@ public class UiPurchasingController {
                 return "redirect:/ui/purchasing/pr";
             }
 
-            em.createNativeQuery("DELETE FROM pur.purchase_request_dtl WHERE header_id = :id").setParameter("id", id).executeUpdate();
-            em.createNativeQuery("DELETE FROM pur.purchase_request_hdr WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("DELETE FROM pur.purchase_request_dtl WHERE header_id = :id")
+                .setParameter("id", id).executeUpdate();
+            em.createNativeQuery("DELETE FROM pur.purchase_request_hdr " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute("success", "PR berhasil dihapus.");
         } catch (Exception e) { ra.addFlashAttribute("error", "Gagal: " + e.getMessage()); }
         return "redirect:/ui/purchasing/pr";
@@ -242,7 +311,6 @@ public class UiPurchasingController {
     @GetMapping("/pr/{id}/edit")
     public String editPr(@PathVariable Long id, HttpSession session, Model model, RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long compId = user.getActiveCompanyId(); // Auto-Injected by Wizard
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "Edit Purchase Request");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
@@ -251,8 +319,12 @@ public class UiPurchasingController {
 
         try {
             List<Object[]> hdrRaw = em.createNativeQuery(
-                "SELECT id, doc_no, doc_date, remarks, status FROM pur.purchase_request_hdr WHERE id = :id")
-                .setParameter("id", id).getResultList();
+                "SELECT id, doc_no, doc_date, remarks, status FROM pur.purchase_request_hdr " +
+                "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             
             if (hdrRaw.isEmpty()) {
                 ra.addFlashAttribute("error", "PR tidak ditemukan.");
@@ -271,7 +343,12 @@ public class UiPurchasingController {
             model.addAttribute("prDate", dateObj != null ? ((java.sql.Date) dateObj).toLocalDate() : LocalDate.now());
             model.addAttribute("prRemarks", hdr[3] != null ? hdr[3].toString() : "");
 
-            List<Object[]> itemsRaw = em.createNativeQuery("SELECT id, code, name FROM md.item WHERE tenant_id = 1 AND deleted_at IS NULL ORDER BY name").getResultList();
+            List<Object[]> itemsRaw = em.createNativeQuery(
+                "SELECT id, code, name FROM md.item " +
+                "WHERE tenant_id = :tenantId AND company_id = :companyId AND deleted_at IS NULL ORDER BY name")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             List<Map<String, Object>> items = new ArrayList<>();
             for (Object[] row : itemsRaw) {
                 Map<String, Object> map = new HashMap<>();
@@ -280,7 +357,10 @@ public class UiPurchasingController {
             }
             model.addAttribute("items", items);
             
-            List<Object[]> uomsRaw = em.createNativeQuery("SELECT id, code FROM md.uom WHERE tenant_id = 1 ORDER BY code").getResultList();
+            List<Object[]> uomsRaw = em.createNativeQuery(
+                "SELECT id, code FROM md.uom WHERE tenant_id = :tenantId ORDER BY code")
+                .setParameter("tenantId", context.tenantId())
+                .getResultList();
             List<Map<String, Object>> uoms = new ArrayList<>();
             for (Object[] row : uomsRaw) {
                 Map<String, Object> map = new HashMap<>();
@@ -317,6 +397,117 @@ public class UiPurchasingController {
         return "ui/purchasing/pr_form";
     }
 
+    // PR VIEW - LIHAT ISI PR BESERTA PO YANG SUDAH DIBUAT DARI PR INI
+    @GetMapping("/pr/{id}/view")
+    public String viewPr(@PathVariable Long id, HttpSession session, Model model, RedirectAttributes ra) {
+        SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
+        model.addAttribute("user", user);
+        model.addAttribute("pageTitle", "View Purchase Request");
+        model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
+
+        try {
+            List<Object[]> hdrRaw = em.createNativeQuery(
+                "SELECT h.id, h.doc_no, h.doc_date, h.status, h.remarks, " +
+                "COALESCE(u.username, '-') " +
+                "FROM pur.purchase_request_hdr h " +
+                "LEFT JOIN core.app_user u ON h.requisitioner_id = u.id " +
+                "WHERE h.id = :id AND h.tenant_id = :tenantId AND h.company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
+
+            if (hdrRaw.isEmpty()) {
+                ra.addFlashAttribute("error", "PR tidak ditemukan.");
+                return "redirect:/ui/purchasing/pr";
+            }
+            Object[] hdr = hdrRaw.get(0);
+            model.addAttribute("prId", hdr[0]);
+            model.addAttribute("prDocNo", hdr[1]);
+            Object dateObj = hdr[2];
+            model.addAttribute("prDate", dateObj != null ? ((java.sql.Date) dateObj).toLocalDate() : null);
+            model.addAttribute("prStatus", hdr[3] != null ? hdr[3].toString() : "");
+            model.addAttribute("prRemarks", hdr[4] != null ? hdr[4].toString() : "");
+            model.addAttribute("prRequestor", hdr[5]);
+
+            // Detail item PR
+            List<Object[]> detailsRaw = em.createNativeQuery(
+                "SELECT d.id, i.code, i.name, d.qty, u.code, d.estimated_price, d.delivery_date, d.short_text, " +
+                "d.converted_po_id " +
+                "FROM pur.purchase_request_dtl d " +
+                "LEFT JOIN md.item i ON d.item_id = i.id " +
+                "LEFT JOIN md.uom u ON d.uom_id = u.id " +
+                "WHERE d.header_id = :id ORDER BY d.id")
+                .setParameter("id", id).getResultList();
+            List<Map<String, Object>> details = new ArrayList<>();
+            for (Object[] row : detailsRaw) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("itemCode", row[1] != null ? row[1].toString() : "");
+                map.put("itemName", row[2] != null ? row[2].toString() : "");
+                map.put("qty", row[3]);
+                map.put("uomCode", row[4] != null ? row[4].toString() : "");
+                map.put("estimatedPrice", row[5]);
+                map.put("deliveryDate", row[6] != null ? ((java.sql.Date) row[6]).toLocalDate() : null);
+                map.put("shortText", row[7] != null ? row[7].toString() : "");
+                map.put("convertedPoId", row[8]);
+                details.add(map);
+            }
+            model.addAttribute("details", details);
+
+            // PO yang dibuat dari PR ini
+            List<Object[]> poRaw = em.createNativeQuery(
+                "SELECT po.id, po.doc_no, po.doc_date, po.status, po.total_amount, " +
+                "COALESCE(s.name, '-') " +
+                "FROM pur.purchase_order_hdr po " +
+                "LEFT JOIN md.supplier s ON po.supplier_id = s.id " +
+                "WHERE po.pr_id = :id AND po.tenant_id = :tenantId AND po.company_id = :companyId " +
+                "ORDER BY po.id")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
+            List<Map<String, Object>> pos = new ArrayList<>();
+            for (Object[] row : poRaw) {
+                Map<String, Object> map = new HashMap<>();
+                Long poId = ((Number) row[0]).longValue();
+                map.put("id", poId);
+                map.put("docNo", row[1] != null ? row[1].toString() : "-");
+                map.put("docDate", row[2] != null ? ((java.sql.Date) row[2]).toLocalDate() : null);
+                map.put("status", row[3] != null ? row[3].toString() : "");
+                map.put("totalAmount", row[4]);
+                map.put("supplier", row[5]);
+
+                // Detail item PO
+                List<Object[]> poDtlRaw = em.createNativeQuery(
+                    "SELECT i.code, i.name, d.qty, u.code, d.price, d.line_total " +
+                    "FROM pur.purchase_order_dtl d " +
+                    "LEFT JOIN md.item i ON d.item_id = i.id " +
+                    "LEFT JOIN md.uom u ON d.uom_id = u.id " +
+                    "WHERE d.header_id = :poId ORDER BY d.id")
+                    .setParameter("poId", poId).getResultList();
+                List<Map<String, Object>> poDetails = new ArrayList<>();
+                for (Object[] drow : poDtlRaw) {
+                    Map<String, Object> dmap = new HashMap<>();
+                    dmap.put("itemCode", drow[0] != null ? drow[0].toString() : "");
+                    dmap.put("itemName", drow[1] != null ? drow[1].toString() : "");
+                    dmap.put("qty", drow[2]);
+                    dmap.put("uomCode", drow[3] != null ? drow[3].toString() : "");
+                    dmap.put("price", drow[4]);
+                    dmap.put("lineTotal", drow[5]);
+                    poDetails.add(dmap);
+                }
+                map.put("details", poDetails);
+                pos.add(map);
+            }
+            model.addAttribute("pos", pos);
+
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", "Gagal memuat PR: " + e.getMessage());
+            return "redirect:/ui/purchasing/pr";
+        }
+        return "ui/purchasing/pr_view";
+    }
+
     @PostMapping("/pr/{id}")
     @Transactional
     public String updatePr(@PathVariable Long id,
@@ -327,18 +518,30 @@ public class UiPurchasingController {
                            @RequestParam(value = "qty", required = false) ArrayList<BigDecimal> qtys,
                            RedirectAttributes ra) {
         try {
-            List<?> statusList = em.createNativeQuery("SELECT status FROM pur.purchase_request_hdr WHERE id = :id")
-                .setParameter("id", id).getResultList();
+            List<?> statusList = em.createNativeQuery("SELECT status FROM pur.purchase_request_hdr " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             String status = statusList.isEmpty() ? "" : statusList.get(0).toString();
+            if (statusList.isEmpty()) {
+                ra.addFlashAttribute("error", "PR tidak ditemukan.");
+                return "redirect:/ui/purchasing/pr";
+            }
             if (!"DRAFT".equals(status)) {
                 ra.addFlashAttribute("error", "Hanya PR berstatus DRAFT yang bisa diubah. Status: " + status);
                 return "redirect:/ui/purchasing/pr";
             }
 
-            em.createNativeQuery("UPDATE pur.purchase_request_hdr SET doc_date = :docDate, remarks = :remarks WHERE id = :id")
+            em.createNativeQuery("UPDATE pur.purchase_request_hdr SET doc_date = :docDate, remarks = :remarks " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
                 .setParameter("docDate", docDate)
                 .setParameter("remarks", remarks)
-                .setParameter("id", id).executeUpdate();
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .executeUpdate();
 
             em.createNativeQuery("DELETE FROM pur.purchase_request_dtl WHERE header_id = :id")
                 .setParameter("id", id).executeUpdate();
@@ -389,10 +592,11 @@ public class UiPurchasingController {
                 "COALESCE(h.currency,'IDR') " +
                 "FROM pur.purchase_request_hdr h " +
                 "LEFT JOIN core.app_user u ON u.id = h.requisitioner_id " +
-                "WHERE h.id = :id AND h.tenant_id = :tenantId"
+                "WHERE h.id = :id AND h.tenant_id = :tenantId AND h.company_id = :companyId"
             )
             .setParameter("id", id)
-            .setParameter("tenantId", user.getTenantId())
+            .setParameter("tenantId", context.tenantId())
+            .setParameter("companyId", context.companyId())
             .getResultList();
 
             if (headers.isEmpty()) {
@@ -458,9 +662,10 @@ public class UiPurchasingController {
 
             List<?> companyRows = em.createNativeQuery(
                 "SELECT name FROM core.company " +
-                "WHERE id = :companyId"
+                "WHERE id = :companyId AND tenant_id = :tenantId"
             )
-            .setParameter("companyId", user.getActiveCompanyId())
+            .setParameter("companyId", context.companyId())
+            .setParameter("tenantId", context.tenantId())
             .getResultList();
 
             model.addAttribute(
@@ -514,7 +719,8 @@ public class UiPurchasingController {
             );
         }
 
-        Long tenantId = user.getTenantId();
+        Long tenantId = context.tenantId();
+        Long companyId = context.companyId();
 
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "Purchase Request Recap");
@@ -532,10 +738,11 @@ public class UiPurchasingController {
             "SELECT DISTINCT u.id, u.username " +
             "FROM pur.purchase_request_hdr h " +
             "JOIN core.app_user u ON u.id = h.requisitioner_id " +
-            "WHERE h.tenant_id = :tenantId " +
+            "WHERE h.tenant_id = :tenantId AND h.company_id = :companyId " +
             "ORDER BY u.username"
         )
         .setParameter("tenantId", tenantId)
+        .setParameter("companyId", companyId)
         .getResultList();
 
         List<Map<String,Object>> requestors = new ArrayList<>();
@@ -561,7 +768,7 @@ public class UiPurchasingController {
             "ON u.id = h.requisitioner_id " +
             "LEFT JOIN pur.purchase_request_dtl d " +
             "ON d.header_id = h.id " +
-            "WHERE h.tenant_id = :tenantId " +
+            "WHERE h.tenant_id = :tenantId AND h.company_id = :companyId " +
             "AND h.doc_date BETWEEN :dateFrom AND :dateTo "
         );
 
@@ -583,6 +790,7 @@ public class UiPurchasingController {
 
         var query = em.createNativeQuery(sql.toString())
             .setParameter("tenantId", tenantId)
+            .setParameter("companyId", companyId)
             .setParameter("dateFrom", java.sql.Date.valueOf(from))
             .setParameter("dateTo", java.sql.Date.valueOf(to));
 
@@ -653,17 +861,19 @@ public class UiPurchasingController {
     @GetMapping("/po")
     public String listPo(HttpSession session, Model model) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long compId = user.getActiveCompanyId(); // Auto-Injected by Wizard
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "Purchase Orders");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
 
         String sql = "SELECT h.id, h.doc_no, h.doc_date, COALESCE(s.name, '-'), COALESCE(h.currency, 'IDR'), COALESCE(h.total_amount, 0), h.status " +
                      "FROM pur.purchase_order_hdr h LEFT JOIN md.supplier s ON h.supplier_id = s.id " +
-                     "WHERE h.tenant_id = 1 ORDER BY h.id DESC";
+                     "WHERE h.tenant_id = :tenantId AND h.company_id = :companyId ORDER BY h.id DESC";
         List<Map<String, Object>> orderList = new ArrayList<>();
         try {
-            List<Object[]> results = em.createNativeQuery(sql).getResultList();
+            List<Object[]> results = em.createNativeQuery(sql)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             for (Object[] row : results) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", row[0]);
@@ -698,7 +908,11 @@ public class UiPurchasingController {
         model.addAttribute("poTaxType", "NO_TAX");
 
         try {
-            List<Object[]> supRaw = em.createNativeQuery("SELECT id, name FROM md.supplier WHERE tenant_id = 1 ORDER BY name").getResultList();
+            List<Object[]> supRaw = em.createNativeQuery(
+                "SELECT id, name FROM md.supplier WHERE tenant_id = :tenantId AND company_id = :companyId ORDER BY name")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             List<Map<String, Object>> suppliers = new ArrayList<>();
             for (Object[] row : supRaw) {
                 Map<String, Object> map = new HashMap<>();
@@ -707,7 +921,10 @@ public class UiPurchasingController {
             }
             model.addAttribute("suppliers", suppliers);
 
-            List<Object[]> uomRaw = em.createNativeQuery("SELECT id, code FROM md.uom WHERE tenant_id = 1 ORDER BY code").getResultList();
+            List<Object[]> uomRaw = em.createNativeQuery(
+                "SELECT id, code FROM md.uom WHERE tenant_id = :tenantId ORDER BY code")
+                .setParameter("tenantId", context.tenantId())
+                .getResultList();
             List<Map<String, Object>> uoms = new ArrayList<>();
             for (Object[] row : uomRaw) {
                 Map<String, Object> map = new HashMap<>();
@@ -716,7 +933,12 @@ public class UiPurchasingController {
             }
             model.addAttribute("uoms", uoms);
 
-            List<Object[]> itemRaw = em.createNativeQuery("SELECT id, code, name FROM md.item WHERE tenant_id = 1 AND deleted_at IS NULL ORDER BY name").getResultList();
+            List<Object[]> itemRaw = em.createNativeQuery(
+                "SELECT id, code, name FROM md.item " +
+                "WHERE tenant_id = :tenantId AND company_id = :companyId AND deleted_at IS NULL ORDER BY name")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             List<Map<String, Object>> items = new ArrayList<>();
             for (Object[] row : itemRaw) {
                 Map<String, Object> map = new HashMap<>();
@@ -729,7 +951,8 @@ public class UiPurchasingController {
             // diambil PO (mis. 30 dari 50) ikut hilang dari pilihan.
             List<Object[]> prRaw = em.createNativeQuery(
                 "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr h " +
-                "WHERE h.tenant_id = 1 AND h.status IN ('CONFIRMED', 'PO_CREATED') " +
+                "WHERE h.tenant_id = :tenantId AND h.company_id = :companyId " +
+                "AND h.status IN ('CONFIRMED', 'PO_CREATED') " +
                 "AND EXISTS (" +
                 "    SELECT 1 FROM pur.purchase_request_dtl d " +
                 "    WHERE d.header_id = h.id " +
@@ -738,11 +961,14 @@ public class UiPurchasingController {
                 "        JOIN pur.purchase_order_hdr poh ON poh.id = pod.header_id " +
                 "        WHERE poh.pr_id = h.id " +
                 "        AND pod.item_id = d.item_id " +
+                "        AND poh.tenant_id = :tenantId AND poh.company_id = :companyId " +
                 "        AND poh.status <> 'VOID'" +
                 "    ), 0)" +
                 ") " +
-                "ORDER BY h.id DESC"
-            ).getResultList();
+                "ORDER BY h.id DESC")
+            .setParameter("tenantId", context.tenantId())
+            .setParameter("companyId", context.companyId())
+            .getResultList();
             
             List<Map<String, Object>> availablePrs = new ArrayList<>();
             for (Object[] row : prRaw) {
@@ -845,11 +1071,15 @@ public class UiPurchasingController {
             Object requestedObj = em.createNativeQuery(
                     "SELECT COALESCE(SUM(d.qty), 0) " +
                     "FROM pur.purchase_request_dtl d " +
+                    "JOIN pur.purchase_request_hdr h ON h.id = d.header_id " +
                     "WHERE d.header_id = :prId " +
+                    "AND h.tenant_id = :tenantId AND h.company_id = :companyId " +
                     "AND d.item_id = :itemId " +
                     "AND d.uom_id = :uomId"
                 )
                 .setParameter("prId", prId)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
                 .setParameter("itemId", itemId)
                 .setParameter("uomId", uomId)
                 .getSingleResult();
@@ -875,18 +1105,23 @@ public class UiPurchasingController {
                 "WHERE poh.pr_id = :prId " +
                 "AND pod.item_id = :itemId " +
                 "AND pod.uom_id = :uomId " +
+                "AND poh.tenant_id = :tenantId AND poh.company_id = :companyId " +
                 "AND poh.status <> 'VOID'";
 
             jakarta.persistence.Query usedQuery = em.createNativeQuery(usedSql)
                 .setParameter("prId", prId)
                 .setParameter("itemId", itemId)
-                .setParameter("uomId", uomId);
+                .setParameter("uomId", uomId)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId());
             if (excludePoId != null) {
                 usedSql += " AND poh.id <> :excludePoId";
                 usedQuery = em.createNativeQuery(usedSql)
                     .setParameter("prId", prId)
                     .setParameter("itemId", itemId)
                     .setParameter("uomId", uomId)
+                    .setParameter("tenantId", context.tenantId())
+                    .setParameter("companyId", context.companyId())
                     .setParameter("excludePoId", excludePoId);
             }
 
@@ -923,11 +1158,13 @@ public String savePo(@RequestParam String docDate,
                      @RequestParam(value = "qty", required = false) ArrayList<BigDecimal> qtys,
                      @RequestParam(value = "uomId", required = false) ArrayList<String> uomIdStrs,
                      @RequestParam(value = "price", required = false) ArrayList<String> prices,
+                     @RequestParam(value = "basePrice", required = false) ArrayList<String> basePrices,
+                     @RequestParam(value = "priceSource", required = false) ArrayList<String> priceSources,
                      HttpSession session,
                      RedirectAttributes ra) {
     SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-    final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-    final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 1L;
+    final Long tenantId = context.tenantId();
+    final Long compId = context.companyId();
     try {
         // Transaksi dibungkus TransactionTemplate agar exception asli dari
         // dalam transaksi tetap sampai ke catch di bawah ini. Jika memakai
@@ -936,8 +1173,11 @@ public String savePo(@RequestParam String docDate,
         // UnexpectedRollbackException yang menutupi error sebenarnya.
         String docNo = transactionTemplate.execute(status ->
             doSavePo(tenantId, compId, docDate, supplierId, prId, currency, remarks,
-                     taxType, itemIdStrs, qtys, uomIdStrs, prices));
+                     taxType, itemIdStrs, qtys, uomIdStrs, prices, basePrices, priceSources));
         ra.addFlashAttribute("success", "PO " + docNo + " berhasil dibuat.");
+        notif(user, "PO", "PO " + docNo + " dibuat",
+            "Purchase Order " + docNo + " baru telah dibuat (DRAFT).",
+            "/api/ui/purchasing/po");
     } catch (Exception e) {
         ra.addFlashAttribute("error", "Gagal menyimpan PO: " + rootMessage(e));
     }
@@ -947,7 +1187,8 @@ public String savePo(@RequestParam String docDate,
 protected String doSavePo(Long tenantId, Long companyId, String docDate, Long supplierId, Long prId, String currency,
                           String remarks, String taxType,
                           ArrayList<String> itemIdStrs, ArrayList<BigDecimal> qtys,
-                          ArrayList<String> uomIdStrs, ArrayList<String> prices) {
+                          ArrayList<String> uomIdStrs, ArrayList<String> prices,
+                           ArrayList<String> basePrices, ArrayList<String> priceSources) {
 
     validatePoPrQuantities(prId, null, itemIdStrs, qtys, uomIdStrs);
 
@@ -988,48 +1229,94 @@ protected String doSavePo(Long tenantId, Long companyId, String docDate, Long su
 
             String priceStr = prices.get(i) == null ? "" : prices.get(i).replaceAll("[^0-9]", "");
             BigDecimal price = priceStr.isEmpty() ? BigDecimal.ZERO : new BigDecimal(priceStr);
+            BigDecimal basePrice = parseBasePrice(basePrices, i);
 
-            BigDecimal subtotal = qty.multiply(price).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal total = subtotal;
+            PriceDeterminationService.Determination det = priceDetermination.determine(
+                tenantId, companyId, supplierId, itemId, uomId, parsedDate, qty, basePrice);
+            PriceDeterminationService.LineResult calc;
+            String lineSource;
+            String lineConditionType;
+            BigDecimal linePriceUnit;
 
-            if ("EXCLUDE".equals(taxType)) {
-                BigDecimal ppn = subtotal.multiply(new BigDecimal("0.11")).setScale(2, RoundingMode.HALF_UP);
-                total = subtotal.add(ppn);
-                totalTax = totalTax.add(ppn);
-            } else if ("INCLUDE".equals(taxType)) {
-                BigDecimal ppn = subtotal.multiply(new BigDecimal("11"))
-                    .divide(new BigDecimal("111"), 2, RoundingMode.HALF_UP);
-                totalTax = totalTax.add(ppn);
+            if (det.found()) {
+                calc = priceDetermination.calculate(det, qty, taxType);
+                lineSource = det.priceSource();
+                lineConditionType = det.conditionType();
+                linePriceUnit = det.priceUnit();
+            } else {
+                lineSource = poPriceSource(priceSources, i);
+                lineConditionType = "MANUAL";
+                linePriceUnit = BigDecimal.ONE;
+                calc = priceDetermination.calculate(
+                    new PriceDeterminationService.Determination(false, price, price, BigDecimal.ONE,
+                        lineSource, lineConditionType, currency, qty, null, List.of()),
+                    qty, taxType);
             }
 
-            grandTotal = grandTotal.add(total);
+            totalTax = totalTax.add(calc.taxAmount());
+            grandTotal = grandTotal.add(calc.lineTotal());
 
-            em.createNativeQuery(
-                "INSERT INTO pur.purchase_order_dtl (header_id, item_id, uom_id, qty, price, subtotal) " +
-                "VALUES (:hdrId, :itemId, :uomId, :qty, :price, :subtotal)")
+            Long dtlId = ((Number) em.createNativeQuery(
+                "INSERT INTO pur.purchase_order_dtl " +
+                "(header_id, item_id, uom_id, qty, price, subtotal, price_source, condition_type, price_unit) " +
+                "VALUES (:hdrId, :itemId, :uomId, :qty, :price, :subtotal, :priceSource, :conditionType, :priceUnit) " +
+                "RETURNING id")
               .setParameter("hdrId", hdrId)
               .setParameter("itemId", itemId)
               .setParameter("uomId", uomId)
               .setParameter("qty", qty)
-              .setParameter("price", price)
-              .setParameter("subtotal", subtotal)
-              .executeUpdate();
+              .setParameter("price", calc.price())
+              .setParameter("subtotal", calc.dpp())
+              .setParameter("priceSource", lineSource)
+              .setParameter("conditionType", lineConditionType)
+              .setParameter("priceUnit", linePriceUnit)
+              .getSingleResult()).longValue();
+
+            if (det.found()) {
+                priceDetermination.storeConditions(tenantId, companyId, hdrId, dtlId, det);
+            }
         }
     }
 
-    em.createNativeQuery("UPDATE pur.purchase_order_hdr SET total_amount = :total, tax_amount = :taxAmt WHERE id = :id")
+    em.createNativeQuery("UPDATE pur.purchase_order_hdr SET total_amount = :total, tax_amount = :taxAmt " +
+      "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
       .setParameter("total", grandTotal)
       .setParameter("taxAmt", totalTax)
       .setParameter("id", hdrId)
+      .setParameter("tenantId", context.tenantId())
+      .setParameter("companyId", context.companyId())
       .executeUpdate();
 
     if (prId != null && prId > 0) {
-        em.createNativeQuery("UPDATE pur.purchase_request_hdr SET status = 'PO_CREATED' WHERE id = :prId")
+        em.createNativeQuery("UPDATE pur.purchase_request_hdr SET status = 'PO_CREATED' " +
+          "WHERE id = :prId AND tenant_id = :tenantId AND company_id = :companyId")
           .setParameter("prId", prId)
+          .setParameter("tenantId", tenantId)
+          .setParameter("companyId", companyId)
           .executeUpdate();
     }
 
     return docNo;
+}
+
+private BigDecimal parseBasePrice(ArrayList<String> values, int index) {
+    if (values == null || index >= values.size()) return null;
+    String raw = values.get(index);
+    if (raw == null || raw.isBlank()) return null;
+    try {
+        return new BigDecimal(raw.trim());
+    } catch (NumberFormatException e) {
+        return null;
+    }
+}
+
+private String poPriceSource(ArrayList<String> sources, int index) {
+    if (sources == null || index >= sources.size()) return "PRICE_LIST";
+    String value = sources.get(index);
+    if (value == null || value.isBlank()) return "PRICE_LIST";
+    String normalized = value.trim().toUpperCase();
+    return java.util.List.of("PRICE_LIST", "RFQ", "CONTRACT", "MANUAL").contains(normalized)
+        ? normalized : "PRICE_LIST";
 }
 
 private String rootMessage(Throwable t) {
@@ -1052,8 +1339,12 @@ private String rootMessage(Throwable t) {
         try {
             List<Object[]> hdrRaw = em.createNativeQuery(
                 "SELECT id, doc_no, doc_date, supplier_id, currency, remarks, status, total_amount, pr_id, tax_type, tax_amount " +
-                "FROM pur.purchase_order_hdr WHERE id = :id")
-                .setParameter("id", id).getResultList();
+                "FROM pur.purchase_order_hdr WHERE id = :id " +
+                "AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
 
             if (hdrRaw.isEmpty()) {
                 ra.addFlashAttribute("error", "PO tidak ditemukan.");
@@ -1080,7 +1371,11 @@ private String rootMessage(Throwable t) {
             model.addAttribute("poTaxType", (hdr.length > 9 && hdr[9] != null) ? hdr[9].toString() : "NO_TAX");
             model.addAttribute("poTaxAmount", (hdr.length > 10 && hdr[10] != null) ? hdr[10] : BigDecimal.ZERO);
 
-            List<Object[]> supRaw = em.createNativeQuery("SELECT id, name FROM md.supplier WHERE tenant_id = 1 ORDER BY name").getResultList();
+            List<Object[]> supRaw = em.createNativeQuery(
+                "SELECT id, name FROM md.supplier WHERE tenant_id = :tenantId AND company_id = :companyId ORDER BY name")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             List<Map<String, Object>> suppliers = new ArrayList<>();
             for (Object[] row : supRaw) {
                 Map<String, Object> map = new HashMap<>();
@@ -1089,7 +1384,10 @@ private String rootMessage(Throwable t) {
             }
             model.addAttribute("suppliers", suppliers);
 
-            List<Object[]> uomRaw = em.createNativeQuery("SELECT id, code FROM md.uom WHERE tenant_id = 1 ORDER BY code").getResultList();
+            List<Object[]> uomRaw = em.createNativeQuery(
+                "SELECT id, code FROM md.uom WHERE tenant_id = :tenantId ORDER BY code")
+                .setParameter("tenantId", context.tenantId())
+                .getResultList();
             List<Map<String, Object>> uoms = new ArrayList<>();
             for (Object[] row : uomRaw) {
                 Map<String, Object> map = new HashMap<>();
@@ -1098,7 +1396,12 @@ private String rootMessage(Throwable t) {
             }
             model.addAttribute("uoms", uoms);
 
-            List<Object[]> itemRaw = em.createNativeQuery("SELECT id, code, name FROM md.item WHERE tenant_id = 1 AND deleted_at IS NULL ORDER BY name").getResultList();
+            List<Object[]> itemRaw = em.createNativeQuery(
+                "SELECT id, code, name FROM md.item " +
+                "WHERE tenant_id = :tenantId AND company_id = :companyId AND deleted_at IS NULL ORDER BY name")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             List<Map<String, Object>> items = new ArrayList<>();
             for (Object[] row : itemRaw) {
                 Map<String, Object> map = new HashMap<>();
@@ -1149,12 +1452,18 @@ private String rootMessage(Throwable t) {
                            @RequestParam(value = "qty", required = false) ArrayList<BigDecimal> qtys,
                            @RequestParam(value = "uomId", required = false) ArrayList<String> uomIdStrs,
                            @RequestParam(value = "price", required = false) ArrayList<String> prices,
+                           @RequestParam(value = "basePrice", required = false) ArrayList<String> basePrices,
+                           @RequestParam(value = "priceSource", required = false) ArrayList<String> priceSources,
                            RedirectAttributes ra) {
         try {
             List<?> statusList = em.createNativeQuery(
-                    "SELECT status, pr_id FROM pur.purchase_order_hdr WHERE id = :id"
+                    "SELECT status, pr_id FROM pur.purchase_order_hdr WHERE id = :id " +
+                    "AND tenant_id = :tenantId AND company_id = :companyId"
                 )
-                .setParameter("id", id).getResultList();
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
 
             if (statusList.isEmpty()) {
                 ra.addFlashAttribute("error", "PO tidak ditemukan.");
@@ -1183,7 +1492,10 @@ private String rootMessage(Throwable t) {
                 String taxTypeLocal = (taxType == null || taxType.isEmpty()) ? "NO_TAX" : taxType;
 
                 em.createNativeQuery("UPDATE pur.purchase_order_hdr SET doc_date = :docDate, supplier_id = :supplierId, " +
-                                     "currency = :currency, remarks = :remarks, tax_type = :taxType WHERE id = :id")
+                                     "currency = :currency, remarks = :remarks, tax_type = :taxType " +
+                                     "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                    .setParameter("tenantId", context.tenantId())
+                    .setParameter("companyId", context.companyId())
                     .setParameter("docDate", parsedDate)
                     .setParameter("supplierId", supplierId)
                     .setParameter("currency", currency)
@@ -1213,33 +1525,61 @@ private String rootMessage(Throwable t) {
                         BigDecimal price = BigDecimal.ZERO;
                         String priceStr = prices.get(i) != null ? prices.get(i).replaceAll("[^0-9]", "") : "";
                         if (!priceStr.isEmpty()) price = new BigDecimal(priceStr);
+                        BigDecimal basePrice = parseBasePrice(basePrices, i);
 
-                        BigDecimal subtotal = qty.multiply(price);
-                        BigDecimal total = subtotal;
-                        if ("EXCLUDE".equals(taxTypeLocal)) {
-                            BigDecimal ppn = subtotal.multiply(new BigDecimal("0.11"));
-                            total = subtotal.add(ppn);
-                            totalTax = totalTax.add(ppn);
-                        } else if ("INCLUDE".equals(taxTypeLocal)) {
-                            BigDecimal ppn = subtotal.multiply(new BigDecimal("11").divide(new BigDecimal("111"), 2, RoundingMode.HALF_UP));
-                            totalTax = totalTax.add(ppn);
+                        PriceDeterminationService.Determination det = priceDetermination.determine(
+                            context.tenantId(), context.companyId(), supplierId, itemId, uomId,
+                            parsedDate, qty, basePrice);
+                        PriceDeterminationService.LineResult calc;
+                        String lineSource;
+                        String lineConditionType;
+                        BigDecimal linePriceUnit;
+
+                        if (det.found()) {
+                            calc = priceDetermination.calculate(det, qty, taxTypeLocal);
+                            lineSource = det.priceSource();
+                            lineConditionType = det.conditionType();
+                            linePriceUnit = det.priceUnit();
+                        } else {
+                            lineSource = poPriceSource(priceSources, i);
+                            lineConditionType = "MANUAL";
+                            linePriceUnit = BigDecimal.ONE;
+                            calc = priceDetermination.calculate(
+                                new PriceDeterminationService.Determination(false, price, price, BigDecimal.ONE,
+                                    lineSource, lineConditionType, currency, qty, null, List.of()),
+                                qty, taxTypeLocal);
                         }
 
-                        grandTotal = grandTotal.add(total);
+                        totalTax = totalTax.add(calc.taxAmount());
+                        grandTotal = grandTotal.add(calc.lineTotal());
 
-                        em.createNativeQuery("INSERT INTO pur.purchase_order_dtl (header_id, item_id, uom_id, qty, price, subtotal) " +
-                                             "VALUES (:hdrId, :itemId, :uomId, :qty, :price, :subtotal)")
+                        Long dtlId = ((Number) em.createNativeQuery("INSERT INTO pur.purchase_order_dtl " +
+                                             "(header_id, item_id, uom_id, qty, price, subtotal, price_source, condition_type, price_unit) " +
+                                             "VALUES (:hdrId, :itemId, :uomId, :qty, :price, :subtotal, :priceSource, :conditionType, :priceUnit) " +
+                                             "RETURNING id")
                             .setParameter("hdrId", id)
                             .setParameter("itemId", itemId)
                             .setParameter("uomId", uomId)
                             .setParameter("qty", qty)
-                            .setParameter("price", price)
-                            .setParameter("subtotal", subtotal).executeUpdate();
+                            .setParameter("price", calc.price())
+                            .setParameter("subtotal", calc.dpp())
+                            .setParameter("priceSource", lineSource)
+                            .setParameter("conditionType", lineConditionType)
+                            .setParameter("priceUnit", linePriceUnit)
+                            .getSingleResult()).longValue();
+
+                        if (det.found()) {
+                            priceDetermination.storeConditions(context.tenantId(), context.companyId(), id, dtlId, det);
+                        }
                     }
                 }
 
-                em.createNativeQuery("UPDATE pur.purchase_order_hdr SET total_amount = :total, tax_amount = :taxAmt WHERE id = :id")
-                    .setParameter("total", grandTotal).setParameter("taxAmt", totalTax).setParameter("id", id).executeUpdate();
+                em.createNativeQuery("UPDATE pur.purchase_order_hdr SET total_amount = :total, tax_amount = :taxAmt " +
+                        "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                    .setParameter("total", grandTotal).setParameter("taxAmt", totalTax).setParameter("id", id)
+                    .setParameter("tenantId", context.tenantId())
+                    .setParameter("companyId", context.companyId())
+                    .executeUpdate();
             });
 
             ra.addFlashAttribute("success", "Purchase Order berhasil diperbarui.");
@@ -1251,10 +1591,26 @@ private String rootMessage(Throwable t) {
 
     @PostMapping("/po/{id}/confirm")
     @Transactional
-    public String confirmPo(@PathVariable Long id, RedirectAttributes ra) {
+    public String confirmPo(@PathVariable Long id, HttpSession session, RedirectAttributes ra) {
+        SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
         try {
-            em.createNativeQuery("UPDATE pur.purchase_order_hdr SET status = 'CONFIRMED' WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("UPDATE pur.purchase_order_hdr SET status = 'CONFIRMED' " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute("success", "PO berhasil di-confirm.");
+            List<?> dn = em.createNativeQuery("SELECT doc_no FROM pur.purchase_order_hdr " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
+            String docNo = dn.isEmpty() ? "PO#" + id : dn.get(0).toString();
+            notif(user, "PO", "PO " + docNo + " dikonfirmasi",
+                "Purchase Order " + docNo + " telah dikonfirmasi, siap diterima via GRN.",
+                "/api/ui/purchasing/po");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/ui/purchasing/po";
     }
@@ -1263,7 +1619,12 @@ private String rootMessage(Throwable t) {
     @Transactional
     public String unconfirmPo(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("UPDATE pur.purchase_order_hdr SET status = 'DRAFT' WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("UPDATE pur.purchase_order_hdr SET status = 'DRAFT' " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute("success", "PO berhasil di-unconfirm.");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/ui/purchasing/po";
@@ -1273,7 +1634,12 @@ private String rootMessage(Throwable t) {
     @Transactional
     public String voidPo(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("UPDATE pur.purchase_order_hdr SET status = 'VOID' WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("UPDATE pur.purchase_order_hdr SET status = 'VOID' " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute("success", "PO berhasil di-void.");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/ui/purchasing/po";
@@ -1283,19 +1649,38 @@ private String rootMessage(Throwable t) {
     @Transactional
     public String deletePo(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            List<?> statusList = em.createNativeQuery("SELECT status FROM pur.purchase_order_hdr WHERE id = :id").setParameter("id", id).getResultList();
+            List<?> statusList = em.createNativeQuery("SELECT status FROM pur.purchase_order_hdr " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             String status = statusList.isEmpty() ? "" : statusList.get(0).toString();
+            if (statusList.isEmpty()) {
+                ra.addFlashAttribute("error", "PO tidak ditemukan.");
+                return "redirect:/ui/purchasing/po";
+            }
             if (!"DRAFT".equals(status)) {
                 ra.addFlashAttribute("error", "Hanya PO berstatus DRAFT yang bisa dihapus. Status: " + status);
                 return "redirect:/ui/purchasing/po";
             }
-            List<?> grnRef = em.createNativeQuery("SELECT id FROM pur.grn_hdr WHERE po_id = :id").setParameter("id", id).getResultList();
+            List<?> grnRef = em.createNativeQuery("SELECT id FROM pur.grn_hdr " +
+                    "WHERE po_id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             if (!grnRef.isEmpty()) {
                 ra.addFlashAttribute("error", "PO tidak bisa dihapus karena sudah memiliki GRN. Silakan Void PO ini.");
                 return "redirect:/ui/purchasing/po";
             }
             em.createNativeQuery("DELETE FROM pur.purchase_order_dtl WHERE header_id = :id").setParameter("id", id).executeUpdate();
-            em.createNativeQuery("DELETE FROM pur.purchase_order_hdr WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("DELETE FROM pur.purchase_order_hdr " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute("success", "PO berhasil dihapus.");
         } catch (Exception e) { ra.addFlashAttribute("error", "Gagal: " + e.getMessage()); }
         return "redirect:/ui/purchasing/po";
@@ -1317,7 +1702,12 @@ private String rootMessage(Throwable t) {
             // Tambahkan tax_type dan tax_amount di query
             List<Object[]> hdrRaw = em.createNativeQuery(
                 "SELECT id, doc_no, doc_date, supplier_id, currency, remarks, status, total_amount, pr_id, tax_type, tax_amount " +
-                "FROM pur.purchase_order_hdr WHERE id = :id").setParameter("id", id).getResultList();
+                "FROM pur.purchase_order_hdr WHERE id = :id " +
+                "AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             if (hdrRaw.isEmpty()) {
                 ra.addFlashAttribute("error", "PO tidak ditemukan.");
                 return "redirect:/ui/purchasing/po";
@@ -1336,17 +1726,29 @@ private String rootMessage(Throwable t) {
             model.addAttribute("poTaxType", hdr[9] != null ? hdr[9].toString() : "NO_TAX");
             model.addAttribute("poTaxAmount", hdr[10] != null ? hdr[10] : 0);
 
-            List<Object[]> supRaw = em.createNativeQuery("SELECT id, name FROM md.supplier WHERE tenant_id = 1 ORDER BY name").getResultList();
+            List<Object[]> supRaw = em.createNativeQuery(
+                "SELECT id, name FROM md.supplier WHERE tenant_id = :tenantId AND company_id = :companyId ORDER BY name")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             List<Map<String, Object>> suppliers = new ArrayList<>();
             for (Object[] row : supRaw) { Map<String, Object> map = new HashMap<>(); map.put("id", row[0]); map.put("name", row[1]); suppliers.add(map); }
             model.addAttribute("suppliers", suppliers);
 
-            List<Object[]> uomRaw = em.createNativeQuery("SELECT id, code FROM md.uom WHERE tenant_id = 1 ORDER BY code").getResultList();
+            List<Object[]> uomRaw = em.createNativeQuery(
+                "SELECT id, code FROM md.uom WHERE tenant_id = :tenantId ORDER BY code")
+                .setParameter("tenantId", context.tenantId())
+                .getResultList();
             List<Map<String, Object>> uoms = new ArrayList<>();
             for (Object[] row : uomRaw) { Map<String, Object> map = new HashMap<>(); map.put("id", row[0]); map.put("code", row[1]); uoms.add(map); }
             model.addAttribute("uoms", uoms);
 
-            List<Object[]> itemRaw = em.createNativeQuery("SELECT id, code, name FROM md.item WHERE tenant_id = 1 AND deleted_at IS NULL ORDER BY name").getResultList();
+            List<Object[]> itemRaw = em.createNativeQuery(
+                "SELECT id, code, name FROM md.item " +
+                "WHERE tenant_id = :tenantId AND company_id = :companyId AND deleted_at IS NULL ORDER BY name")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             List<Map<String, Object>> items = new ArrayList<>();
             for (Object[] row : itemRaw) { Map<String, Object> map = new HashMap<>(); map.put("id", row[0]); map.put("code", row[1]); map.put("name", row[2]); items.add(map); }
             model.addAttribute("items", items);
@@ -1392,7 +1794,8 @@ private String rootMessage(Throwable t) {
         // (PR sebagian diambil PO mendapat status PO_CREATED, tapi sisa qty tetap boleh dibuat PO lagi)
         String sql = "SELECT h.id, h.doc_no, h.remarks " +
                      "FROM pur.purchase_request_hdr h " +
-                     "WHERE h.status IN ('CONFIRMED', 'PO_CREATED') " +
+                     "WHERE h.tenant_id = :tenantId AND h.company_id = :companyId " +
+                     "AND h.status IN ('CONFIRMED', 'PO_CREATED') " +
                      "AND EXISTS (" +
                      "    SELECT 1 FROM pur.purchase_request_dtl d " +
                      "    WHERE d.header_id = h.id " +
@@ -1401,13 +1804,17 @@ private String rootMessage(Throwable t) {
                      "        JOIN pur.purchase_order_hdr poh ON poh.id = pod.header_id " +
                      "        WHERE poh.pr_id = h.id " +
                      "        AND pod.item_id = d.item_id " +
+                     "        AND poh.tenant_id = :tenantId AND poh.company_id = :companyId " +
                      "        AND poh.status <> 'VOID'" +
                      "    ), 0)" +
                      ") " +
                      "ORDER BY h.id DESC";
         List<Map<String, Object>> list = new ArrayList<>();
         try {
-            for (Object[] row : (List<Object[]>) em.createNativeQuery(sql).getResultList()) {
+            for (Object[] row : (List<Object[]>) em.createNativeQuery(sql)
+                    .setParameter("tenantId", context.tenantId())
+                    .setParameter("companyId", context.companyId())
+                    .getResultList()) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", row[0]); map.put("docNo", row[1]); map.put("remarks", row[2]);
                 list.add(map);
@@ -1425,10 +1832,15 @@ private String rootMessage(Throwable t) {
         try {
             String sql = "SELECT d.id, d.item_id, i.name, d.qty, d.uom_id, u.code " +
                          "FROM pur.purchase_request_dtl d " +
+                         "JOIN pur.purchase_request_hdr h ON h.id = d.header_id " +
                          "JOIN md.item i ON d.item_id = i.id " +
                          "LEFT JOIN md.uom u ON d.uom_id = u.id " +
-                         "WHERE d.header_id = :id";
-            List<Object[]> prItems = em.createNativeQuery(sql).setParameter("id", id).getResultList();
+                         "WHERE d.header_id = :id AND h.tenant_id = :tenantId AND h.company_id = :companyId";
+            List<Object[]> prItems = em.createNativeQuery(sql)
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             
             for (Object[] row : prItems) {
                 Long dtlId = ((Number) row[0]).longValue();
@@ -1441,9 +1853,14 @@ private String rootMessage(Throwable t) {
                 String sumSql = "SELECT COALESCE(SUM(pod.qty), 0) " +
                                 "FROM pur.purchase_order_dtl pod " +
                                 "JOIN pur.purchase_order_hdr poh ON poh.id = pod.header_id " +
-                                "WHERE poh.pr_id = :prId AND pod.item_id = :itemId AND poh.status <> 'VOID'";
+                                "WHERE poh.pr_id = :prId AND pod.item_id = :itemId " +
+                                 "AND poh.tenant_id = :tenantId AND poh.company_id = :companyId " +
+                                 "AND poh.status <> 'VOID'";
                 Object sumObj = em.createNativeQuery(sumSql)
-                    .setParameter("prId", id).setParameter("itemId", itemId).getSingleResult();
+                    .setParameter("prId", id).setParameter("itemId", itemId)
+                    .setParameter("tenantId", context.tenantId())
+                    .setParameter("companyId", context.companyId())
+                    .getSingleResult();
                 
                 BigDecimal usedQty = sumObj != null ? new BigDecimal(sumObj.toString()) : BigDecimal.ZERO;
                 BigDecimal remainingQty = originalQty.subtract(usedQty);
@@ -1469,7 +1886,8 @@ private String rootMessage(Throwable t) {
             @RequestParam Long supplierId,
             @RequestParam Long itemId,
             @RequestParam(required = false) Long uomId,
-            @RequestParam(required = false) String date) {
+            @RequestParam(required = false) String date,
+            @RequestParam(required = false, defaultValue = "1") BigDecimal qty) {
 
         Map<String, Object> result = new HashMap<>();
 
@@ -1484,30 +1902,22 @@ private String rootMessage(Throwable t) {
                     ? LocalDate.parse(date)
                     : LocalDate.now();
 
-            String sql =
-                    "SELECT price, currency FROM pur.price_list " +
-                    "WHERE supplier_id = :supId " +
-                    "AND item_id = :itemId " +
-                    "AND uom_id = :uomId " +
-                    "AND valid_from <= :poDate " +
-                    "AND (valid_to IS NULL OR valid_to >= :poDate) " +
-                    "AND tenant_id = 1 " +
-                    "ORDER BY min_qty DESC LIMIT 1";
+            PriceDeterminationService.Determination d = priceDetermination.determine(
+                    context.tenantId(), context.companyId(), supplierId, itemId, uomId,
+                    poDate, qty, null);
 
-            List<?> rows = em.createNativeQuery(sql)
-                    .setParameter("supId", supplierId)
-                    .setParameter("itemId", itemId)
-                    .setParameter("uomId", uomId)
-                    .setParameter("poDate", poDate)
-                    .getResultList();
-
-            if (!rows.isEmpty()) {
-                Object[] row = (Object[]) rows.get(0);
-
+            if (d.found()) {
                 result.put("found", true);
-                result.put("price", row[0]);
-                result.put("currency", row[1] != null ? row[1] : "IDR");
+                result.put("basePrice", d.basePrice());
+                result.put("price", d.price());
+                result.put("currency", d.currency());
                 result.put("uomId", uomId);
+                result.put("conditionType", d.conditionType());
+                result.put("priceUnit", d.priceUnit());
+                result.put("minQty", d.minQty());
+                result.put("priceSource", d.priceSource());
+                result.put("taxRate", d.taxRate());
+                result.put("conditions", d.conditions());
             } else {
                 result.put("found", false);
                 result.put("message", "Harga untuk UOM yang dipilih belum tersedia.");
@@ -1538,7 +1948,10 @@ public String newDirectPo(HttpSession session, Model model) {
     // Supplier list
     List<Map<String, Object>> suppliers = new ArrayList<>();
     for (Object[] r : (List<Object[]>) em.createNativeQuery(
-            "SELECT id, code, name FROM md.supplier WHERE tenant_id = 1 ORDER BY name")
+            "SELECT id, code, name FROM md.supplier " +
+            "WHERE tenant_id = :tenantId AND company_id = :companyId ORDER BY name")
+            .setParameter("tenantId", context.tenantId())
+            .setParameter("companyId", context.companyId())
             .getResultList()) {
         Map<String, Object> m = new HashMap<>();
         m.put("id", r[0]);
@@ -1597,7 +2010,7 @@ public Map<String, Object> checkPolicy(@RequestBody Map<String, Object> body,
         boolean isNew = Boolean.TRUE.equals(body.get("isNewSupplier"));
 
         boolean requires = policyService.requiresPr(
-            1L,
+            context.companyId(),
             new PurchasePolicyService.PurchaseContext(total, isNew, java.util.List.of())
         );
         return Map.of("requiresPr", requires);

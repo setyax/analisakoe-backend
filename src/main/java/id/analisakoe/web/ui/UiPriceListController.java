@@ -1,5 +1,6 @@
 package id.analisakoe.web.ui;
 
+import id.analisakoe.context.ContextService;
 import id.analisakoe.core.menu.MenuService;
 import id.analisakoe.pur.entity.PurPriceList;
 import id.analisakoe.pur.repository.PriceListRepository;
@@ -30,16 +31,22 @@ public class UiPriceListController {
 
     private final MenuService menuService;
     private final PriceListRepository repo;
+    private final ContextService context;
 
     @PersistenceContext
     private EntityManager em;
 
     public UiPriceListController(
             MenuService menuService,
-            PriceListRepository repo) {
+            PriceListRepository repo,
+            ContextService context) {
         this.menuService = menuService;
         this.repo = repo;
+        this.context = context;
     }
+
+    private Long tenantId() { return context.tenantId(); }
+    private Long companyId() { return context.companyId(); }
 
     // ========================================================
     // SESSION DAN TENANT
@@ -85,19 +92,21 @@ public class UiPriceListController {
     // SUPPLIER MASTER
     // ========================================================
 
-    private List<Map<String, Object>> loadSuppliers(Long tenantId) {
+    private List<Map<String, Object>> loadSuppliers() {
 
         List<Object[]> rows = em.createNativeQuery(
             "SELECT s.id, s.name, COUNT(p.id) AS price_count " +
             "FROM md.supplier s " +
             "LEFT JOIN pur.price_list p " +
             "ON p.tenant_id = s.tenant_id " +
+            "AND p.company_id = s.company_id " +
             "AND p.supplier_id = s.id " +
-            "WHERE s.tenant_id = :tenantId " +
+            "WHERE s.tenant_id = :tenantId AND s.company_id = :companyId " +
             "GROUP BY s.id, s.name " +
             "ORDER BY s.name"
         )
-        .setParameter("tenantId", tenantId)
+        .setParameter("tenantId", tenantId())
+        .setParameter("companyId", companyId())
         .getResultList();
 
         List<Map<String, Object>> result = new ArrayList<>();
@@ -113,14 +122,15 @@ public class UiPriceListController {
         return result;
     }
 
-    private String supplierName(Long tenantId, Long supplierId) {
+    private String supplierName(Long supplierId) {
 
         List<?> rows = em.createNativeQuery(
             "SELECT name FROM md.supplier " +
-            "WHERE id = :id AND tenant_id = :tenantId"
+            "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId"
         )
         .setParameter("id", supplierId)
-        .setParameter("tenantId", tenantId)
+        .setParameter("tenantId", tenantId())
+        .setParameter("companyId", companyId())
         .getResultList();
 
         if (rows.isEmpty()) {
@@ -140,7 +150,6 @@ public class UiPriceListController {
     public String list(HttpSession session, Model model) {
 
         SessionUser user = requireUser(session);
-        Long tenantId = user.getTenantId();
 
         prepareBase(model, user, "Price List");
 
@@ -148,16 +157,19 @@ public class UiPriceListController {
             "SELECT p.id, p.supplier_id, s.name, " +
             "p.item_id, i.code, i.name, " +
             "p.price, p.currency, p.valid_from, p.valid_to, " +
-            "p.min_qty, p.uom_id, COALESCE(u.code, '-') " +
+            "p.min_qty, p.uom_id, COALESCE(u.code, '-'), " +
+            "p.condition_type, p.price_unit, p.condition_source, " +
+            "p.condition_class, p.rate, p.calculation_order " +
             "FROM pur.price_list p " +
             "LEFT JOIN md.supplier s ON s.id = p.supplier_id " +
             "LEFT JOIN md.item i ON i.id = p.item_id " +
             "LEFT JOIN md.uom u ON u.id = p.uom_id " +
-            "WHERE p.tenant_id = :tenantId " +
+            "WHERE p.tenant_id = :tenantId AND p.company_id = :companyId " +
             "ORDER BY p.id DESC";
 
         List<Object[]> rows = em.createNativeQuery(sql)
-            .setParameter("tenantId", tenantId)
+            .setParameter("tenantId", tenantId())
+            .setParameter("companyId", companyId())
             .getResultList();
 
         List<Map<String, Object>> prices = new ArrayList<>();
@@ -179,6 +191,12 @@ public class UiPriceListController {
             m.put("minQty", r[10]);
             m.put("uomId", r[11]);
             m.put("uomCode", r[12]);
+            m.put("conditionType", r[13] == null ? "PB00" : r[13]);
+            m.put("priceUnit", r[14] == null ? BigDecimal.ONE : r[14]);
+            m.put("conditionSource", r[15] == null ? "INFO_RECORD" : r[15]);
+            m.put("conditionClass", r[16] == null ? "PRICE" : r[16]);
+            m.put("rate", r[17]);
+            m.put("calculationOrder", r[18]);
 
             prices.add(m);
         }
@@ -198,14 +216,13 @@ public class UiPriceListController {
             Model model) {
 
         SessionUser user = requireUser(session);
-        Long tenantId = user.getTenantId();
 
         prepareBase(model, user, "New Price Entry");
 
         model.addAttribute("today", LocalDate.now());
         model.addAttribute("isNew", true);
 
-        loadMaster(model, tenantId);
+        loadMaster(model);
 
         return "ui/purchasing/price_form";
     }
@@ -226,7 +243,8 @@ public class UiPriceListController {
         PurPriceList p = repo.findById(id).orElse(null);
 
         if (p == null ||
-            !user.getTenantId().equals(p.getTenantId())) {
+            !tenantId().equals(p.getTenantId()) ||
+            !companyId().equals(p.getCompanyId())) {
 
             ra.addFlashAttribute(
                 "error",
@@ -242,18 +260,19 @@ public class UiPriceListController {
         model.addAttribute("isNew", false);
         model.addAttribute("priceEntry", p);
 
-        loadMaster(model, user.getTenantId());
+        loadMaster(model);
 
         return "ui/purchasing/price_form";
     }
 
-    private void loadMaster(Model model, Long tenantId) {
+    private void loadMaster(Model model) {
 
         List<Object[]> suppliersRaw = em.createNativeQuery(
             "SELECT id, name FROM md.supplier " +
-            "WHERE tenant_id = :tenantId ORDER BY name"
+            "WHERE tenant_id = :tenantId AND company_id = :companyId ORDER BY name"
         )
-        .setParameter("tenantId", tenantId)
+        .setParameter("tenantId", tenantId())
+        .setParameter("companyId", companyId())
         .getResultList();
 
         List<Map<String, Object>> suppliers = new ArrayList<>();
@@ -269,10 +288,11 @@ public class UiPriceListController {
 
         List<Object[]> itemsRaw = em.createNativeQuery(
             "SELECT id, code, name FROM md.item " +
-            "WHERE tenant_id = :tenantId " +
+            "WHERE tenant_id = :tenantId AND company_id = :companyId " +
             "AND deleted_at IS NULL ORDER BY name"
         )
-        .setParameter("tenantId", tenantId)
+        .setParameter("tenantId", tenantId())
+        .setParameter("companyId", companyId())
         .getResultList();
 
         List<Map<String, Object>> items = new ArrayList<>();
@@ -291,7 +311,7 @@ public class UiPriceListController {
             "SELECT id, code, name FROM md.uom " +
             "WHERE tenant_id = :tenantId ORDER BY code"
         )
-        .setParameter("tenantId", tenantId)
+        .setParameter("tenantId", tenantId())
         .getResultList();
 
         List<Map<String, Object>> uoms = new ArrayList<>();
@@ -322,14 +342,21 @@ public class UiPriceListController {
             @RequestParam LocalDate validFrom,
             @RequestParam(required = false) LocalDate validTo,
             @RequestParam(defaultValue = "1") BigDecimal minQty,
+            @RequestParam(required = false, defaultValue = "PB00") String conditionType,
+            @RequestParam(required = false, defaultValue = "1") BigDecimal priceUnit,
+            @RequestParam(required = false, defaultValue = "INFO_RECORD") String conditionSource,
+            @RequestParam(required = false, defaultValue = "PRICE") String conditionClass,
+            @RequestParam(required = false) BigDecimal rate,
+            @RequestParam(required = false, defaultValue = "10") Integer calculationOrder,
             @RequestParam(required = false) Long id,
             HttpSession session,
             RedirectAttributes ra) {
 
         try {
 
-            SessionUser user = requireUser(session);
-            Long tenantId = user.getTenantId();
+            requireUser(session);
+            Long tenantId = tenantId();
+            Long companyId = companyId();
 
             if (price == null || price.compareTo(BigDecimal.ZERO) < 0) {
                 throw new IllegalArgumentException("Harga tidak valid.");
@@ -339,21 +366,34 @@ public class UiPriceListController {
                 throw new IllegalArgumentException("Min Qty harus lebih dari nol.");
             }
 
+            if (priceUnit == null || priceUnit.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Price Unit harus lebih dari nol.");
+            }
+
+            String cls = conditionClass == null ? "PRICE" : conditionClass.trim().toUpperCase();
+            if (!java.util.List.of("PRICE", "DISCOUNT", "SURCHARGE", "TAX").contains(cls)) {
+                throw new IllegalArgumentException("Condition Class tidak valid.");
+            }
+            if (rate != null && rate.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("Rate tidak boleh negatif.");
+            }
+
             if (validTo != null && validTo.isBefore(validFrom)) {
                 throw new IllegalArgumentException(
                     "Valid To tidak boleh lebih awal dari Valid From."
                 );
             }
 
-            supplierName(tenantId, supplierId);
+            supplierName(supplierId);
 
             Long itemCount = ((Number) em.createNativeQuery(
                 "SELECT COUNT(*) FROM md.item " +
-                "WHERE id=:id AND tenant_id=:tenantId " +
+                "WHERE id=:id AND tenant_id=:tenantId AND company_id=:companyId " +
                 "AND deleted_at IS NULL"
             )
             .setParameter("id", itemId)
             .setParameter("tenantId", tenantId)
+            .setParameter("companyId", companyId)
             .getSingleResult()).longValue();
 
             if (itemCount == 0) {
@@ -378,7 +418,8 @@ public class UiPriceListController {
                 p = repo.findById(id).orElse(null);
 
                 if (p == null ||
-                    !tenantId.equals(p.getTenantId())) {
+                    !tenantId.equals(p.getTenantId()) ||
+                    !companyId.equals(p.getCompanyId())) {
                     throw new IllegalArgumentException(
                         "Price entry tidak ditemukan."
                     );
@@ -388,6 +429,16 @@ public class UiPriceListController {
             }
 
             p.setTenantId(tenantId);
+            p.setCompanyId(companyId);
+            p.setConditionType(conditionType == null || conditionType.isBlank()
+                ? "PB00" : conditionType.trim().toUpperCase());
+            p.setPriceUnit(priceUnit);
+            p.setConditionSource(conditionSource == null || conditionSource.isBlank()
+                ? "INFO_RECORD" : conditionSource.trim().toUpperCase());
+            p.setConditionClass(conditionClass == null || conditionClass.isBlank()
+                ? "PRICE" : conditionClass.trim().toUpperCase());
+            p.setRate(rate);
+            p.setCalculationOrder(calculationOrder == null ? 10 : calculationOrder);
             p.setSupplierId(supplierId);
             p.setItemId(itemId);
             p.setUomId(uomId);
@@ -427,14 +478,15 @@ public class UiPriceListController {
 
         try {
 
-            SessionUser user = requireUser(session);
+            requireUser(session);
 
             int deleted = em.createNativeQuery(
                 "DELETE FROM pur.price_list " +
-                "WHERE id=:id AND tenant_id=:tenantId"
+                "WHERE id=:id AND tenant_id=:tenantId AND company_id=:companyId"
             )
             .setParameter("id", id)
-            .setParameter("tenantId", user.getTenantId())
+            .setParameter("tenantId", tenantId())
+            .setParameter("companyId", companyId())
             .executeUpdate();
 
             if (deleted == 0) {
@@ -470,7 +522,7 @@ public class UiPriceListController {
 
         model.addAttribute(
             "suppliers",
-            loadSuppliers(user.getTenantId())
+            loadSuppliers()
         );
 
         return "ui/purchasing/price_copy_wizard";
@@ -481,7 +533,6 @@ public class UiPriceListController {
     // ========================================================
 
     private List<Long> validateTargets(
-            Long tenantId,
             Long sourceId,
             List<Long> targetSupplierIds) {
 
@@ -499,13 +550,14 @@ public class UiPriceListController {
             );
         }
 
-        supplierName(tenantId, sourceId);
+        supplierName(sourceId);
 
         Long sourceCount = ((Number) em.createNativeQuery(
             "SELECT COUNT(*) FROM pur.price_list " +
-            "WHERE tenant_id=:tenantId AND supplier_id=:sourceId"
+            "WHERE tenant_id=:tenantId AND company_id=:companyId AND supplier_id=:sourceId"
         )
-        .setParameter("tenantId", tenantId)
+        .setParameter("tenantId", tenantId())
+        .setParameter("companyId", companyId())
         .setParameter("sourceId", sourceId)
         .getSingleResult()).longValue();
 
@@ -529,7 +581,7 @@ public class UiPriceListController {
                 );
             }
 
-            supplierName(tenantId, targetId);
+            supplierName(targetId);
 
             targets.add(targetId);
         }
@@ -547,13 +599,14 @@ public class UiPriceListController {
     // COUNT SOURCE PRICE
     // ========================================================
 
-    private Long sourcePriceCount(Long tenantId, Long sourceId) {
+    private Long sourcePriceCount(Long sourceId) {
 
         return ((Number) em.createNativeQuery(
             "SELECT COUNT(*) FROM pur.price_list " +
-            "WHERE tenant_id=:tenantId AND supplier_id=:sourceId"
+            "WHERE tenant_id=:tenantId AND company_id=:companyId AND supplier_id=:sourceId"
         )
-        .setParameter("tenantId", tenantId)
+        .setParameter("tenantId", tenantId())
+        .setParameter("companyId", companyId())
         .setParameter("sourceId", sourceId)
         .getSingleResult()).longValue();
     }
@@ -563,18 +616,17 @@ public class UiPriceListController {
     // ========================================================
 
     private Long countCopyable(
-            Long tenantId,
             Long sourceId,
             Long targetId) {
 
         String sql =
             "SELECT COUNT(*) " +
             "FROM pur.price_list src " +
-            "WHERE src.tenant_id=:tenantId " +
+            "WHERE src.tenant_id=:tenantId AND src.company_id=:companyId " +
             "AND src.supplier_id=:sourceId " +
             "AND NOT EXISTS (" +
             " SELECT 1 FROM pur.price_list dst " +
-            " WHERE dst.tenant_id=src.tenant_id " +
+            " WHERE dst.tenant_id=src.tenant_id AND dst.company_id=src.company_id " +
             " AND dst.supplier_id=:targetId " +
             " AND dst.item_id=src.item_id " +
             " AND dst.uom_id IS NOT DISTINCT FROM src.uom_id " +
@@ -582,10 +634,14 @@ public class UiPriceListController {
             " AND dst.valid_from=src.valid_from " +
             " AND dst.valid_to IS NOT DISTINCT FROM src.valid_to " +
             " AND dst.min_qty IS NOT DISTINCT FROM src.min_qty " +
+            " AND dst.condition_type = src.condition_type " +
+            " AND dst.condition_source = src.condition_source " +
+            " AND dst.condition_class = src.condition_class " +
             ")";
 
         return ((Number) em.createNativeQuery(sql)
-            .setParameter("tenantId", tenantId)
+            .setParameter("tenantId", tenantId())
+            .setParameter("companyId", companyId())
             .setParameter("sourceId", sourceId)
             .setParameter("targetId", targetId)
             .getSingleResult()).longValue();
@@ -607,10 +663,8 @@ public class UiPriceListController {
         try {
 
             SessionUser user = requireUser(session);
-            Long tenantId = user.getTenantId();
 
             List<Long> targets = validateTargets(
-                tenantId,
                 sourceSupplierId,
                 targetSupplierIds
             );
@@ -622,7 +676,6 @@ public class UiPriceListController {
             );
 
             Long totalSource = sourcePriceCount(
-                tenantId,
                 sourceSupplierId
             );
 
@@ -634,7 +687,6 @@ public class UiPriceListController {
             for (Long targetId : targets) {
 
                 Long newCount = countCopyable(
-                    tenantId,
                     sourceSupplierId,
                     targetId
                 );
@@ -644,7 +696,7 @@ public class UiPriceListController {
                 Map<String, Object> plan = new HashMap<>();
 
                 plan.put("supplierId", targetId);
-                plan.put("supplierName", supplierName(tenantId, targetId));
+                plan.put("supplierName", supplierName(targetId));
                 plan.put("sourceCount", totalSource);
                 plan.put("newCount", newCount);
                 plan.put("skipCount", skipped);
@@ -658,7 +710,7 @@ public class UiPriceListController {
             model.addAttribute("sourceSupplierId", sourceSupplierId);
             model.addAttribute(
                 "sourceSupplierName",
-                supplierName(tenantId, sourceSupplierId)
+                supplierName(sourceSupplierId)
             );
 
             model.addAttribute("targetSupplierIds", targets);
@@ -696,27 +748,29 @@ public class UiPriceListController {
         try {
 
             SessionUser user = requireUser(session);
-            Long tenantId = user.getTenantId();
 
             List<Long> targets = validateTargets(
-                tenantId,
                 sourceSupplierId,
                 targetSupplierIds
             );
 
             String insertSql =
                 "INSERT INTO pur.price_list " +
-                "(tenant_id, supplier_id, item_id, price, currency, " +
-                "valid_from, valid_to, min_qty, uom_id, created_at, updated_at) " +
-                "SELECT src.tenant_id, :targetId, src.item_id, " +
+                "(tenant_id, company_id, supplier_id, item_id, price, currency, " +
+                "valid_from, valid_to, min_qty, uom_id, condition_type, price_unit, " +
+                "condition_source, condition_class, rate, calculation_order, " +
+                "created_at, updated_at) " +
+                "SELECT src.tenant_id, src.company_id, :targetId, src.item_id, " +
                 "src.price, src.currency, src.valid_from, src.valid_to, " +
-                "src.min_qty, src.uom_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP " +
+                "src.min_qty, src.uom_id, src.condition_type, src.price_unit, " +
+                "src.condition_source, src.condition_class, src.rate, src.calculation_order, " +
+                "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP " +
                 "FROM pur.price_list src " +
-                "WHERE src.tenant_id=:tenantId " +
+                "WHERE src.tenant_id=:tenantId AND src.company_id=:companyId " +
                 "AND src.supplier_id=:sourceId " +
                 "AND NOT EXISTS (" +
                 " SELECT 1 FROM pur.price_list dst " +
-                " WHERE dst.tenant_id=src.tenant_id " +
+                " WHERE dst.tenant_id=src.tenant_id AND dst.company_id=src.company_id " +
                 " AND dst.supplier_id=:targetId " +
                 " AND dst.item_id=src.item_id " +
                 " AND dst.uom_id IS NOT DISTINCT FROM src.uom_id " +
@@ -724,12 +778,14 @@ public class UiPriceListController {
                 " AND dst.valid_from=src.valid_from " +
                 " AND dst.valid_to IS NOT DISTINCT FROM src.valid_to " +
                 " AND dst.min_qty IS NOT DISTINCT FROM src.min_qty " +
+                " AND dst.condition_type = src.condition_type " +
+                " AND dst.condition_source = src.condition_source " +
+                " AND dst.condition_class = src.condition_class " +
                 ")";
 
             long totalInserted = 0;
             long totalSkipped = 0;
             long totalSource = sourcePriceCount(
-                tenantId,
                 sourceSupplierId
             );
 
@@ -738,7 +794,8 @@ public class UiPriceListController {
             for (Long targetId : targets) {
 
                 int inserted = em.createNativeQuery(insertSql)
-                    .setParameter("tenantId", tenantId)
+                    .setParameter("tenantId", tenantId())
+                    .setParameter("companyId", companyId())
                     .setParameter("sourceId", sourceSupplierId)
                     .setParameter("targetId", targetId)
                     .executeUpdate();
@@ -752,7 +809,7 @@ public class UiPriceListController {
                 totalSkipped += skipped;
 
                 resultLines.add(
-                    supplierName(tenantId, targetId) +
+                    supplierName(targetId) +
                     ": " + inserted + " berhasil, " +
                     skipped + " dilewati"
                 );

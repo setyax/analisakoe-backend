@@ -2,6 +2,7 @@ package id.analisakoe.web.ui;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
+import id.analisakoe.context.ContextService;
 import id.analisakoe.core.menu.MenuService;
 import id.analisakoe.core.service.NumberRangeService;
 import jakarta.persistence.EntityManager;
@@ -31,6 +32,9 @@ public class UiRfqController {
     @Autowired
     private NumberRangeService numberRangeService;
 
+    @Autowired
+    private ContextService context;
+
     private final MenuService menuService;
 
     public UiRfqController(MenuService menuService) {
@@ -51,11 +55,15 @@ public class UiRfqController {
         String sql = "SELECT r.id, r.doc_no, r.doc_date, r.due_date, r.status, " +
                      "(SELECT COUNT(*) FROM pur.rfq_supplier rs WHERE rs.rfq_id = r.id) AS supplier_count, " +
                      "(SELECT COUNT(*) FROM pur.rfq_dtl rd WHERE rd.header_id = r.id) AS item_count " +
-                     "FROM pur.rfq_hdr r WHERE r.tenant_id = 1 ORDER BY r.id DESC";
+                     "FROM pur.rfq_hdr r WHERE r.tenant_id = :tenantId AND r.company_id = :companyId " +
+                     "ORDER BY r.id DESC";
 
         List<Map<String, Object>> rfqs = new ArrayList<>();
         try {
-            for (Object[] row : (List<Object[]>) em.createNativeQuery(sql).getResultList()) {
+            for (Object[] row : (List<Object[]>) em.createNativeQuery(sql)
+                    .setParameter("tenantId", context.tenantId())
+                    .setParameter("companyId", context.companyId())
+                    .getResultList()) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id", row[0]);
                 m.put("docNo", row[1] != null ? row[1].toString() : "-");
@@ -112,10 +120,14 @@ public class UiRfqController {
 
 // GANTI MENJADI:
 String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr h " +
-               "WHERE h.tenant_id = 1 AND h.status = 'CONFIRMED' " +
-               "AND NOT EXISTS (SELECT 1 FROM pur.purchase_order_hdr po WHERE po.pr_id = h.id) " +
+               "WHERE h.tenant_id = :tenantId AND h.company_id = :companyId AND h.status = 'CONFIRMED' " +
+               "AND NOT EXISTS (SELECT 1 FROM pur.purchase_order_hdr po " +
+               "WHERE po.pr_id = h.id AND po.tenant_id = :tenantId AND po.company_id = :companyId) " +
                "ORDER BY h.id DESC";
-        for (Object[] row : (List<Object[]>) em.createNativeQuery(sqlPr).getResultList()) {
+        for (Object[] row : (List<Object[]>) em.createNativeQuery(sqlPr)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList()) {
             Map<String, Object> m = new HashMap<>();
             m.put("id", row[0]);
             m.put("docNo", row[1]);
@@ -127,7 +139,11 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
         // 2. Item
         List<Map<String, Object>> items = new ArrayList<>();
         for (Object[] row : (List<Object[]>) em.createNativeQuery(
-                "SELECT id, code, name FROM md.item WHERE tenant_id = 1 AND deleted_at IS NULL ORDER BY name").getResultList()) {
+                "SELECT id, code, name FROM md.item " +
+                "WHERE tenant_id = :tenantId AND company_id = :companyId AND deleted_at IS NULL ORDER BY name")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList()) {
             Map<String, Object> m = new HashMap<>();
             m.put("id", row[0]); m.put("code", row[1]); m.put("name", row[2]);
             items.add(m);
@@ -137,7 +153,9 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
         // 3. UOM
         List<Map<String, Object>> uoms = new ArrayList<>();
         for (Object[] row : (List<Object[]>) em.createNativeQuery(
-                "SELECT id, code FROM md.uom WHERE tenant_id = 1 ORDER BY code").getResultList()) {
+                "SELECT id, code FROM md.uom WHERE tenant_id = :tenantId ORDER BY code")
+                .setParameter("tenantId", context.tenantId())
+                .getResultList()) {
             Map<String, Object> m = new HashMap<>();
             m.put("id", row[0]); m.put("code", row[1]);
             uoms.add(m);
@@ -147,7 +165,11 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
         // 4. Supplier
         List<Map<String, Object>> suppliers = new ArrayList<>();
         for (Object[] row : (List<Object[]>) em.createNativeQuery(
-                "SELECT id, name FROM md.supplier WHERE tenant_id = 1 AND status = 'ACTIVE' ORDER BY name").getResultList()) {
+                "SELECT id, name FROM md.supplier " +
+                "WHERE tenant_id = :tenantId AND company_id = :companyId AND status = 'ACTIVE' ORDER BY name")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList()) {
             Map<String, Object> m = new HashMap<>();
             m.put("id", row[0]); m.put("name", row[1]);
             suppliers.add(m);
@@ -167,10 +189,16 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
         try {
             String sql = "SELECT d.item_id, i.code, i.name, d.qty, d.uom_id, u.code " +
                          "FROM pur.purchase_request_dtl d " +
+                         "JOIN pur.purchase_request_hdr h ON h.id = d.header_id " +
                          "JOIN md.item i ON i.id = d.item_id " +
                          "LEFT JOIN md.uom u ON u.id = d.uom_id " +
-                         "WHERE d.header_id = :id ORDER BY d.id";
-            for (Object[] row : (List<Object[]>) em.createNativeQuery(sql).setParameter("id", prId).getResultList()) {
+                         "WHERE d.header_id = :id AND h.tenant_id = :tenantId AND h.company_id = :companyId " +
+                         "ORDER BY d.id";
+            for (Object[] row : (List<Object[]>) em.createNativeQuery(sql)
+                    .setParameter("id", prId)
+                    .setParameter("tenantId", context.tenantId())
+                    .setParameter("companyId", context.companyId())
+                    .getResultList()) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("itemId", row[0]);
                 m.put("itemCode", row[1]);
@@ -204,8 +232,8 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
                        HttpSession session,
                        RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 1L;
+        final Long tenantId = context.tenantId();
+        final Long compId = context.companyId();
         try {
             if (supplierIds == null || supplierIds.isEmpty()) {
                 throw new RuntimeException("Pilih minimal 1 supplier.");
@@ -571,7 +599,10 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
             Map<String, Object> company = new HashMap<>();
             company.put("name", "AnalisaKoe ERP");
             try {
-                Object r = em.createNativeQuery("SELECT name FROM core.company WHERE id = 1").getSingleResult();
+                Object r = em.createNativeQuery("SELECT name FROM core.company WHERE id = :companyId AND tenant_id = :tenantId")
+            .setParameter("companyId", context.companyId())
+            .setParameter("tenantId", context.tenantId())
+            .getSingleResult();
                 if (r != null) company.put("name", r.toString());
             } catch (Exception ignore) { }
             model.addAttribute("company", company);
@@ -590,7 +621,10 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
         Map<String, Object> c = new HashMap<>();
         c.put("name", "AnalisaKoe ERP");
         try {
-            Object r = em.createNativeQuery("SELECT name FROM core.company WHERE id = 1").getSingleResult();
+            Object r = em.createNativeQuery("SELECT name FROM core.company WHERE id = :companyId AND tenant_id = :tenantId")
+            .setParameter("companyId", context.companyId())
+            .setParameter("tenantId", context.tenantId())
+            .getSingleResult();
             if (r != null) c.put("name", r.toString());
         } catch (Exception ignore) { }
         return c;
@@ -823,7 +857,7 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
 
     // Helper approval RFQ: rentang nominal menggunakan [min_amount, max_amount).
     private Long approvalTenantId(SessionUser user) {
-        return user != null && user.getTenantId() != null ? user.getTenantId() : 1L;
+        return context.tenantId();
     }
 
     private Object[] findRfqApprovalBand(Long tenantId, BigDecimal amount) {
@@ -868,9 +902,14 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
     public String convertToPo(@PathVariable Long id, @RequestParam Long winningSupplierId, @RequestParam LocalDate poDate, HttpSession session, RedirectAttributes ra) {
         try {
             SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-            final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-            final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 1L;
-            Object[] hdr = (Object[]) em.createNativeQuery("SELECT doc_no, status FROM pur.rfq_hdr WHERE id = :id").setParameter("id", id).getSingleResult();
+            final Long tenantId = context.tenantId();
+            final Long compId = context.companyId();
+            Object[] hdr = (Object[]) em.createNativeQuery("SELECT doc_no, status FROM pur.rfq_hdr " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :companyId")
+                .setParameter("id", id)
+                .setParameter("tenantId", tenantId)
+                .setParameter("companyId", compId)
+                .getSingleResult();
             String rfqNo = hdr[0].toString();
             String status = hdr[1].toString();
 
@@ -916,9 +955,20 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
                 grandTotal = grandTotal.add(subtotal.add(ppn));
                 totalTax = totalTax.add(ppn);
 
-                em.createNativeQuery("INSERT INTO pur.purchase_order_dtl (header_id, item_id, uom_id, qty, price, subtotal) VALUES (:hdr, :item, :uom, :qty, :price, :subtotal)")
+                Long dtlId = ((Number) em.createNativeQuery("INSERT INTO pur.purchase_order_dtl " +
+                    "(header_id, item_id, uom_id, qty, price, subtotal, price_source, condition_type, price_unit) " +
+                    "VALUES (:hdr, :item, :uom, :qty, :price, :subtotal, 'RFQ', 'RFQ', 1) RETURNING id")
                     .setParameter("hdr", poId).setParameter("item", itemId).setParameter("uom", uomId)
-                    .setParameter("qty", qty).setParameter("price", price).setParameter("subtotal", subtotal).executeUpdate();
+                    .setParameter("qty", qty).setParameter("price", price).setParameter("subtotal", subtotal)
+                    .getSingleResult()).longValue();
+
+                em.createNativeQuery("INSERT INTO pur.po_condition " +
+                    "(tenant_id, company_id, header_id, dtl_id, condition_source, condition_class, " +
+                    " condition_type, rate, amount, calculation_order) " +
+                    "VALUES (:tenant, :company, :hdr, :dtl, 'RFQ', 'PRICE', 'RFQ', NULL, :amount, 10)")
+                    .setParameter("tenant", tenantId).setParameter("company", compId)
+                    .setParameter("hdr", poId).setParameter("dtl", dtlId)
+                    .setParameter("amount", price).executeUpdate();
             }
 
             em.createNativeQuery("UPDATE pur.purchase_order_hdr SET total_amount = :total, tax_amount = :taxAmt WHERE id = :id")
@@ -949,9 +999,10 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
     private List<Map<String, Object>> getApprovalMatrix(String docType, BigDecimal amount) {
         List<Map<String, Object>> matrix = new ArrayList<>();
         String sql = "SELECT level, role_required, min_amount, max_amount FROM core.approval_matrix " +
-                     "WHERE tenant_id = 1 AND doc_type = :docType AND is_active = true " +
+                     "WHERE tenant_id = :tenantId AND doc_type = :docType AND is_active = true " +
                      "AND :amount >= min_amount AND :amount <= max_amount ORDER BY level ASC";
         for (Object[] row : (List<Object[]>) em.createNativeQuery(sql)
+                .setParameter("tenantId", context.tenantId())
                 .setParameter("docType", docType).setParameter("amount", amount).getResultList()) {
             Map<String, Object> m = new HashMap<>();
             m.put("level", ((Number) row[0]).intValue());

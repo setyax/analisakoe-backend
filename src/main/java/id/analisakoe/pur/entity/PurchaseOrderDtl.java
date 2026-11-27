@@ -15,7 +15,11 @@ public class PurchaseOrderDtl {
     private BigDecimal dpp;
     @Column(name = "tax_amount") private BigDecimal taxAmount;
     @Column(name = "line_total") private BigDecimal lineTotal;
+    @Column(name = "price_source") private String priceSource = "PRICE_LIST";
+    @Column(name = "condition_type") private String conditionType = "PB00";
+    @Column(name = "price_unit") private BigDecimal priceUnit = BigDecimal.ONE;
     
+    public Long getId() { return id; }
     public void setHeader(PurchaseOrderHdr h) { this.header = h; }
     public Long getItemId() { return itemId; } public void setItemId(Long v) { this.itemId = v; }
     public Long getUomId() { return uomId; } public void setUomId(Long v) { this.uomId = v; }
@@ -25,4 +29,7 @@ public class PurchaseOrderDtl {
     public BigDecimal getTaxAmount() { return taxAmount; } public void setTaxAmount(BigDecimal v) { this.taxAmount = v; }
     public BigDecimal getLineTotal() { return lineTotal; } public void setLineTotal(BigDecimal v) { this.lineTotal = v; }
     public BigDecimal getPrice() { return price; } public void setPrice(BigDecimal v) { this.price = v; }
+    public String getPriceSource() { return priceSource; } public void setPriceSource(String v) { this.priceSource = v; }
+    public String getConditionType() { return conditionType; } public void setConditionType(String v) { this.conditionType = v; }
+    public BigDecimal getPriceUnit() { return priceUnit; } public void setPriceUnit(BigDecimal v) { this.priceUnit = v; }
 }

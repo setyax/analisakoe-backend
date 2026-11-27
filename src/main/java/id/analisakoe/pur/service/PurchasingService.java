@@ -1,8 +1,10 @@
 package id.analisakoe.pur.service;
 import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.persistence.EntityManager;
 import id.analisakoe.core.service.NumberRangeService;
 
 import id.analisakoe.common.BusinessException;
+import id.analisakoe.context.ContextService;
 import id.analisakoe.pur.entity.PurchaseOrderDtl;
 import id.analisakoe.pur.entity.PurchaseOrderHdr;
 import id.analisakoe.pur.entity.PurchaseRequestDtl;
@@ -25,6 +27,16 @@ public class PurchasingService {
 
     @Autowired
     private NumberRangeService numberRangeService;
+
+    @Autowired
+    private ContextService context;
+
+    @Autowired
+    private EntityManager em;
+
+    @Autowired
+    private PriceDeterminationService priceDetermination;
+
     private final PurchaseRequestRepository prRepo;
     private final PurchaseOrderRepository poRepo;
 	private final PurchasePolicyService policyService;
@@ -37,13 +49,23 @@ public class PurchasingService {
     this.policyService = policyService;
 }
 
+    private PurchaseRequestHdr ownedPr(Long id) {
+        return prRepo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId())
+            .orElseThrow(() -> new BusinessException("Purchase Request tidak ditemukan"));
+    }
+
+    private PurchaseOrderHdr ownedPo(Long id) {
+        return poRepo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId())
+            .orElseThrow(() -> new BusinessException("Purchase Order tidak ditemukan"));
+    }
+
     // ==================== PURCHASE REQUEST ====================
 
     @Transactional
     public void createPr(LocalDate date, String remarks, Long requisitionerId, List<LineReq> lines) {
         if(lines == null || lines.isEmpty()) throw new BusinessException("Minimal 1 item");
         PurchaseRequestHdr hdr = new PurchaseRequestHdr();
-        hdr.setTenantId(1L); hdr.setCompanyId(1L);
+        hdr.setTenantId(context.tenantId()); hdr.setCompanyId(context.companyId());
         hdr.setDocNo(numberRangeService.generate("PR", "PR"));
         hdr.setDocDate(date); hdr.setRemarks(remarks); hdr.setStatus("DRAFT");
         hdr.setDocType("STANDARD"); hdr.setPurchasingOrg("1000"); hdr.setPurchasingGroup("001"); 
@@ -61,8 +83,7 @@ public class PurchasingService {
 
     @Transactional
     public void updatePr(Long id, LocalDate date, String remarks, Long requisitionerId, List<LineReq> lines) {
-        PurchaseRequestHdr hdr = prRepo.findById(id)
-            .orElseThrow(() -> new BusinessException("Purchase Request tidak ditemukan"));
+        PurchaseRequestHdr hdr = ownedPr(id);
         if (!"DRAFT".equals(hdr.getStatus())) throw new BusinessException("Hanya PR berstatus DRAFT yang bisa diedit.");
 
         hdr.setDocDate(date); hdr.setRemarks(remarks); hdr.setRequisitionerId(requisitionerId);
@@ -80,8 +101,7 @@ public class PurchasingService {
     /** Batalkan PR — hanya yang masih DRAFT. */
     @Transactional
     public void cancelPr(Long id) {
-        PurchaseRequestHdr hdr = prRepo.findById(id)
-            .orElseThrow(() -> new BusinessException("Purchase Request tidak ditemukan"));
+        PurchaseRequestHdr hdr = ownedPr(id);
         if (!"DRAFT".equals(hdr.getStatus()))
             throw new BusinessException("Hanya PR berstatus DRAFT yang bisa dibatalkan.");
         hdr.setStatus("CANCELLED");
@@ -91,8 +111,7 @@ public class PurchasingService {
     /** Hapus PR — hanya DRAFT / CANCELLED. Detail ikut terhapus (cascade). */
     @Transactional
     public void deletePr(Long id) {
-        PurchaseRequestHdr hdr = prRepo.findById(id)
-            .orElseThrow(() -> new BusinessException("Purchase Request tidak ditemukan"));
+        PurchaseRequestHdr hdr = ownedPr(id);
         if (!"DRAFT".equals(hdr.getStatus()) && !"CANCELLED".equals(hdr.getStatus()))
             throw new BusinessException("Hanya PR berstatus DRAFT/CANCELLED yang bisa dihapus.");
         prRepo.delete(hdr);
@@ -116,11 +135,13 @@ public class PurchasingService {
     hdr.setRemarks(remarks);
     hdr.setCurrency(currency != null ? currency : "IDR");
     hdr.setTaxType(taxType != null ? taxType : "NO_TAX");
-    hdr.setTenantId(1L);
-    hdr.setCompanyId(1L);
+    hdr.setTenantId(context.tenantId());
+    hdr.setCompanyId(context.companyId());
 
-    processPoLines(hdr, lines, taxType);
+    List<PriceDeterminationService.Determination> dets =
+        processPoLines(hdr, lines, taxType, prId != null ? "PRICE_LIST" : "MANUAL");
     poRepo.save(hdr);          // ← simpan
+    persistConditions(hdr, dets);
     return hdr;                 // ← TAMBAH return
 }
 	
@@ -145,7 +166,7 @@ public PurchaseOrderHdr createDirectPo(LocalDate date,
 
     // 1. Cek policy
     boolean requiresPr = policyService.requiresPr(
-        1L,
+        context.companyId(),
         new PurchasePolicyService.PurchaseContext(
             totalAmount,
             Boolean.TRUE.equals(isNewSupplier),
@@ -176,8 +197,7 @@ public PurchaseOrderHdr createDirectPo(LocalDate date,
  */
 @Transactional
 public void approveBypass(Long poId, SessionUser approver) {
-    PurchaseOrderHdr po = poRepo.findById(poId)
-        .orElseThrow(() -> new IllegalArgumentException("PO tidak ditemukan"));
+    PurchaseOrderHdr po = ownedPo(poId);
 
     if (po.getPoType() != PurchaseOrderHdr.PoType.DIRECT
             || po.getBypassReason() == null) {
@@ -194,8 +214,7 @@ public void approveBypass(Long poId, SessionUser approver) {
 
     @Transactional
     public void updatePo(Long id, LocalDate date, Long supplierId, String remarks, String currency, String taxType, List<LineReq> lines) {
-        PurchaseOrderHdr hdr = poRepo.findById(id)
-            .orElseThrow(() -> new BusinessException("PO tidak ditemukan"));
+        PurchaseOrderHdr hdr = ownedPo(id);
         
         if (!"DRAFT".equals(hdr.getStatus())) throw new BusinessException("Hanya PO berstatus DRAFT yang bisa diedit.");
 
@@ -204,53 +223,66 @@ public void approveBypass(Long poId, SessionUser approver) {
         hdr.setTaxType(taxType != null ? taxType : "NO_TAX");
         
         hdr.getDetails().clear();
-        processPoLines(hdr, lines, taxType);
+        List<PriceDeterminationService.Determination> dets =
+            processPoLines(hdr, lines, taxType, "PRICE_LIST");
         poRepo.save(hdr);
+        persistConditions(hdr, dets);
     }
 
-    private void processPoLines(PurchaseOrderHdr hdr, List<LineReq> lines, String taxType) {
+    private void persistConditions(PurchaseOrderHdr hdr,
+                                   List<PriceDeterminationService.Determination> dets) {
+        if (dets == null || dets.isEmpty()) return;
+        em.flush();
+        for (int i = 0; i < dets.size() && i < hdr.getDetails().size(); i++) {
+            PriceDeterminationService.Determination d = dets.get(i);
+            if (d != null && d.found()) {
+                priceDetermination.storeConditions(hdr.getTenantId(), hdr.getCompanyId(),
+                    hdr.getId(), hdr.getDetails().get(i).getId(), d);
+            }
+        }
+    }
+
+    private List<PriceDeterminationService.Determination> processPoLines(
+            PurchaseOrderHdr hdr, List<LineReq> lines, String taxType, String priceSource) {
         BigDecimal totalTax = BigDecimal.ZERO;
         BigDecimal grandTotal = BigDecimal.ZERO;
+        List<PriceDeterminationService.Determination> dets = new java.util.ArrayList<>();
 
         for(var l : lines) {
             PurchaseOrderDtl d = new PurchaseOrderDtl();
             d.setItemId(l.itemId()); d.setUomId(l.uomId());
-            d.setQty(l.qty()); 
-            BigDecimal price = l.price() == null ? BigDecimal.ZERO : l.price();
-            d.setPrice(price);
-            
-            BigDecimal subtotal = l.qty().multiply(price);
-            BigDecimal dpp = BigDecimal.ZERO;
-            BigDecimal tax = BigDecimal.ZERO;
-            BigDecimal lineTotal = subtotal;
+            d.setQty(l.qty());
+            BigDecimal enteredPrice = l.price() == null ? BigDecimal.ZERO : l.price();
 
-            if ("EXCLUDE".equals(taxType)) {
-                dpp = subtotal;
-                tax = dpp.multiply(new BigDecimal("0.11")).setScale(2, RoundingMode.HALF_UP);
-                lineTotal = dpp.add(tax);
-            } else if ("INCLUDE".equals(taxType)) {
-                lineTotal = subtotal;
-                dpp = lineTotal.divide(new BigDecimal("1.11"), 2, RoundingMode.HALF_UP);
-                tax = lineTotal.subtract(dpp);
-            } else {
-                dpp = subtotal;
-            }
+            PriceDeterminationService.Determination det = priceDetermination.determine(
+                hdr.getTenantId(), hdr.getCompanyId(), hdr.getSupplierId(), l.itemId(), l.uomId(),
+                hdr.getDocDate(), l.qty(), enteredPrice);
+            PriceDeterminationService.LineResult calc = priceDetermination.calculate(det, l.qty(), taxType);
+            dets.add(det);
 
-            d.setSubtotal(subtotal); d.setDpp(dpp); d.setTaxAmount(tax); d.setLineTotal(lineTotal);
+            d.setPrice(calc.price());
+            d.setPriceSource(det.found() ? det.priceSource() : priceSource);
+            d.setConditionType(det.found() ? det.conditionType() : "MANUAL");
+            d.setPriceUnit(det.found() ? det.priceUnit() : BigDecimal.ONE);
+
+            d.setSubtotal(calc.dpp());
+            d.setDpp(calc.dpp());
+            d.setTaxAmount(calc.taxAmount());
+            d.setLineTotal(calc.lineTotal());
             hdr.addDetail(d);
 
-            totalTax = totalTax.add(tax);
-            grandTotal = grandTotal.add(lineTotal);
+            totalTax = totalTax.add(calc.taxAmount());
+            grandTotal = grandTotal.add(calc.lineTotal());
         }
         hdr.setTaxAmount(totalTax);
         hdr.setTotalAmount(grandTotal);
+        return dets;
     }
 
     public record LineReq(Long itemId, Long uomId, BigDecimal qty, BigDecimal price, String shortText, LocalDate deliveryDate, String accountAssignment) {}
     @Transactional
     public void confirmPo(Long poId) {
-        PurchaseOrderHdr po = poRepo.findById(poId)
-            .orElseThrow(() -> new BusinessException("PO tidak ditemukan"));
+        PurchaseOrderHdr po = ownedPo(poId);
         if (!"DRAFT".equals(po.getStatus())) {
             throw new BusinessException("Hanya PO berstatus DRAFT yang bisa dikonfirmasi.");
         }

@@ -104,6 +104,51 @@
 </div>
                             <span style="margin-left:8px; color:#64748b; font-size:12px;">(harga berlaku untuk qty â‰¥ nilai ini)</span>
                         </div>
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:130px; font-weight:bold;">Condition Type:</label>
+                            <select name="conditionType" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                                <option value="PB00" th:selected="${isNew or priceEntry.conditionType == 'PB00'}">PB00 - Harga dasar</option>
+                                <option value="PB01" th:selected="${!isNew and priceEntry.conditionType == 'PB01'}">PB01 - Harga alternatif</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:130px; font-weight:bold;">Price Unit:</label>
+                            <input type="number" step="any" min="0" name="priceUnit" required
+                                   th:value="${isNew ? 1 : priceEntry.priceUnit}"
+                                   style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                            <span style="margin-left:8px; color:#64748b; font-size:12px;">Harga di atas berlaku per N unit.</span>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:130px; font-weight:bold;">Condition Source:</label>
+                            <select name="conditionSource" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                                <option value="INFO_RECORD" th:selected="${isNew or priceEntry.conditionSource == 'INFO_RECORD'}">INFO_RECORD - Price list</option>
+                                <option value="CONTRACT" th:selected="${!isNew and priceEntry.conditionSource == 'CONTRACT'}">CONTRACT - Kontrak pembelian</option>
+                            </select>
+                            <span style="margin-left:8px; color:#64748b; font-size:12px;">CONTRACT lebih prioritas dari INFO_RECORD.</span>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:130px; font-weight:bold;">Condition Class:</label>
+                            <select name="conditionClass" id="conditionClassSelect" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                                <option value="PRICE" th:selected="${isNew or priceEntry.conditionClass == 'PRICE'}">PRICE - Harga dasar</option>
+                                <option value="DISCOUNT" th:selected="${!isNew and priceEntry.conditionClass == 'DISCOUNT'}">DISCOUNT - Potongan</option>
+                                <option value="SURCHARGE" th:selected="${!isNew and priceEntry.conditionClass == 'SURCHARGE'}">SURCHARGE - Biaya tambahan</option>
+                                <option value="TAX" th:selected="${!isNew and priceEntry.conditionClass == 'TAX'}">TAX - Pajak</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:130px; font-weight:bold;">Rate (%):</label>
+                            <input type="number" step="any" min="0" name="rate"
+                                   th:value="${isNew or priceEntry.rate == null} ? '' : ${priceEntry.rate}"
+                                   style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                            <span style="margin-left:8px; color:#64748b; font-size:12px;">Kosongkan untuk nominal (kolom Price dipakai sebagai nominal per unit).</span>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <label style="width:130px; font-weight:bold;">Calculation Order:</label>
+                            <input type="number" step="1" min="1" name="calculationOrder" required
+                                   th:value="${isNew ? 10 : priceEntry.calculationOrder}"
+                                   style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                            <span style="margin-left:8px; color:#64748b; font-size:12px;">10=harga dasar, 20/30=diskon/biaya, 90=pajak.</span>
+                        </div>
                     </div>
 
                     <div style="margin-top:25px; border-top:1px solid #eee; padding-top:20px;">

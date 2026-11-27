@@ -60,6 +60,18 @@
                 ? ''
                 : String(parseLocalPrice(displayInput.value));
 
+            const source = row.querySelector('.price-source-input');
+            if (source) source.value = 'MANUAL';
+
+            const base = row.querySelector('.base-price-input');
+            if (base) base.value = '';
+
+            const tax = row.querySelector('.tax-rate-input');
+            if (tax) tax.value = '';
+
+            const info = row.querySelector('.condition-info');
+            if (info) info.innerText = 'Manual';
+
             calculateTotal();
         }
 
@@ -93,10 +105,12 @@
             }
 
             try {
+                const qtyInput = row.querySelector('.qty-input');
                 const params = new URLSearchParams({
                     supplierId: String(supplierId),
                     itemId: String(itemId),
                     uomId: String(uomId),
+                    qty: String((qtyInput && qtyInput.value) || 1),
                     date: String(date || '')
                 });
 
@@ -115,8 +129,33 @@
                     priceInput.value = '';
                     if (priceDisplay) priceDisplay.value = '';
                     row.classList.add('no-price');
-                    console.warn('Harga tidak ditemukan di Price List untuk item', itemId);
+                    console.warn('Harga tidak ditemukan untuk item', itemId);
                 }
+
+                const baseInput = row.querySelector('.base-price-input');
+                if (baseInput) baseInput.value = data.found && data.basePrice != null
+                    ? String(data.basePrice) : '';
+
+                const taxInput = row.querySelector('.tax-rate-input');
+                if (taxInput) taxInput.value = data.taxRate != null ? String(data.taxRate) : '';
+
+                const info = row.querySelector('.condition-info');
+                if (info) {
+                    if (data.found) {
+                        const parts = (data.conditions || []).map(function (c) {
+                            const label = c.conditionClass === 'TAX' ? 'TAX'
+                                : c.conditionClass === 'DISCOUNT' ? 'DISC'
+                                : c.conditionClass === 'SURCHARGE' ? 'SC' : c.conditionType;
+                            return label + (c.rate != null ? ' ' + c.rate + '%' : '');
+                        });
+                        info.innerText = (data.priceSource || '-') + ' · ' + parts.join(' · ');
+                    } else {
+                        info.innerText = 'Manual';
+                    }
+                }
+
+                const sourceInput = row.querySelector('.price-source-input');
+                if (sourceInput) sourceInput.value = data.found ? data.priceSource : 'MANUAL';
 
                 if (data.found) row.classList.remove('no-price');
                 calculateTotal();
@@ -134,6 +173,20 @@
                 supplierId: document.getElementById('supplierSelect').value,
                 date: document.querySelector('input[name="docDate"]').value
             };
+        }
+
+        // Qty menentukan scale harga (quantity scale), jadi harga di-refetch.
+        async function handleQtyChange(input) {
+            normalizeQtyInput(input);
+            calculateTotal();
+            const row = input.closest('tr');
+            if (!row) return;
+            const { supplierId, date } = getHeaderValues();
+            const itemSelect = row.querySelector('.item-select');
+            const uomSelect = row.querySelector('.uom-select');
+            if (supplierId && itemSelect && itemSelect.value && uomSelect && uomSelect.value) {
+                await fetchPrice(supplierId, itemSelect.value, date, row);
+            }
         }
 
         function handleItemChange(selectElement) {
@@ -240,34 +293,44 @@
         // KALKULASI TOTAL
         // ==================================================
         function calculateTotal() {
-            let total = 0;
+            const taxSelect = document.getElementById('taxTypeSelect');
+            const taxType = taxSelect ? taxSelect.value : 'NO_TAX';
+
+            let dpp = 0;
+            let tax = 0;
+            let grandTotal = 0;
 
             document.querySelectorAll('#itemTableBody tr.item-row').forEach(function (row) {
                 const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
                 const price = parseFloat(row.querySelector('.price-input').value) || 0;
                 const subtotal = qty * price;
-
                 const subtotalCell = row.querySelector('.subtotal-cell');
-                if (subtotalCell) subtotalCell.innerText = formatRupiah(subtotal);
 
-                total += subtotal;
+                const taxInput = row.querySelector('.tax-rate-input');
+                if (taxInput && taxInput.value !== '') {
+                    const rowTax = subtotal * (parseFloat(taxInput.value) || 0) / 100;
+                    if (subtotalCell) subtotalCell.innerText = formatRupiah(subtotal);
+                    dpp += subtotal;
+                    tax += rowTax;
+                    grandTotal += subtotal + rowTax;
+                } else {
+                    let rowDpp = subtotal;
+                    let rowTax = 0;
+                    let rowTotal = subtotal;
+                    if (taxType === 'EXCLUDE') {
+                        rowTax = subtotal * TAX_RATE;
+                        rowTotal = subtotal + rowTax;
+                    } else if (taxType === 'INCLUDE') {
+                        rowDpp = subtotal / (1 + TAX_RATE);
+                        rowTax = subtotal - rowDpp;
+                        rowTotal = subtotal;
+                    }
+                    if (subtotalCell) subtotalCell.innerText = formatRupiah(rowDpp);
+                    dpp += rowDpp;
+                    tax += rowTax;
+                    grandTotal += rowTotal;
+                }
             });
-
-            const taxSelect = document.getElementById('taxTypeSelect');
-            const taxType = taxSelect ? taxSelect.value : 'NO_TAX';
-
-            let dpp = total;
-            let tax = 0;
-            let grandTotal = total;
-
-            if (taxType === 'EXCLUDE') {
-                tax = total * TAX_RATE;
-                grandTotal = total + tax;
-            } else if (taxType === 'INCLUDE') {
-                dpp = total / (1 + TAX_RATE);
-                tax = total - dpp;
-                grandTotal = total;
-            }
 
             const sub = document.getElementById('totalSubtotalDisplay');
             if (sub) {
@@ -569,7 +632,7 @@
                                 </select>
                             </td>
                             <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
-                                <input type="number" step="any" min="0" name="qty" class="qty-input" th:value="${d.qty}" onblur="normalizeQtyInput(this); calculateTotal()" oninput="calculateTotal()" required style="width:80px; padding:4px;">
+                                <input type="number" step="any" min="0" name="qty" class="qty-input" th:value="${d.qty}" onblur="handleQtyChange(this)" oninput="calculateTotal()" required style="width:80px; padding:4px;">
                             </td>
                             <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
                                 <select name="uomId" class="uom-select" onchange="handleUomChange(this)" required style="padding:4px;">
@@ -579,7 +642,11 @@
                             </td>
                             <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
                                 <input type="hidden" name="price" class="price-input" th:value="${d.price}">
+                                <input type="hidden" name="basePrice" class="base-price-input" value="">
+                                <input type="hidden" name="taxRate" class="tax-rate-input" value="">
+                                <input type="hidden" name="priceSource" class="price-source-input" th:value="${d.priceSource ?: 'PRICE_LIST'}">
                                 <input type="text" class="price-display" inputmode="decimal" th:value="${#numbers.formatDecimal(d.price, 1, 'POINT', 2, 'COMMA')}" oninput="handlePriceInput(this)" onblur="formatPriceDisplay(this)" required style="width:145px; padding:4px; text-align:right;">
+                                <div class="condition-info" style="font-size:11px; color:#64748b;" th:text="${d.conditionType ?: 'PB00'}"></div>
                             </td>
                             <td class="subtotal-cell" style="padding:12px; border-bottom:1px solid #e2e8f0;" th:text="'Rp ' + ${#numbers.formatDecimal(d.subtotal, 1, 'COMMA', 0, 'POINT')}">-</td>
                             <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
@@ -617,7 +684,7 @@
                 </select>
             </td>
             <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
-                <input type="number" step="any" min="0" name="qty" class="qty-input" value="1" onblur="normalizeQtyInput(this); calculateTotal()" oninput="calculateTotal()" required style="width:80px; padding:4px;">
+                <input type="number" step="any" min="0" name="qty" class="qty-input" value="1" onblur="handleQtyChange(this)" oninput="calculateTotal()" required style="width:80px; padding:4px;">
             </td>
             <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
                 <select name="uomId" class="uom-select" onchange="handleUomChange(this)" required style="padding:4px;">
@@ -627,7 +694,11 @@
             </td>
             <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
                 <input type="hidden" name="price" class="price-input" value="">
+                <input type="hidden" name="basePrice" class="base-price-input" value="">
+                <input type="hidden" name="taxRate" class="tax-rate-input" value="">
+                <input type="hidden" name="priceSource" class="price-source-input" value="PRICE_LIST">
                 <input type="text" class="price-display" value="" inputmode="decimal" oninput="handlePriceInput(this)" onblur="formatPriceDisplay(this)" required style="width:145px; padding:4px; text-align:right;">
+                <div class="condition-info" style="font-size:11px; color:#64748b;"></div>
             </td>
             <td class="subtotal-cell" style="padding:12px; border-bottom:1px solid #e2e8f0;">Rp 0</td>
             <td style="padding:12px; border-bottom:1px solid #e2e8f0;">

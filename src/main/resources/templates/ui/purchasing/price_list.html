@@ -50,7 +50,13 @@
                                 <th></th>
                                 <th>SUPPLIER</th>
                                 <th>ITEM</th>
-                                <th style="text-align:right;">PRICE</th>
+                                <th style="text-align:right;">PRICE / RATE</th>
+                                <th>SOURCE</th>
+                                <th>CLASS</th>
+                                <th>COND. TYPE</th>
+                                <th>RATE (%)</th>
+                                <th>SEQ</th>
+                                <th>PRICE UNIT</th>
                                 <th>PRICE UOM</th>
                                 <th>CURRENCY</th>
                                 <th>VALID FROM</th>
@@ -62,7 +68,7 @@
                         <tbody>
 
                             <tr th:if="${#lists.isEmpty(prices)}">
-                                <td colspan="9"
+                                <td colspan="15"
                                     style="text-align:center;padding:20px;">
                                     Belum ada data Price List.
                                 </td>
@@ -88,6 +94,21 @@
                                 <td style="text-align:right;font-weight:bold;"
                                     th:text="${p.price != null ? #numbers.formatDecimal(p.price,1,'POINT',2,'COMMA') : '0'}">
                                 </td>
+
+                                <td th:text="${p.conditionSource}"></td>
+
+                                <td th:text="${p.conditionClass}"></td>
+
+                                <td th:text="${p.conditionType}"></td>
+
+                                <td style="text-align:right;"
+                                    th:text="${p.rate != null ? p.rate : '-'}"></td>
+
+                                <td style="text-align:right;"
+                                    th:text="${p.calculationOrder}"></td>
+
+                                <td style="text-align:right;"
+                                    th:text="${p.priceUnit}"></td>
 
                                 <td th:text="${p.uomCode}"></td>
 
