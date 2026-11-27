@@ -10,6 +10,8 @@
 !/run_erp_hidden.vbs
 !/start_erp.vbs
 !/db/
+!/docs/
+!/start_erp.cmd
 !/src/
 
 # Rahasia: jangan pernah di-commit
