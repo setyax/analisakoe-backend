@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">
+                    [Finance] Cash &amp; Bank Transaction
+                    #<span th:text="${trx.id}"></span>
+                    <span th:if="${trx.status == 'VOID'}" style="background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:10px; font-size:12px; margin-left:8px;">VOID</span>
+                </h3>
+
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+
+                <table class="erp-table" style="width:80%; margin-bottom:20px;">
+                    <tbody>
+                        <tr>
+                            <th style="width:200px; background:#f1f5f9;">No. Dokumen</th>
+                            <td><strong th:text="${trx.docNo}"></strong></td>
+                        </tr>
+                        <tr>
+                            <th style="background:#f1f5f9;">Tanggal</th>
+                            <td th:text="${#temporals.format(trx.docDate, 'dd-MM-yyyy')}"></td>
+                        </tr>
+                        <tr>
+                            <th style="background:#f1f5f9;">Tipe</th>
+                            <td>
+                                <span th:if="${trx.trxType == 'IN'}" style="color:green; font-weight:bold;">UANG MASUK (IN)</span>
+                                <span th:if="${trx.trxType == 'OUT'}" style="color:red; font-weight:bold;">UANG KELUAR (OUT)</span>
+                                <span th:if="${trx.trxType == 'MODAL'}" style="background:#ede9fe; color:#5b21b6; padding:3px 10px; border-radius:12px; font-weight:bold;">💰 SETORAN MODAL</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="background:#f1f5f9;">Bank / Kas</th>
+                            <td>
+                                <span th:each="b : ${banks}"
+                                      th:if="${b.id == trx.bankId}"
+                                      th:text="${b.name + ((b.accountNo != null and !b.accountNo.isBlank()) ? ' — ' + b.accountNo : '')}"></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="background:#f1f5f9;">Amount</th>
+                            <td style="font-size:18px; font-weight:bold;"
+                                th:text="${#numbers.formatDecimal(trx.amount, 1, 'POINT', 2, 'COMMA')}"></td>
+                        </tr>
+                        <tr>
+                            <th style="background:#f1f5f9;">Keterangan</th>
+                            <td th:text="${trx.remarks} ?: '—'"></td>
+                        </tr>
+                        <tr>
+                            <th style="background:#f1f5f9;">Status</th>
+                            <td>
+                                <span th:if="${trx.status == 'VOID'}" style="background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:10px; font-weight:bold;">VOID</span>
+                                <span th:unless="${trx.status == 'VOID'}" style="color:#15803d; font-weight:bold;">POSTED</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div th:if="${journalLink != null}" style="background:#f0f9ff; border:1px solid #0284c7; padding:12px; border-radius:6px; margin-bottom:20px;">
+                    <b style="color:#0369a1;">📒 Jurnal Terkait</b><br/>
+                    <span>Doc No: </span><code th:text="${journalLink.docNo}"></code><br/>
+                    <span>Tanggal: </span><span th:text="${journalLink.docDate}"></span><br/>
+                    <span>Tipe: </span><span th:text="${journalLink.journalType}"></span><br/>
+                    <span>Catatan: </span><span th:text="${journalLink.remarks}"></span>
+                </div>
+                <div th:if="${journalLink == null and trx.trxType == 'MODAL'}" style="background:#fff7ed; border:1px solid #ea580c; padding:10px; border-radius:6px; margin-bottom:15px; color:#9a3412;">
+                    ℹ️ Transaksi Modal ini dibuat sebelum fitur journal-link aktif. Tidak ada journal_hdr terhubung via ref_id.
+                </div>
+
+                <div style="margin-top: 20px; border-top: 1px solid #a0a0a0; padding-top: 15px;">
+                    <a th:if="${trx.status != 'VOID'}" th:href="@{|/ui/finance/cashbank/${trx.id}/edit|}"
+                       style="background:#f59e0b; color:white; padding:8px 20px; border-radius:4px; text-decoration:none; font-weight:bold; margin-right:8px;">Edit</a>
+                    <form th:if="${trx.status != 'VOID'}" th:action="@{|/ui/finance/cashbank/${trx.id}/void|}" method="post" style="display:inline; margin-right:8px;"
+                          onsubmit="return confirm('VOID transaksi ini? Untuk MODAL, jurnal akan dibalik secara otomatis.')">
+                        <button type="submit" style="background:#64748b; color:white; border:none; padding:8px 20px; border-radius:4px; font-weight:bold; cursor:pointer;">Void</button>
+                    </form>
+                    <form th:if="${trx.status == 'VOID'}" th:action="@{|/ui/finance/cashbank/${trx.id}/delete|}" method="post" style="display:inline; margin-right:8px;"
+                          onsubmit="return confirm('Hapus transaksi VOID ini permanen?')">
+                        <button type="submit" style="background:#dc2626; color:white; border:none; padding:8px 20px; border-radius:4px; font-weight:bold; cursor:pointer;">Hapus Permanen</button>
+                    </form>
+                    <a th:href="@{/ui/finance/cashbank}" style="background:#94a3b8; color:white; padding:8px 20px; border-radius:4px; text-decoration:none; font-weight:bold;">Kembali ke Daftar</a>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

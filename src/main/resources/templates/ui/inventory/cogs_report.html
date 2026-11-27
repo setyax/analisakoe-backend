@@ -46,9 +46,10 @@
                         <div style="font-size:24px; font-weight:bold; color:#1e40af;" th:text="${rowCount}">0</div>
                     </div>
                     <div style="flex:1; background:#f0fdf4; padding:15px; border-radius:8px; border-left:4px solid #16a34a;">
-                        <div style="font-size:12px; color:#64748b;">Total Qty Terjual</div>
+                        <div style="font-size:12px; color:#64748b;">Total Qty Terjual (Base Unit)</div>
                         <div style="font-size:24px; font-weight:bold; color:#166534;"
-                             th:text="${@qtyDisplay.format(#numbers.formatDecimal(grandTotalQty, 1, 'POINT', 2, 'COMMA'))}">0</div>
+                             th:text="${@qtyDisplay.format(#numbers.formatDecimal(grandTotalQtyBase, 1, 'POINT', 2, 'COMMA'))}">0</div>
+                        <div style="font-size:11px; color:#64748b;">hasil konversi ke satuan dasar tiap item</div>
                     </div>
                     <div style="flex:1; background:#fef2f2; padding:15px; border-radius:8px; border-left:4px solid #dc2626;">
                         <div style="font-size:12px; color:#64748b;">Total HPP (COGS)</div>
@@ -69,13 +70,15 @@
                                 <th style="padding:10px;">NAMA ITEM</th>
                                 <th style="padding:10px; text-align:right;">QTY</th>
                                 <th style="padding:10px;">UNIT</th>
+                                <th style="padding:10px; text-align:right;">QTY (BASE)</th>
+                                <th style="padding:10px;">BASE UNIT</th>
                                 <th style="padding:10px; text-align:right;">HPP/UNIT</th>
                                 <th style="padding:10px; text-align:right;">TOTAL HPP</th>
                             </tr>
                         </thead>
                                                 <tbody>
                             <tr th:if="${#lists.isEmpty(cogsList)}">
-                                <td colspan="9" style="text-align:center; padding:20px; color:#94a3b8;">
+                                <td colspan="11" style="text-align:center; padding:20px; color:#94a3b8;">
                                     Belum ada transaksi HPP pada periode ini.
                                 </td>
                             </tr>
@@ -89,6 +92,9 @@
                                 <td style="padding:8px; text-align:right;"
                                     th:text="${@qtyDisplay.format(#numbers.formatDecimal(c.qty, 1, 'POINT', 2, 'COMMA'))}">0</td>
                                 <td style="padding:8px; text-align:center;" th:text="${c.uomCode}">-</td>
+                                <td style="padding:8px; text-align:right;"
+                                    th:text="${@qtyDisplay.format(#numbers.formatDecimal(c.qtyBase, 1, 'POINT', 2, 'COMMA'))}">0</td>
+                                <td style="padding:8px; text-align:center; color:#64748b;" th:text="${c.baseUomCode}">-</td>
                                 <td style="padding:8px; text-align:right;"
                                     th:text="'Rp ' + ${#numbers.formatDecimal(c.cogsUnit, 1, 'POINT', 2, 'COMMA')}">-</td>
                                 <td style="padding:8px; text-align:right; font-weight:bold; color:#991b1b;"

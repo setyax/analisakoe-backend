@@ -8,31 +8,56 @@
         <header th:replace="~{fragments/header :: header}"></header>
         <section class="app-content">
             <div class="erp-container">
-                <h3 style="margin-top:0; margin-bottom:10px;">[Finance] New Cash & Bank Transaction</h3>
-                <form th:action="@{/ui/finance/cashbank}" method="post">
+                <h3 style="margin-top:0; margin-bottom:10px;">
+                    <span th:if="${mode == 'edit'}">[Finance] Edit Cash &amp; Bank Transaction #<span th:text="${trx.id}"></span></span>
+                    <span th:unless="${mode == 'edit'}">[Finance] New Cash &amp; Bank Transaction</span>
+                </h3>
+                <div th:if="${trx != null and trx.status == 'VOID'}" style="background:#fee2e2; border:1px solid #dc2626; color:#7f1d1d; padding:10px; border-radius:6px; margin-bottom:15px;">
+                    ⚠️ Transaksi ini berstatus <b>VOID</b> dan tidak dapat diedit.
+                </div>
+                <div th:if="${mode == 'edit' and trx != null and trx.trxType == 'MODAL'}" style="background:#fef3c7; border:1px solid #d97706; color:#78350f; padding:10px; border-radius:6px; margin-bottom:15px;">
+                    ⚠️ Mengedit transaksi <b>Setoran Modal</b> akan otomatis: <b>VOID</b> jurnal lama (jurnal pembalik dibuat), lalu buat jurnal baru dengan nilai ter-update. Tipe transaksi tidak dapat diubah dari MODAL.
+                </div>
+                <form th:action="${mode == 'edit'} ? @{|/ui/finance/cashbank/${trx.id}|} : @{/ui/finance/cashbank}"
+                      th:method="${mode == 'edit'} ? 'post' : 'post'" method="post">
                     <div class="erp-form-grid">
+                        <label>No. Dokumen:</label>
+                        <input type="text" th:value="${trx != null ? trx.docNo : '(otomatis)'}" disabled>
+
                         <label>Tanggal:</label>
-                        <input type="date" name="docDate" th:value="${today}" required>
-                        
+                        <input type="date" name="docDate"
+                               th:value="${trx != null ? #temporals.format(trx.docDate,'yyyy-MM-dd') : today}" required>
+
                         <label>Tipe Transaksi:</label>
-                        <select name="trxType" required>
-                            <option value="IN">Uang Masuk (IN)</option>
-                            <option value="OUT">Uang Keluar (OUT)</option>
+                        <select name="trxType" required
+                                th:disabled="${mode == 'edit' and trx.trxType == 'MODAL'}">
+                            <option value="IN" th:selected="${trx != null and trx.trxType == 'IN'}">Uang Masuk (IN)</option>
+                            <option value="OUT" th:selected="${trx != null and trx.trxType == 'OUT'}">Uang Keluar (OUT)</option>
+                            <option value="MODAL" th:selected="${trx != null and trx.trxType == 'MODAL'}">Setoran Modal (dari Pemilik)</option>
                         </select>
 
                         <label>Pilih Bank/Kas:</label>
                         <select name="bankId" required>
-                            <option th:each="b : ${banks}" th:value="${b.id}" th:text="${b.name}"></option>
+                            <option th:each="b : ${banks}" th:value="${b.id}" th:text="${b.name}"
+                                    th:selected="${trx != null and trx.bankId == b.id}"></option>
                         </select>
 
                         <label>Amount:</label>
-                        <input type="number" step="0.01" name="amount" required>
+                        <input type="number" step="0.01" name="amount"
+                               th:value="${trx != null ? trx.amount : ''}" required>
                     </div>
                     <label>Keterangan:</label>
-                    <textarea name="remarks" style="width: 50%; height: 60px;"></textarea>
-                    
+                    <textarea name="remarks" style="width: 50%; height: 60px;"
+                              th:text="${trx != null ? trx.remarks : ''}"></textarea>
+                    <div th:if="${mode != 'edit'}" style="font-size:12px; color:#64748b; margin-top:5px;">
+                        <i>Untuk <b>Setoran Modal</b>: otomatis dibuat jurnal <b>Debit Bank</b> / <b>Kredit 3101 Modal Disetor</b>.</i>
+                    </div>
+
                     <div style="margin-top: 20px; border-top: 1px solid #a0a0a0; padding-top: 15px;">
-                        <button type="submit" class="erp-btn erp-btn-primary" style="padding: 8px 30px;">Simpan Transaksi</button>
+                        <button type="submit" class="erp-btn erp-btn-primary" style="padding: 8px 30px;">
+                            <span th:if="${mode == 'edit'}">Simpan Perubahan</span>
+                            <span th:unless="${mode == 'edit'}">Simpan Transaksi</span>
+                        </button>
                         <a th:href="@{/ui/finance/cashbank}" class="erp-btn" style="text-decoration:none; display:inline-block; padding: 8px 20px; margin-left: 10px;">Batal</a>
                     </div>
                 </form>

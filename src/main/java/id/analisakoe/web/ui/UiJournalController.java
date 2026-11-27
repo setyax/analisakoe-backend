@@ -190,7 +190,7 @@ public class UiJournalController {
                               RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
         final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 1L;
+        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 11L;
         try {
             if (amount.compareTo(BigDecimal.ZERO) <= 0) throw new RuntimeException("Nominal harus lebih dari 0");
             if (debitAccountId.equals(creditAccountId)) throw new RuntimeException("Akun Debit dan Kredit tidak boleh sama");

@@ -60,7 +60,7 @@ public class UiEmployeeController {
     public String save(@ModelAttribute Employee emp, RedirectAttributes ra) {
         try {
             if (emp.getTenantId() == null) emp.setTenantId(1L);
-            if (emp.getCompanyId() == null) emp.setCompanyId(1L);
+            if (emp.getCompanyId() == null) emp.setCompanyId(11L);
             if (emp.getStatus() == null) emp.setStatus("ACTIVE");
             repo.save(emp);
             ra.addFlashAttribute("success", "Karyawan berhasil ditambahkan.");

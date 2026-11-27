@@ -43,7 +43,7 @@ public class UiBatchProcessController {
     public String runBatchProcess(HttpSession session, RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
         final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 1L;
+        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 11L;
         this.batchTenantId = tenantId;
         this.batchCompId = compId;
         try {
@@ -186,7 +186,7 @@ public class UiBatchProcessController {
     }
 
     private volatile Long batchTenantId = 1L;
-    private volatile Long batchCompId = 1L;
+    private volatile Long batchCompId = 11L;
 
     private Long createJournalHeader(String docPrefix, String jType, String remarks, String refType, Long refId) {
         String docNo = docPrefix + "-" + System.currentTimeMillis();

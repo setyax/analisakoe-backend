@@ -82,7 +82,7 @@ public class UiDepartmentController {
                        RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
         final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 1L;
+        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 11L;
         try {
             if (id == null) {
                 em.createNativeQuery("INSERT INTO hr.department (tenant_id, company_id, code, name, cost_center_id, is_active) VALUES (:tenantId, :compId, :code, :name, :cc, :active)")

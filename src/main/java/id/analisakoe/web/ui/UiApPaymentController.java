@@ -183,7 +183,7 @@ public class UiApPaymentController {
                        RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
         final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 1L;
+        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 11L;
         try {
             if (invoiceIds == null || invoiceIds.isEmpty()) {
                 throw new RuntimeException("Pilih minimal 1 invoice untuk dibayar.");

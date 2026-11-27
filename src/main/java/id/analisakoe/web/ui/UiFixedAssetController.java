@@ -164,7 +164,7 @@ public class UiFixedAssetController {
                        @RequestParam BigDecimal salvageValue, HttpSession session, RedirectAttributes ra) {
         SessionUser user = currentUser(session);
         final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 1L;
+        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 11L;
         try {
             em.createNativeQuery(
                 "INSERT INTO fin.asset_master (tenant_id, company_id, asset_code, asset_name, category, " +

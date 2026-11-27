@@ -53,7 +53,7 @@ public class UiPrintController {
     private Map<String, Object> getCompanyInfo(HttpSession session) {
         Map<String, Object> c = new HashMap<>();
         c.put("name", "AnalisaKoe ERP");
-        Long compId = 1L;
+        Long compId = 11L;
         try {
             SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
             if (user != null && user.getActiveCompanyId() != null) compId = user.getActiveCompanyId();

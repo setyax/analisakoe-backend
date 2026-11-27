@@ -7,6 +7,18 @@
     <main class="app-main">
         <header th:replace="~{fragments/header :: header}"></header>
         <section class="app-content">
+            <style>
+                /* Tombol aksi ringkas: tidak boleh melebihi lebar kolom/tabel */
+                .erp-table td .cb-actions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; align-items: center; }
+                .erp-table td .cb-act {
+                    display: inline-block; padding: 3px 8px !important; border-radius: 4px;
+                    font-size: 11px !important; font-weight: 700; line-height: 1.5; color: #fff;
+                    border: none; cursor: pointer; text-decoration: none; white-space: nowrap;
+                    width: auto !important; max-width: 100%; flex: 0 0 auto; box-sizing: border-box;
+                    margin: 0 !important;
+                }
+                .erp-table td .cb-act:hover { opacity: .88; color: #fff; }
+            </style>
             <div class="erp-container">
                 <h3 style="margin-top:0; margin-bottom:10px;">[Finance] Cash & Bank Transactions</h3>
                 <div th:if="${success}" class="success-msg" th:text="${success}"></div>
@@ -40,19 +52,49 @@
                 <!-- DAFTAR TRANSAKSI -->
                 <h4 style="margin-top:0; margin-bottom:5px;">Riwayat Transaksi</h4>
                 <table class="erp-table" style="margin-bottom: 15px;">
-                    <thead><tr><th>No. Dokumen</th><th>Tanggal</th><th>Tipe</th><th>Bank ID</th><th style="text-align:right;">Amount</th><th>Keterangan</th></tr></thead>
+                    <thead>
+                        <tr style="background:#4b5563;">
+                            <th style="color:white;">No. Dokumen</th>
+                            <th style="color:white;">Tanggal</th>
+                            <th style="color:white;">Tipe</th>
+                            <th style="color:white;">Bank</th>
+                            <th style="color:white; text-align:right;">Amount</th>
+                            <th style="color:white;">Keterangan</th>
+                            <th style="color:white;">Status</th>
+                            <th style="color:white; text-align:center; white-space:nowrap;">Aksi</th>
+                        </tr>
+                    </thead>
                     <tbody>
-                        <tr th:if="${trxs.isEmpty()}"><td colspan="6" class="center">Belum ada transaksi.</td></tr>
+                        <tr th:if="${trxs.isEmpty()}"><td colspan="8" class="center">Belum ada transaksi.</td></tr>
                         <tr th:each="t : ${trxs}">
                             <td><strong th:text="${t.docNo}"></strong></td>
                             <td th:text="${#temporals.format(t.docDate, 'dd-MM-yyyy')}"></td>
                             <td>
                                 <span th:if="${t.trxType == 'IN'}" style="color:green; font-weight:bold;">MASUK (IN)</span>
                                 <span th:if="${t.trxType == 'OUT'}" style="color:red; font-weight:bold;">KELUAR (OUT)</span>
+                                <span th:if="${t.trxType == 'MODAL'}" style="background:#ede9fe; color:#5b21b6; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:bold;">💰 SETORAN MODAL</span>
                             </td>
-                            <td th:text="${t.bankId}"></td>
+                            <td>
+                                <span th:text="${bankNames.get(t.bankId)} ?: ('Bank#' + t.bankId)"></span>
+                            </td>
                             <td style="text-align:right;" th:text="${#numbers.formatDecimal(t.amount, 1, 'POINT', 2, 'COMMA')}"></td>
                             <td th:text="${t.remarks} ?: '—'"></td>
+                            <td>
+                                <span th:if="${t.status == 'VOID'}" style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold;">VOID</span>
+                                <span th:unless="${t.status == 'VOID'}" style="color:#15803d; font-size:11px;">POSTED</span>
+                            </td>
+                            <td style="text-align:center; padding-left:4px !important; padding-right:4px !important;">
+                                <div class="cb-actions">
+                                    <a th:href="@{|/ui/finance/cashbank/${t.id}|}" class="cb-act" style="background:#3b82f6;">View</a>
+                                    <a th:if="${t.status != 'VOID'}" th:href="@{|/ui/finance/cashbank/${t.id}/edit|}" class="cb-act" style="background:#f59e0b;">Edit</a>
+                                    <form th:if="${t.status != 'VOID'}" th:action="@{|/ui/finance/cashbank/${t.id}/void|}" method="post" style="display:contents;">
+                                        <a href="#" role="button" class="cb-act" style="background:#64748b;" onclick="if (confirm('VOID transaksi ini? Untuk MODAL, jurnal akan dibalik secara otomatis.')) { this.closest('form').submit(); } return false;">Void</a>
+                                    </form>
+                                    <form th:if="${t.status == 'VOID'}" th:action="@{|/ui/finance/cashbank/${t.id}/delete|}" method="post" style="display:contents;">
+                                        <a href="#" role="button" class="cb-act" style="background:#dc2626;" onclick="if (confirm('Hapus transaksi VOID ini permanen?')) { this.closest('form').submit(); } return false;">Hapus</a>
+                                    </form>
+                                </div>
+                            </td>
                         </tr>
                     </tbody>
                 </table>

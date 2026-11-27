@@ -101,11 +101,21 @@ public class UiDashboardController {
                     .setParameter("compId", compId).getSingleResult();
             } catch (Exception e) { System.out.println("Warn AP: " + e.getMessage()); }
 
-            // 3e. SALDO KAS & BANK
+            // 3e. SALDO KAS & BANK — hitung dari data aktual:
+            // saldo awal rekening + uang masuk (IN & Setoran Modal) − uang keluar (POSTED)
             try {
-                bankBalance = (BigDecimal) em.createNativeQuery(
-                    "SELECT COALESCE(SUM(current_balance), 0) FROM fin.bank_account WHERE company_id = :compId")
+                BigDecimal opening = (BigDecimal) em.createNativeQuery(
+                    "SELECT COALESCE(SUM(opening_balance), 0) FROM fin.bank_account WHERE company_id = :compId")
                     .setParameter("compId", compId).getSingleResult();
+                BigDecimal cashIn = (BigDecimal) em.createNativeQuery(
+                    "SELECT COALESCE(SUM(amount), 0) FROM fin.cash_bank_trx " +
+                    "WHERE status = 'POSTED' AND company_id = :compId AND trx_type IN ('IN', 'MODAL')")
+                    .setParameter("compId", compId).getSingleResult();
+                BigDecimal cashOut = (BigDecimal) em.createNativeQuery(
+                    "SELECT COALESCE(SUM(amount), 0) FROM fin.cash_bank_trx " +
+                    "WHERE status = 'POSTED' AND company_id = :compId AND trx_type = 'OUT'")
+                    .setParameter("compId", compId).getSingleResult();
+                bankBalance = opening.add(cashIn).subtract(cashOut);
             } catch (Exception e) { System.out.println("Warn Bank: " + e.getMessage()); }
 
             // 3f. NILAI PERSEDIAAN (stok akhir per cabang aktif)

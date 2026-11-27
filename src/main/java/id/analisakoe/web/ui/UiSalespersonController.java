@@ -85,7 +85,7 @@ public class UiSalespersonController {
                        RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
         final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 1L;
+        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 11L;
         try {
             if (id == null) {
                 em.createNativeQuery("INSERT INTO md.salesperson (tenant_id, company_id, code, name, employee_id, commission_pct, phone, email, is_active) VALUES (:tenantId, :compId, :code, :name, :emp, :comm, :phone, :email, :active)")

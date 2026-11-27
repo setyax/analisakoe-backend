@@ -3,6 +3,7 @@ import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
 import id.analisakoe.core.menu.MenuService;
+import id.analisakoe.core.service.StockValuationService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.HttpSession;
@@ -27,9 +28,11 @@ public class UiCogsReportController {
     private EntityManager em;
 
     private final MenuService menuService;
+    private final StockValuationService stockValuationService;
 
-    public UiCogsReportController(MenuService menuService) {
+    public UiCogsReportController(MenuService menuService, StockValuationService stockValuationService) {
         this.menuService = menuService;
+        this.stockValuationService = stockValuationService;
     }
 
     @GetMapping
@@ -82,6 +85,7 @@ public class UiCogsReportController {
         List<Map<String, Object>> cogsList = new ArrayList<>();
         BigDecimal grandTotalCogs = BigDecimal.ZERO;
         BigDecimal grandTotalQty = BigDecimal.ZERO;
+        BigDecimal grandTotalQtyBase = BigDecimal.ZERO;
         int rowCount = 0;
 
         try {
@@ -89,12 +93,15 @@ public class UiCogsReportController {
                 "SELECT hdr.id, hdr.doc_no, hdr.doc_date, " +
                 "  d.item_id, i.code, i.name, " +
                 "  d.qty, d.cogs_unit, d.cogs_total, " +
-                "  COALESCE(u.code, '-') AS uom_code " +
+                "  COALESCE(u.code, '-') AS uom_code, " +
+                "  d.uom_id, COALESCE(bu.code, '-') AS base_uom_code " +
                 "FROM sal.delivery_order_dtl d " +
                 "JOIN sal.delivery_order_hdr hdr ON hdr.id = d.header_id " +
                 "JOIN md.item i ON i.id = d.item_id " +
                 "LEFT JOIN md.uom u ON u.id = d.uom_id " +
-                "WHERE hdr.tenant_id = 1 AND UPPER(TRIM(hdr.status)) = 'CONFIRMED' " +
+                "LEFT JOIN md.uom bu ON bu.id = i.base_uom_id " +
+                "WHERE hdr.tenant_id = 1 AND d.gi_posted_qty > 0 " +
+                "  AND UPPER(TRIM(hdr.status)) IN ('CONFIRMED','READY_TO_SHIP','PARTIALLY_SHIPPED','SHIPPED','DELIVERED','CLOSED') " +
                 "  AND hdr.doc_date BETWEEN :startDate AND :endDate ");
 
             if (itemId != null) {
@@ -136,10 +143,19 @@ public class UiCogsReportController {
                 m.put("cogsUnit", row[7] != null ? new BigDecimal(row[7].toString()) : BigDecimal.ZERO);
                 m.put("cogsTotal", row[8] != null ? new BigDecimal(row[8].toString()) : BigDecimal.ZERO);
                 m.put("uomCode", row[9] != null ? row[9].toString() : "-");
+
+                // ====== KONVERSI QTY KE SATUAN DASAR (BASE UOM) ======
+                BigDecimal qtyLine = (BigDecimal) m.get("qty");
+                Long uomId = row[10] != null ? ((Number) row[10]).longValue() : null;
+                BigDecimal qtyBase = stockValuationService
+                    .convertLineToBase((Long) m.get("itemId"), uomId, qtyLine, BigDecimal.ZERO)[0];
+                m.put("qtyBase", qtyBase);
+                m.put("baseUomCode", row[11] != null ? row[11].toString() : "-");
                 cogsList.add(m);
 
                 grandTotalCogs = grandTotalCogs.add((BigDecimal) m.get("cogsTotal"));
-                grandTotalQty = grandTotalQty.add((BigDecimal) m.get("qty"));
+                grandTotalQty = grandTotalQty.add(qtyLine);
+                grandTotalQtyBase = grandTotalQtyBase.add(qtyBase);
                 rowCount++;
             }
         } catch (Exception e) {
@@ -151,6 +167,7 @@ public class UiCogsReportController {
         model.addAttribute("cogsList", cogsList);
         model.addAttribute("grandTotalCogs", grandTotalCogs);
         model.addAttribute("grandTotalQty", grandTotalQty);
+        model.addAttribute("grandTotalQtyBase", grandTotalQtyBase);
         model.addAttribute("rowCount", rowCount);
 
         return "ui/inventory/cogs_report";
