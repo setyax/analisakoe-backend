@@ -2,6 +2,7 @@ package id.analisakoe.web.ui;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
+import id.analisakoe.context.ContextService;
 import id.analisakoe.core.menu.MenuService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -28,9 +29,11 @@ public class UiThreeWayMatchController {
     private EntityManager em;
 
     private final MenuService menuService;
+    private final ContextService context;
 
-    public UiThreeWayMatchController(MenuService menuService) {
+    public UiThreeWayMatchController(MenuService menuService, ContextService context) {
         this.menuService = menuService;
+        this.context = context;
     }
 
     // ============================================================
@@ -55,20 +58,31 @@ public class UiThreeWayMatchController {
                      "COALESCE((SELECT SUM(pid.qty) FROM pur.purchase_invoice_dtl pid " +
                      "  JOIN pur.purchase_invoice_hdr pih ON pih.id = pid.header_id " +
                      "  JOIN pur.grn_hdr gh ON gh.id = pih.grn_id " +
-                     "  WHERE gh.po_id = po.id AND UPPER(TRIM(pih.status)) <> 'VOID'), 0) AS total_inv " +
+                     "  WHERE gh.po_id = po.id AND UPPER(TRIM(pih.status)) <> 'VOID'), 0) AS total_inv, " +
+                     "(SELECT COUNT(DISTINCT pod.uom_id) FROM pur.purchase_order_dtl pod WHERE pod.header_id = po.id) AS uom_count, " +
+                     "(SELECT MIN(u2.code) FROM pur.purchase_order_dtl pod JOIN md.uom u2 ON u2.id = pod.uom_id WHERE pod.header_id = po.id) AS uom_code, " +
+                     "(SELECT COUNT(DISTINCT gd.uom_id) FROM pur.grn_dtl gd JOIN pur.grn_hdr gh2 ON gh2.id = gd.header_id WHERE gh2.po_id = po.id AND UPPER(TRIM(gh2.status)) <> 'VOID') AS grn_uom_count, " +
+                     "(SELECT MIN(u3.code) FROM pur.grn_dtl gd JOIN pur.grn_hdr gh2 ON gh2.id = gd.header_id JOIN md.uom u3 ON u3.id = gd.uom_id WHERE gh2.po_id = po.id AND UPPER(TRIM(gh2.status)) <> 'VOID') AS grn_uom_code " +
                      "FROM pur.purchase_order_hdr po " +
                      "LEFT JOIN md.supplier s ON s.id = po.supplier_id " +
-                     "WHERE po.tenant_id = 1 " +
+                     "WHERE po.tenant_id = :tenantId AND po.company_id = :companyId " +
                      "  AND po.status NOT IN ('DRAFT', 'VOID') " +
                      "ORDER BY po.id DESC";
 
         List<Map<String, Object>> orders = new ArrayList<>();
         try {
-            for (Object[] row : (List<Object[]>) em.createNativeQuery(sql).getResultList()) {
+            for (Object[] row : (List<Object[]>) em.createNativeQuery(sql)
+                    .setParameter("tenantId", context.tenantId())
+                    .setParameter("companyId", context.companyId())
+                    .getResultList()) {
                 Long poId = ((Number) row[0]).longValue();
                 BigDecimal poQty = new BigDecimal(row[5].toString());
                 BigDecimal grnQty = new BigDecimal(row[6].toString());
                 BigDecimal invQty = new BigDecimal(row[7].toString());
+                int uomCount = ((Number) row[8]).intValue();
+                String uomCode = (uomCount == 1 && row[9] != null) ? row[9].toString() : null;
+                int grnUomCount = ((Number) row[10]).intValue();
+                String grnUomCode = (grnUomCount == 1 && row[11] != null) ? row[11].toString() : null;
 
                 String matchStatus;
 if (poQty.compareTo(BigDecimal.ZERO) == 0) {
@@ -103,6 +117,8 @@ if (poQty.compareTo(BigDecimal.ZERO) == 0) {
                 m.put("totalPo", poQty);
                 m.put("totalGrn", grnQty);
                 m.put("totalInv", invQty);
+                m.put("uomCode", uomCode);       // UOM PO (null jika item pakai campuran unit)
+                m.put("grnUomCode", grnUomCode); // UOM GRN (null jika campuran unit)
                 m.put("matchStatus", matchStatus);
                 orders.add(m);
             }
@@ -135,27 +151,56 @@ if (poQty.compareTo(BigDecimal.ZERO) == 0) {
             model.addAttribute("supplierName", hdr[2]);
             model.addAttribute("poStatus", hdr[3]);
 
-            String sql = "SELECT pod.item_id, i.code, i.name, " +
+            String sql = "SELECT pod.item_id, i.code, i.name, pod.uom_id, u.code, " +
              "SUM(pod.qty) AS po_qty, MAX(pod.price) AS po_price, " +
              "COALESCE((SELECT SUM(gd.qty_received) FROM pur.grn_dtl gd " +
              "  JOIN pur.grn_hdr gh ON gh.id = gd.header_id " +
-             "  WHERE gh.po_id = :poId AND gd.item_id = pod.item_id AND UPPER(TRIM(gh.status)) <> 'VOID'), 0) AS grn_qty, " +
+             "  WHERE gh.po_id = :poId AND gd.item_id = pod.item_id AND gd.uom_id = pod.uom_id AND UPPER(TRIM(gh.status)) <> 'VOID'), 0) AS grn_qty, " +
+             "COALESCE((SELECT MIN(u2.code) FROM pur.grn_dtl gd " +
+             "  JOIN pur.grn_hdr gh ON gh.id = gd.header_id JOIN md.uom u2 ON u2.id = gd.uom_id " +
+             "  WHERE gh.po_id = :poId AND gd.item_id = pod.item_id AND gd.uom_id = pod.uom_id AND UPPER(TRIM(gh.status)) <> 'VOID'), '-') AS grn_uom, " +
              "COALESCE((SELECT SUM(pid.qty) FROM pur.purchase_invoice_dtl pid " +
              "  JOIN pur.purchase_invoice_hdr pih ON pih.id = pid.header_id " +
              "  JOIN pur.grn_hdr gh ON gh.id = pih.grn_id " +
-             "  WHERE gh.po_id = :poId AND pid.item_id = pod.item_id AND UPPER(TRIM(pih.status)) <> 'VOID'), 0) AS inv_qty " +
+             "  WHERE gh.po_id = :poId AND pid.item_id = pod.item_id " +
+             "    AND COALESCE(pid.uom_id, (SELECT gd2.uom_id FROM pur.grn_dtl gd2 WHERE gd2.header_id = pih.grn_id AND gd2.item_id = pid.item_id LIMIT 1)) = pod.uom_id " +
+             "    AND UPPER(TRIM(pih.status)) <> 'VOID'), 0) AS inv_qty, " +
+             "COALESCE((SELECT SUM(pid.qty) FROM pur.purchase_invoice_dtl pid " +
+             "  JOIN pur.purchase_invoice_hdr pih ON pih.id = pid.header_id " +
+             "  JOIN pur.grn_hdr gh ON gh.id = pih.grn_id " +
+             "  WHERE gh.po_id = :poId AND pid.item_id = pod.item_id " +
+             "    AND COALESCE(pid.uom_id, (SELECT gd2.uom_id FROM pur.grn_dtl gd2 WHERE gd2.header_id = pih.grn_id AND gd2.item_id = pid.item_id LIMIT 1)) <> pod.uom_id " +
+             "    AND UPPER(TRIM(pih.status)) <> 'VOID'), 0) AS inv_other_qty, " +
+             "(SELECT MIN(u4.code) FROM pur.purchase_invoice_dtl pid " +
+             "  JOIN md.uom u4 ON u4.id = pid.uom_id " +
+             "  JOIN pur.purchase_invoice_hdr pih ON pih.id = pid.header_id " +
+             "  JOIN pur.grn_hdr gh ON gh.id = pih.grn_id " +
+             "  WHERE gh.po_id = :poId AND pid.item_id = pod.item_id " +
+             "    AND COALESCE(pid.uom_id, (SELECT gd2.uom_id FROM pur.grn_dtl gd2 WHERE gd2.header_id = pih.grn_id AND gd2.item_id = pid.item_id LIMIT 1)) <> pod.uom_id " +
+             "    AND UPPER(TRIM(pih.status)) <> 'VOID') AS inv_other_uom, " +
+             "COALESCE((SELECT SUM(gd.qty_received) FROM pur.grn_dtl gd " +
+             "  JOIN pur.grn_hdr gh ON gh.id = gd.header_id " +
+             "  WHERE gh.po_id = :poId AND gd.item_id = pod.item_id AND gd.uom_id <> pod.uom_id AND UPPER(TRIM(gh.status)) <> 'VOID'), 0) AS grn_other_qty, " +
+             "(SELECT MIN(u3.code) FROM pur.grn_dtl gd " +
+             "  JOIN pur.grn_hdr gh ON gh.id = gd.header_id JOIN md.uom u3 ON u3.id = gd.uom_id " +
+             "  WHERE gh.po_id = :poId AND gd.item_id = pod.item_id AND gd.uom_id <> pod.uom_id AND UPPER(TRIM(gh.status)) <> 'VOID') AS grn_other_uom " +
              "FROM pur.purchase_order_dtl pod " +
              "JOIN md.item i ON i.id = pod.item_id " +
+             "JOIN md.uom u ON u.id = pod.uom_id " +
              "WHERE pod.header_id = :poId " +
-             "GROUP BY pod.item_id, i.code, i.name " +
-             "ORDER BY pod.item_id";
+             "GROUP BY pod.item_id, i.code, i.name, pod.uom_id, u.code " +
+             "ORDER BY pod.item_id, pod.uom_id";
 
             List<Map<String, Object>> items = new ArrayList<>();
             for (Object[] row : (List<Object[]>) em.createNativeQuery(sql)
                     .setParameter("poId", poId).getResultList()) {
-                BigDecimal poQty = new BigDecimal(row[3].toString());
-                BigDecimal grnQty = new BigDecimal(row[5].toString());
-                BigDecimal invQty = new BigDecimal(row[6].toString());
+                BigDecimal poQty = new BigDecimal(row[5].toString());
+                BigDecimal grnQty = new BigDecimal(row[7].toString());
+                BigDecimal invQty = new BigDecimal(row[9].toString());
+                BigDecimal invOtherQty = new BigDecimal(row[10].toString());
+                String invOtherUom = row[11] != null ? row[11].toString() : null;
+                BigDecimal grnOtherQty = new BigDecimal(row[12].toString());
+                String grnOtherUom = row[13] != null ? row[13].toString() : null;
 
                 String itemStatus;
                 if (invQty.compareTo(grnQty) == 0 && grnQty.compareTo(poQty) == 0) {
@@ -171,10 +216,16 @@ if (poQty.compareTo(BigDecimal.ZERO) == 0) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("itemCode", row[1]);
                 m.put("itemName", row[2]);
+                m.put("uomCode", row[4] != null ? row[4].toString() : "-");
                 m.put("poQty", poQty);
                 m.put("grnQty", grnQty);
+                m.put("grnUom", row[8] != null ? row[8].toString() : "-");
                 m.put("invQty", invQty);
-                m.put("poPrice", row[4]);
+                m.put("invOtherQty", invOtherQty);
+                m.put("invOtherUom", invOtherUom);
+                m.put("grnOtherQty", grnOtherQty);
+                m.put("grnOtherUom", grnOtherUom);
+                m.put("poPrice", row[6]);
                 m.put("itemStatus", itemStatus);
                 items.add(m);
             }

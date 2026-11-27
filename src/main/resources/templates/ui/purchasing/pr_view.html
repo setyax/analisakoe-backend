@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="margin:0;">[F0201] View Purchase Request <span th:text="${prDocNo}"></span></h3>
+                    <a th:href="@{/ui/purchasing/pr}" style="background:#6b7280; color:white; padding:6px 15px; border-radius:3px; text-decoration:none; font-weight:bold;">&larr; Kembali</a>
+                </div>
+
+                <!-- HEADER PR -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:15px; margin-bottom:20px; font-size:13px;">
+                    <div><b>No PR:</b> <span th:text="${prDocNo}">-</span></div>
+                    <div><b>Tanggal:</b> <span th:text="${prDate != null ? #temporals.format(prDate, 'dd-MM-yyyy') : '-'}">-</span></div>
+                    <div><b>Requestor:</b> <span th:text="${prRequestor} ?: '-'">-</span></div>
+                    <div><b>Status:</b>
+                        <span th:styleappend="${prStatus == 'DRAFT' ? 'background:#e2e8f0; color:#475569;' : (prStatus == 'CONFIRMED' ? 'background:#dcfce7; color:#166534;' : 'background:#fee2e2; color:#991b1b;')}"
+                              style="padding:3px 10px; border-radius:12px; font-size:11px; font-weight:bold;" th:text="${prStatus}">-</span>
+                    </div>
+                    <div style="grid-column:1 / span 2;"><b>Remarks:</b> <span th:text="${prRemarks} ?: '-'">-</span></div>
+                </div>
+
+                <!-- DETAIL ITEM PR -->
+                <h4 style="margin-bottom:10px;">Isi Purchase Request</h4>
+                <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:4px; margin-bottom:20px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead>
+                            <tr style="background-color:#1e293b; color:white;">
+                                <th style="padding:8px;">NO</th>
+                                <th style="padding:8px;">KODE</th>
+                                <th style="padding:8px;">NAMA ITEM</th>
+                                <th style="padding:8px; text-align:right;">QTY</th>
+                                <th style="padding:8px;">UOM</th>
+                                <th style="padding:8px; text-align:right;">EST. HARGA</th>
+                                <th style="padding:8px;">TGL KIRIM</th>
+                                <th style="padding:8px;">KETERANGAN</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${#lists.isEmpty(details)}">
+                                <td colspan="8" style="text-align:center; padding:15px; color:#94a3b8;">Tidak ada item.</td>
+                            </tr>
+                            <tr th:each="d, st : ${details}" style="border-bottom:1px solid #eee;">
+                                <td style="padding:8px; text-align:center;" th:text="${st.count}">1</td>
+                                <td style="padding:8px;" th:text="${d.itemCode}">-</td>
+                                <td style="padding:8px; font-weight:bold;" th:text="${d.itemName}">-</td>
+                                <td style="padding:8px; text-align:right;" th:text="${d.qty}">-</td>
+                                <td style="padding:8px;" th:text="${d.uomCode}">-</td>
+                                <td style="padding:8px; text-align:right;" th:text="${d.estimatedPrice != null ? #numbers.formatDecimal(d.estimatedPrice,1,2) : '-'}">-</td>
+                                <td style="padding:8px;" th:text="${d.deliveryDate != null ? #temporals.format(d.deliveryDate, 'dd-MM-yyyy') : '-'}">-</td>
+                                <td style="padding:8px;" th:text="${d.shortText} ?: ''"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- PO YANG DIBUAT DARI PR INI -->
+                <h4 style="margin-bottom:10px;">Purchase Order dari PR ini</h4>
+                <div th:if="${#lists.isEmpty(pos)}" style="padding:15px; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:4px; color:#94a3b8; font-size:13px; margin-bottom:20px;">
+                    Belum ada PO yang dibuat dari PR ini.
+                </div>
+
+                <div th:each="po : ${pos}" style="border:1px solid #e2e8f0; border-radius:6px; margin-bottom:15px; overflow:hidden;">
+                    <div style="background:#eff6ff; padding:10px 15px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; font-size:13px; border-bottom:1px solid #e2e8f0;">
+                        <div>
+                            <b th:text="${po.docNo}">PO-</b>
+                            <span style="color:#64748b;" th:text="' &bull; ' + ${po.docDate != null ? #temporals.format(po.docDate, 'dd-MM-yyyy') : '-'}"></span>
+                            <span style="color:#64748b;" th:text="' &bull; Supplier: ' + ${po.supplier}"></span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span th:styleappend="${po.status == 'DRAFT' ? 'background:#e2e8f0; color:#475569;' : (po.status == 'CONFIRMED' ? 'background:#dcfce7; color:#166534;' : 'background:#fee2e2; color:#991b1b;')}"
+                                  style="padding:3px 10px; border-radius:12px; font-size:11px; font-weight:bold;" th:text="${po.status}">-</span>
+                            <span style="font-weight:bold;" th:text="'Total: ' + ${po.totalAmount != null ? #numbers.formatDecimal(po.totalAmount,1,2) : '-'}"></span>
+                            <a th:href="@{/ui/purchasing/po/{id}/view(id=${po.id})}"
+                               style="background:#2563eb; color:white; padding:4px 10px; border-radius:3px; text-decoration:none; font-size:11px; font-weight:bold;">
+                               Buka PO
+                            </a>
+                        </div>
+                    </div>
+                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead>
+                            <tr style="background:#f1f5f9; color:#334155;">
+                                <th style="padding:6px 8px;">NO</th>
+                                <th style="padding:6px 8px;">KODE</th>
+                                <th style="padding:6px 8px;">NAMA ITEM</th>
+                                <th style="padding:6px 8px; text-align:right;">QTY</th>
+                                <th style="padding:6px 8px;">UOM</th>
+                                <th style="padding:6px 8px; text-align:right;">HARGA</th>
+                                <th style="padding:6px 8px; text-align:right;">LINE TOTAL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${#lists.isEmpty(po.details)}">
+                                <td colspan="7" style="text-align:center; padding:10px; color:#94a3b8;">Tidak ada item.</td>
+                            </tr>
+                            <tr th:each="d, st : ${po.details}" style="border-bottom:1px solid #eee;">
+                                <td style="padding:6px 8px; text-align:center;" th:text="${st.count}">1</td>
+                                <td style="padding:6px 8px;" th:text="${d.itemCode}">-</td>
+                                <td style="padding:6px 8px;" th:text="${d.itemName}">-</td>
+                                <td style="padding:6px 8px; text-align:right;" th:text="${d.qty}">-</td>
+                                <td style="padding:6px 8px;" th:text="${d.uomCode}">-</td>
+                                <td style="padding:6px 8px; text-align:right;" th:text="${d.price != null ? #numbers.formatDecimal(d.price,1,2) : '-'}">-</td>
+                                <td style="padding:6px 8px; text-align:right;" th:text="${d.lineTotal != null ? #numbers.formatDecimal(d.lineTotal,1,2) : '-'}">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

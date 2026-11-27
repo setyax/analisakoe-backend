@@ -2,6 +2,7 @@ package id.analisakoe.web.ui;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
+import id.analisakoe.context.ContextService;
 import id.analisakoe.core.menu.MenuService;
 import id.analisakoe.core.service.StockValuationService;      // ======= TAMBAHAN =======
 import id.analisakoe.fin.service.JournalService;         // ======= TAMBAHAN =======
@@ -44,6 +45,21 @@ public class UiGrnController {
     @Autowired
     private EntityManager em;
 
+    @Autowired
+    private ContextService context;
+
+    @Autowired
+    private id.analisakoe.core.service.NotificationService notificationService;
+
+    private void notif(SessionUser user, String type, String title, String message, String link) {
+        try {
+            if (user != null) {
+                notificationService.notifyAllUsers(context.tenantId(),
+                    user.getId(), user.getUsername(), type, title, message, link);
+            }
+        } catch (Exception ignored) { }
+    }
+
     // ======= TAMBAHAN: Inject Inventory & Journal Service =======
     @Autowired
     private StockValuationService inventoryService;
@@ -78,11 +94,14 @@ public class UiGrnController {
                      "FROM pur.grn_hdr h " +
                      "LEFT JOIN pur.purchase_order_hdr po ON h.po_id = po.id " +
                      "LEFT JOIN md.supplier s ON po.supplier_id = s.id " +
-                     "WHERE h.tenant_id = 1 ORDER BY h.id DESC";
+                     "WHERE h.tenant_id = :tenantId AND h.company_id = :companyId ORDER BY h.id DESC";
 
         List<Map<String, Object>> grnList = new ArrayList<>();
         try {
-            List<Object[]> results = em.createNativeQuery(sql).getResultList();
+            List<Object[]> results = em.createNativeQuery(sql)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             for (Object[] row : results) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", row[0]);
@@ -108,13 +127,15 @@ public class UiGrnController {
         model.addAttribute("pageTitle", "Penerimaan Barang (GRN)");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
 
-        var availablePos = poRepo.findByTenantIdOrderByIdDesc(1L,
+        var availablePos = poRepo.findByTenantIdAndCompanyIdOrderByIdDesc(
+                context.tenantId(), context.companyId(),
                 org.springframework.data.domain.PageRequest.of(0, 100))
             .getContent().stream().filter(p -> "CONFIRMED".equals(p.getStatus())).toList();
         model.addAttribute("pos", availablePos);
-        model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(1L,
+        model.addAttribute("items", itemRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(
+                context.tenantId(), context.companyId(),
                 org.springframework.data.domain.PageRequest.of(0, 100)).getContent());
-        model.addAttribute("uoms", uomRepo.findByTenantId(1L,
+        model.addAttribute("uoms", uomRepo.findByTenantId(context.tenantId(),
                 org.springframework.data.domain.PageRequest.of(0, 100)).getContent());
         model.addAttribute("today", LocalDate.now());
         model.addAttribute("selectedPoId", poId);
@@ -191,7 +212,8 @@ public class UiGrnController {
     // CONFIRM GRN — DENGAN INTEGRASI INVENTORY & JOURNAL
     // ============================================================
     @PostMapping("/{id}/confirm")
-    public String confirm(@PathVariable Long id, RedirectAttributes ra) {
+    public String confirm(@PathVariable Long id, HttpSession session, RedirectAttributes ra) {
+        SessionUser notifUser = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
         try {
             transactionTemplate.executeWithoutResult(tx -> {
             // === 1. Ambil data GRN SEBELUM confirm (untuk diproses inventory & journal) ===
@@ -307,6 +329,9 @@ public class UiGrnController {
 
             ra.addFlashAttribute("success",
                 "GRN " + grnNo + " berhasil di-confirm. Stok & Jurnal telah di-update.");
+            notif(notifUser, "GRN", "GRN " + grnNo + " dikonfirmasi",
+                "Penerimaan barang " + grnNo + " telah dikonfirmasi, stok telah diperbarui.",
+                "/api/ui/purchasing/grn");
             });
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Gagal confirm GRN: " + rootMessage(e));

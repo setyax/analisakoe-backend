@@ -2,6 +2,7 @@ package id.analisakoe.web.ui;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
+import id.analisakoe.context.ContextService;
 import id.analisakoe.core.entity.AppUser;
 import id.analisakoe.core.menu.MenuService;
 import id.analisakoe.core.repository.AppUserRepository;
@@ -32,16 +33,24 @@ public class UiMyRequestController {
     private final MenuService menuService;
     private final ItemRepository itemRepo;
     private final UomRepository uomRepo;
+    private final ContextService context;
 
     public UiMyRequestController(PurchasingService service, PurchaseRequestRepository prRepo, AppUserRepository userRepo,
-                                 MenuService menuService, ItemRepository itemRepo, UomRepository uomRepo) {
+                                 MenuService menuService, ItemRepository itemRepo, UomRepository uomRepo,
+                                 ContextService context) {
         this.service = service; this.prRepo = prRepo; this.userRepo = userRepo;
         this.menuService = menuService; this.itemRepo = itemRepo; this.uomRepo = uomRepo;
+        this.context = context;
+    }
+
+    /** PR harus milik tenant + company yang sedang aktif. */
+    private PurchaseRequestHdr ownedPr(Long id) {
+        return prRepo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId())
+            .orElseThrow(() -> new IllegalArgumentException("Request tidak ditemukan"));
     }
 
     private AppUser getLoggedInUser(HttpSession session) {
         SessionUser sessionUser = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long compId = sessionUser.getActiveCompanyId(); // Auto-Injected by Wizard
         return userRepo.findById(sessionUser.getUserId()).orElseThrow();
     }
 
@@ -56,7 +65,8 @@ public class UiMyRequestController {
         
         List<PurchaseRequestHdr> myRequests = new ArrayList<>();
         if (appUser.getEmployeeId() != null) {
-            myRequests = prRepo.findByRequisitionerIdOrderByIdDesc(appUser.getEmployeeId(), PageRequest.of(0, 50)).getContent();
+            myRequests = prRepo.findByTenantIdAndCompanyIdAndRequisitionerIdOrderByIdDesc(
+                context.tenantId(), context.companyId(), appUser.getEmployeeId(), PageRequest.of(0, 50)).getContent();
         }
         model.addAttribute("requests", myRequests);
         
@@ -69,8 +79,9 @@ public class UiMyRequestController {
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "New Request");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(1L, PageRequest.of(0, 100)).getContent());
-        model.addAttribute("uoms", uomRepo.findByTenantId(1L, PageRequest.of(0, 100)).getContent());
+        model.addAttribute("items", itemRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(
+            context.tenantId(), context.companyId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("uoms", uomRepo.findByTenantId(context.tenantId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("today", LocalDate.now());
         return "ui/my_requests/form";
     }
@@ -119,7 +130,7 @@ public class UiMyRequestController {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
         AppUser appUser = getLoggedInUser(session);
         try {
-            var pr = prRepo.findById(id).orElseThrow(() -> new IllegalArgumentException("Request tidak ditemukan"));
+            var pr = ownedPr(id);
             if (appUser.getEmployeeId() == null || !pr.getRequisitionerId().equals(appUser.getEmployeeId()))
                 throw new IllegalArgumentException("Request ini bukan milik Anda.");
             if (!"DRAFT".equals(pr.getStatus()))
@@ -128,8 +139,9 @@ public class UiMyRequestController {
             model.addAttribute("user", user);
             model.addAttribute("pageTitle", "Edit Request");
             model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-            model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(1L, PageRequest.of(0, 100)).getContent());
-            model.addAttribute("uoms", uomRepo.findByTenantId(1L, PageRequest.of(0, 100)).getContent());
+            model.addAttribute("items", itemRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(
+                context.tenantId(), context.companyId(), PageRequest.of(0, 100)).getContent());
+            model.addAttribute("uoms", uomRepo.findByTenantId(context.tenantId(), PageRequest.of(0, 100)).getContent());
             model.addAttribute("pr", pr);
 
             StringBuilder json = new StringBuilder("[");
@@ -168,7 +180,7 @@ public class UiMyRequestController {
             if (itemIds == null || itemIds.isEmpty())
                 throw new Exception("Minimal harus ada 1 barang yang diminta.");
 
-            var pr = prRepo.findById(id).orElseThrow(() -> new Exception("Request tidak ditemukan"));
+            var pr = ownedPr(id);
             if (!pr.getRequisitionerId().equals(appUser.getEmployeeId()))
                 throw new Exception("Request ini bukan milik Anda.");
 
@@ -194,7 +206,7 @@ public class UiMyRequestController {
     public String cancel(@PathVariable Long id, HttpSession session, RedirectAttributes ra) {
         try {
             AppUser appUser = getLoggedInUser(session);
-            var pr = prRepo.findById(id).orElseThrow(() -> new Exception("Request tidak ditemukan"));
+            var pr = ownedPr(id);
             if (appUser.getEmployeeId() == null || !pr.getRequisitionerId().equals(appUser.getEmployeeId()))
                 throw new Exception("Request ini bukan milik Anda.");
             service.cancelPr(id);
@@ -209,7 +221,7 @@ public class UiMyRequestController {
     public String delete(@PathVariable Long id, HttpSession session, RedirectAttributes ra) {
         try {
             AppUser appUser = getLoggedInUser(session);
-            var pr = prRepo.findById(id).orElseThrow(() -> new Exception("Request tidak ditemukan"));
+            var pr = ownedPr(id);
             if (appUser.getEmployeeId() == null || !pr.getRequisitionerId().equals(appUser.getEmployeeId()))
                 throw new Exception("Request ini bukan milik Anda.");
             service.deletePr(id);

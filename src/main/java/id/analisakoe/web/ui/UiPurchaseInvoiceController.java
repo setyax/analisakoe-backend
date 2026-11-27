@@ -2,6 +2,7 @@ package id.analisakoe.web.ui;
 import java.util.Map;
 import java.util.List;
 
+import id.analisakoe.context.ContextService;
 import id.analisakoe.core.menu.MenuService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
@@ -31,6 +32,21 @@ public class UiPurchaseInvoiceController {
     private EntityManager em;
 
     @Autowired
+    private ContextService context;
+
+    @Autowired
+    private id.analisakoe.core.service.NotificationService notificationService;
+
+    private void notif(SessionUser user, String type, String title, String message, String link) {
+        try {
+            if (user != null) {
+                notificationService.notifyAllUsers(context.tenantId(),
+                    user.getId(), user.getUsername(), type, title, message, link);
+            }
+        } catch (Exception ignored) { }
+    }
+
+    @Autowired
     private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     @Autowired
@@ -54,11 +70,14 @@ public class UiPurchaseInvoiceController {
                      "COALESCE(h.remarks, '') AS remarks, h.status, COALESCE(h.tax_amount, 0) " +
                      "FROM pur.purchase_invoice_hdr h " +
                      "LEFT JOIN md.supplier s ON h.supplier_id = s.id " +
-                     "WHERE h.tenant_id = 1 ORDER BY h.id DESC";
+                     "WHERE h.tenant_id = :tenantId AND h.company_id = :companyId ORDER BY h.id DESC";
 
         List<Map<String, Object>> invoiceList = new ArrayList<>();
         try {
-            List<Object[]> results = em.createNativeQuery(sql).getResultList();
+            List<Object[]> results = em.createNativeQuery(sql)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             for (Object[] row : results) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", row[0]);
@@ -98,13 +117,16 @@ public class UiPurchaseInvoiceController {
                      "FROM pur.grn_hdr g " +
                      "LEFT JOIN pur.purchase_order_hdr po ON g.po_id = po.id " +
                      "LEFT JOIN md.supplier s ON po.supplier_id = s.id " +
-                     "WHERE g.tenant_id = 1 AND g.status = 'CONFIRMED' " +
+                     "WHERE g.tenant_id = :tenantId AND g.company_id = :companyId AND g.status = 'CONFIRMED' " +
                      "  AND NOT EXISTS (SELECT 1 FROM pur.purchase_invoice_hdr i WHERE i.grn_id = g.id AND i.status <> 'VOID') " +
                      "ORDER BY g.id DESC";
 
         List<Map<String, Object>> grnList = new ArrayList<>();
         try {
-            List<Object[]> results = em.createNativeQuery(sql).getResultList();
+            List<Object[]> results = em.createNativeQuery(sql)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             for (Object[] row : results) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", row[0]);
@@ -129,7 +151,9 @@ public class UiPurchaseInvoiceController {
                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate invoiceDate,
                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueDate,
                        @RequestParam(required = false) String remarks,
+                       HttpSession session,
                        RedirectAttributes ra) {
+        SessionUser notifUser = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
         try {
             Object[] grn = (Object[]) em.createNativeQuery(
                 "SELECT g.tenant_id, g.company_id, po.supplier_id, g.status, po.tax_type " +
@@ -162,7 +186,8 @@ public class UiPurchaseInvoiceController {
                         List<Object[]> grnDetails = em.createNativeQuery(
                 "SELECT gd.item_id, gd.qty_received, " +
                 "COALESCE((SELECT MAX(pod.price) FROM pur.purchase_order_dtl pod " +
-                "  WHERE pod.header_id = gh.po_id AND pod.item_id = gd.item_id), 0) AS price " +
+                "  WHERE pod.header_id = gh.po_id AND pod.item_id = gd.item_id), 0) AS price, " +
+                "gd.uom_id " +
                 "FROM pur.grn_dtl gd " +
                 "JOIN pur.grn_hdr gh ON gh.id = gd.header_id " +
                 "WHERE gd.header_id = :grn").setParameter("grn", grnId).getResultList();
@@ -258,13 +283,16 @@ public class UiPurchaseInvoiceController {
                     total = subtotal.add(subtotal.multiply(new BigDecimal("0.11")));
                 }
 
-                em.createNativeQuery("INSERT INTO pur.purchase_invoice_dtl (header_id, item_id, qty, price, total) VALUES (:inv, :item, :qty, :price, :total)")
-                    .setParameter("inv", newId).setParameter("item", itemId)
+                em.createNativeQuery("INSERT INTO pur.purchase_invoice_dtl (header_id, item_id, uom_id, qty, price, total) VALUES (:inv, :item, :uom, :qty, :price, :total)")
+                    .setParameter("inv", newId).setParameter("item", itemId).setParameter("uom", d.length > 3 && d[3] != null ? ((Number) d[3]).longValue() : null)
                     .setParameter("qty", qty).setParameter("price", price).setParameter("total", total)
                     .executeUpdate();
             }
 
             ra.addFlashAttribute("success", "Purchase Invoice " + docNo + " berhasil dibuat (DRAFT).");
+            notif(notifUser, "INV", "Invoice " + docNo + " dibuat",
+                "Purchase Invoice " + docNo + " baru telah dibuat dari GRN (DRAFT).",
+                "/api/ui/purchasing/invoices");
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Gagal: " + e.getMessage());
             return "redirect:/ui/purchasing/invoices/new?grnId=" + grnId;
@@ -377,13 +405,17 @@ public class UiPurchaseInvoiceController {
                          "FROM pur.grn_hdr g " +
                          "LEFT JOIN pur.purchase_order_hdr po ON g.po_id = po.id " +
                          "LEFT JOIN md.supplier s ON po.supplier_id = s.id " +
-                         "WHERE g.tenant_id = 1 AND g.status = 'CONFIRMED' " +
+                         "WHERE g.tenant_id = :tenantId AND g.company_id = :companyId AND g.status = 'CONFIRMED' " +
                          "  AND (NOT EXISTS (SELECT 1 FROM pur.purchase_invoice_hdr i WHERE i.grn_id = g.id AND i.status <> 'VOID') " +
                          "       OR g.id = :grnId) " +
                          "ORDER BY g.id DESC";
 
             List<Map<String, Object>> grnList = new ArrayList<>();
-            List<Object[]> results = em.createNativeQuery(sql).setParameter("grnId", grnId).getResultList();
+            List<Object[]> results = em.createNativeQuery(sql)
+                .setParameter("grnId", grnId)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
+                .getResultList();
             for (Object[] row : results) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", row[0]);
@@ -428,7 +460,8 @@ public class UiPurchaseInvoiceController {
 
             List<Object[]> grnDetails = em.createNativeQuery(
     "SELECT gd.item_id, gd.qty_received, " +
-    "COALESCE((SELECT MAX(pod.price) FROM pur.purchase_order_dtl pod WHERE pod.header_id = gh.po_id AND pod.item_id = gd.item_id), 0) AS price " +
+    "COALESCE((SELECT MAX(pod.price) FROM pur.purchase_order_dtl pod WHERE pod.header_id = gh.po_id AND pod.item_id = gd.item_id), 0) AS price, " +
+    "gd.uom_id " +
     "FROM pur.grn_dtl gd " +
     "JOIN pur.grn_hdr gh ON gh.id = gd.header_id " +
     "WHERE gd.header_id = :grn").setParameter("grn", grnId).getResultList();
@@ -474,8 +507,8 @@ public class UiPurchaseInvoiceController {
                     total = subtotal.add(subtotal.multiply(new BigDecimal("0.11")));
                 }
 
-                em.createNativeQuery("INSERT INTO pur.purchase_invoice_dtl (header_id, item_id, qty, price, total) VALUES (:inv, :item, :qty, :price, :total)")
-                    .setParameter("inv", id).setParameter("item", itemId)
+                em.createNativeQuery("INSERT INTO pur.purchase_invoice_dtl (header_id, item_id, uom_id, qty, price, total) VALUES (:inv, :item, :uom, :qty, :price, :total)")
+                    .setParameter("inv", id).setParameter("item", itemId).setParameter("uom", d.length > 3 && d[3] != null ? ((Number) d[3]).longValue() : null)
                     .setParameter("qty", qty).setParameter("price", price).setParameter("total", total).executeUpdate();
             }
 
@@ -523,10 +556,17 @@ public class UiPurchaseInvoiceController {
     }
 
     @PostMapping("/{id}/confirm")
-    public String confirm(@PathVariable Long id, RedirectAttributes ra) {
+    public String confirm(@PathVariable Long id, HttpSession session, RedirectAttributes ra) {
+        SessionUser notifUser = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
         try {
             transactionTemplate.executeWithoutResult(tx -> invoiceService.postInvoice(id));
             ra.addFlashAttribute("success", "Purchase Invoice berhasil di-post. Hutang Usaha telah diakui (jurnal dibuat).");
+            List<?> dn = em.createNativeQuery("SELECT doc_no FROM pur.purchase_invoice_hdr WHERE id = :id")
+                .setParameter("id", id).getResultList();
+            String docNo = dn.isEmpty() ? "INV#" + id : dn.get(0).toString();
+            notif(notifUser, "INV", "Invoice " + docNo + " di-post",
+                "Purchase Invoice " + docNo + " telah di-post, hutang usaha diakui.",
+                "/api/ui/purchasing/invoices");
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Gagal post PI: " + e.getMessage());
         }

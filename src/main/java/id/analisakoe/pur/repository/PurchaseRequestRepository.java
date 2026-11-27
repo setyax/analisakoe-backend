@@ -9,4 +9,8 @@ public interface PurchaseRequestRepository extends JpaRepository<PurchaseRequest
     long countByTenantIdAndStatus(Long tenantId, String status);
     Page<PurchaseRequestHdr> findByTenantIdOrderByIdDesc(Long tenantId, Pageable pageable);
     Page<PurchaseRequestHdr> findByRequisitionerIdOrderByIdDesc(Long requisitionerId, Pageable pageable);
+    Page<PurchaseRequestHdr> findByTenantIdAndCompanyIdAndRequisitionerIdOrderByIdDesc(
+            Long tenantId, Long companyId, Long requisitionerId, Pageable pageable);
+    java.util.Optional<PurchaseRequestHdr> findByIdAndTenantIdAndCompanyId(
+            Long id, Long tenantId, Long companyId);
 }

@@ -1,5 +1,6 @@
 package id.analisakoe.web.ui;
 
+import id.analisakoe.context.ContextService;
 import id.analisakoe.core.menu.MenuService;
 import id.analisakoe.fin.service.JournalService;
 import jakarta.persistence.EntityManager;
@@ -26,10 +27,13 @@ public class UiPurchaseReturnController {
 
     private final MenuService menuService;
     private final JournalService journalService;
+    private final ContextService context;
 
-    public UiPurchaseReturnController(MenuService menuService, JournalService journalService) {
+    public UiPurchaseReturnController(MenuService menuService, JournalService journalService,
+                                      ContextService context) {
         this.menuService = menuService;
         this.journalService = journalService;
+        this.context = context;
     }
 
     // ============================================================
@@ -38,7 +42,7 @@ public class UiPurchaseReturnController {
     @GetMapping
     public String list(HttpSession session, Model model) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long compId = user.getActiveCompanyId();
+        Long compId = context.companyId();
 
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "Purchase Returns");
@@ -68,23 +72,30 @@ public class UiPurchaseReturnController {
         model.addAttribute("pageTitle", "New Purchase Return");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         model.addAttribute("today", LocalDate.now());
-        model.addAttribute("nextDocNo", generateDocNo(user.getActiveCompanyId()));
+        model.addAttribute("nextDocNo", generateDocNo(context.companyId()));
 
         // 1. Supplier
         List<Object[]> suppliers = em.createNativeQuery(
-                "SELECT id, name FROM md.supplier WHERE deleted_at IS NULL ORDER BY name")
+                "SELECT id, name FROM md.supplier " +
+                "WHERE tenant_id = :tenantId AND company_id = :companyId AND deleted_at IS NULL ORDER BY name")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
                 .getResultList();
         model.addAttribute("suppliers", suppliers);
 
         // 2. Item
         List<Object[]> items = em.createNativeQuery(
-                "SELECT id, code, name FROM md.item WHERE deleted_at IS NULL ORDER BY name")
+                "SELECT id, code, name FROM md.item " +
+                "WHERE tenant_id = :tenantId AND company_id = :companyId AND deleted_at IS NULL ORDER BY name")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("companyId", context.companyId())
                 .getResultList();
         model.addAttribute("items", items);
 
-        // 3. UOM
+        // 3. UOM (tenant-level)
         List<Object[]> uoms = em.createNativeQuery(
-                "SELECT id, code, name FROM md.uom ORDER BY code")
+                "SELECT id, code, name FROM md.uom WHERE tenant_id = :tenantId ORDER BY code")
+                .setParameter("tenantId", context.tenantId())
                 .getResultList();
         model.addAttribute("uoms", uoms);
 
@@ -93,7 +104,10 @@ public class UiPurchaseReturnController {
         Map<String, Long> uomMap = new HashMap<>();
         try {
             List<Object[]> prices = em.createNativeQuery(
-                    "SELECT supplier_id, item_id, price, uom_id FROM pur.price_list")
+                    "SELECT supplier_id, item_id, price, uom_id FROM pur.price_list " +
+                    "WHERE tenant_id = :tenantId AND company_id = :companyId")
+                    .setParameter("tenantId", context.tenantId())
+                    .setParameter("companyId", context.companyId())
                     .getResultList();
             for (Object[] p : prices) {
                 String key = p[0] + "-" + p[1];
@@ -127,7 +141,7 @@ public class UiPurchaseReturnController {
                        HttpSession session,
                        RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long compId = user.getActiveCompanyId();
+        Long compId = context.companyId();
 
         // 1. Validasi & hitung total
         if (itemIds == null || itemIds.isEmpty()) {
@@ -153,8 +167,9 @@ public class UiPurchaseReturnController {
         Object newIdRaw = em.createNativeQuery(
             "INSERT INTO pur.purchase_return_hdr " +
             "(tenant_id, company_id, doc_no, doc_date, supplier_id, total_amount, remarks, status) " +
-            "VALUES (1, :compId, :docNo, :docDate, :supplierId, :totalAmount, :remarks, 'POSTED') " +
+            "VALUES (:tenantId, :compId, :docNo, :docDate, :supplierId, :totalAmount, :remarks, 'POSTED') " +
             "RETURNING id")
+          .setParameter("tenantId", context.tenantId())
           .setParameter("compId", compId)
           .setParameter("docNo", docNo)
           .setParameter("docDate", docDate)
@@ -214,7 +229,8 @@ public class UiPurchaseReturnController {
                 em.createNativeQuery(
                     "INSERT INTO inv.transaction_header " +
                     "(tenant_id, company_id, doc_no, doc_date, doc_type, warehouse_id, remarks, status) " +
-                    "VALUES (1, :compId, :docNo, :docDate, 'OUT', :whId, :remarks, 'POSTED')")
+                    "VALUES (:tenantId, :compId, :docNo, :docDate, 'OUT', :whId, :remarks, 'POSTED')")
+                  .setParameter("tenantId", context.tenantId())
                   .setParameter("compId", compId)
                   .setParameter("docNo", docNo + "-ITEM-" + itemId)
                   .setParameter("docDate", docDate)
@@ -234,7 +250,7 @@ public class UiPurchaseReturnController {
 
         // 5. Jurnal Otomatis
         journalService.createJournal(
-            1L, compId,
+            context.tenantId(), compId,
             docDate,
             "PURCHASE_RETURN",
             "Retur Pembelian " + docNo,
@@ -256,7 +272,7 @@ public class UiPurchaseReturnController {
     public String delete(@PathVariable Long id, HttpSession session, RedirectAttributes ra) {
         try {
             SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-            Long compId = user.getActiveCompanyId();
+            Long compId = context.companyId();
 
             // Cek status
             Object status = em.createNativeQuery(
@@ -289,7 +305,7 @@ public class UiPurchaseReturnController {
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, HttpSession session, Model model, RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long compId = user.getActiveCompanyId();
+        Long compId = context.companyId();
         
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "Edit Purchase Return");
@@ -357,7 +373,7 @@ public class UiPurchaseReturnController {
                          HttpSession session,
                          RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long compId = user.getActiveCompanyId();
+        Long compId = context.companyId();
 
         try {
             // Hitung total
@@ -428,7 +444,7 @@ public class UiPurchaseReturnController {
     @GetMapping("/{id}/print")
     public String print(@PathVariable Long id, HttpSession session, Model model) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long compId = user.getActiveCompanyId();
+        Long compId = context.companyId();
         model.addAttribute("user", user);
 
         try {

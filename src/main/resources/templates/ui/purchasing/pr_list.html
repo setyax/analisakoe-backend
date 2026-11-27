@@ -50,6 +50,11 @@
                                 </td>
                                 <!-- KOLOM AKSI UNTUK BUAT RFQ -->
                                 <td style="padding:10px; text-align:center;">
+                                    <a th:href="@{/ui/purchasing/pr/{id}/view(id=${p.id})}"
+   style="background:#0f766e;color:white;padding:4px 10px;border-radius:3px;text-decoration:none;font-size:11px;font-weight:bold;display:inline-block;margin-right:4px;"
+   title="Lihat isi PR beserta PO yang sudah dibuat dari PR ini">
+   View
+</a>
                                     <a th:href="@{/ui/purchasing/pr/{id}/print(id=${p.id})}"
    target="_blank"
    style="background:#2563eb;color:white;padding:4px 10px;border-radius:3px;text-decoration:none;font-size:11px;font-weight:bold;display:inline-block;margin-right:4px;">

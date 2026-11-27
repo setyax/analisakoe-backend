@@ -44,7 +44,7 @@ public class PurchaseInvoiceService {
         PurchaseOrderHdr po = poRepo.findById(grn.getPoId()).orElse(null);
 
         PurchaseInvoiceHdr hdr = new PurchaseInvoiceHdr();
-        hdr.setTenantId(1L); hdr.setCompanyId(1L);
+        hdr.setTenantId(1L); hdr.setCompanyId(11L);
         hdr.setDocNo("DOC-" + System.currentTimeMillis());
         hdr.setSupplierInvoiceNo(supplierInvoiceNo);
         hdr.setInvoiceDate(invDate); hdr.setDueDate(dueDate);
@@ -57,6 +57,7 @@ public class PurchaseInvoiceService {
         for (var gDtl : grn.getDetails()) {
             PurchaseInvoiceDtl d = new PurchaseInvoiceDtl();
             d.setItemId(gDtl.getItemId());
+            d.setUomId(gDtl.getUomId());
             d.setQty(gDtl.getQtyReceived());
             
             // Cari harga dari PO berdasarkan Item ID
