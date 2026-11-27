@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 @Service
 public class InventoryService {
     private static final Long TENANT = 1L;
-    private static final Long COMPANY = 1L;
+    private static final Long COMPANY = 11L;
 
     private final InvTransactionRepository trxRepo;
     private final InvStockBalanceRepository balanceRepo;
