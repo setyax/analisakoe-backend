@@ -68,6 +68,16 @@
             <li><a th:href="@{/ui/sales/returns}" style="display:block; padding:10px 20px 10px 40px; color:#cbd5e1; text-decoration:none;"><i class="fas fa-reply" style="width:20px;"></i> Sales Returns</a></li>
         </ul>
 
+        <!-- CRM -->
+        <li th:if="${user != null and user.permissions != null and (user.permissions.contains('SALES') or user.permissions.contains('PURCHASING'))}" 
+            onclick="toggleMenu('menu-crm', this)" style="padding:12px 20px; font-weight:bold; color:#94a3b8; font-size:12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #1e293b; margin-top:5px;">
+            <span>CRM</span> <span class="toggle-icon" id="icon-menu-crm" style="font-size:16px; font-weight:bold; color:#3b82f6;">+</span>
+        </li>
+        <ul id="menu-crm" th:if="${user != null and user.permissions != null and (user.permissions.contains('SALES') or user.permissions.contains('PURCHASING'))}" style="display:none; list-style:none; padding:0; margin:0; background-color:#0b1120;">
+            <li><a th:href="@{/ui/crm}" style="display:block; padding:10px 20px 10px 40px; color:#cbd5e1; text-decoration:none;"><i class="fas fa-users" style="width:20px;"></i> Monitoring Customer</a></li>
+            <li><a th:href="@{/ui/supplier-portal}" style="display:block; padding:10px 20px 10px 40px; color:#cbd5e1; text-decoration:none;"><i class="fas fa-truck" style="width:20px;"></i> Portal Supplier</a></li>
+        </ul>
+
         <!-- INVENTORY -->
         <li th:if="${user != null and user.permissions != null and user.permissions.contains('INVENTORY')}" 
             onclick="toggleMenu('menu-inventory', this)" style="padding:12px 20px; font-weight:bold; color:#94a3b8; font-size:12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #1e293b; margin-top:5px;">
@@ -94,6 +104,7 @@
             <li><a th:href="@{/ui/finance/journals}" style="display:block; padding:10px 20px 10px 40px; color:#cbd5e1; text-decoration:none;"><i class="fas fa-book" style="width:20px;"></i> General Journals</a></li>
             <li><a th:href="@{/ui/finance/notes}" style="display:block; padding:10px 20px 10px 40px; color:#cbd5e1; text-decoration:none;"><i class="fas fa-sticky-note" style="width:20px;"></i> Notes</a></li>
             <li><a th:href="@{/ui/finance/receipts}" style="display:block; padding:10px 20px 10px 40px; color:#cbd5e1; text-decoration:none;"><i class="fas fa-money-bill-wave" style="width:20px;"></i> Customer Receipts</a></li>
+            <li><a th:href="@{/ui/finance/cashbank}" style="display:block; padding:10px 20px 10px 40px; color:#cbd5e1; text-decoration:none;"><i class="fas fa-university" style="width:20px;"></i> Cash &amp; Bank</a></li>
             <li><a th:href="@{/ui/finance/expenses}" style="display:block; padding:10px 20px 10px 40px; color:#cbd5e1; text-decoration:none;"><i class="fas fa-wallet" style="width:20px;"></i> Expenses (Kas & Bank)</a></li>
             <li><a th:href="@{/ui/finance/ap-payments}" style="display:block; padding:10px 20px 10px 40px; color:#cbd5e1; text-decoration:none;"><i class="fas fa-money-bill-wave" style="width:20px;"></i> AP Payments</a></li>
             <li><a th:href="@{/ui/finance/batch-process}" style="display:block; padding:10px 20px 10px 40px; color:#cbd5e1; text-decoration:none;"><i class="fas fa-tasks" style="width:20px;"></i> Batch Journal</a></li>
@@ -151,7 +162,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            var menus = ['menu-master', 'menu-hr', 'menu-purchasing', 'menu-sales', 'menu-inventory', 'menu-finance'];
+            var menus = ['menu-master', 'menu-hr', 'menu-purchasing', 'menu-sales', 'menu-inventory', 'menu-finance', 'menu-crm'];
             var currentPath = window.location.pathname;
 
             menus.forEach(function(menuId) {
@@ -167,6 +178,7 @@
                 if (menuId === 'menu-hr' && (currentPath.includes('/hr') || currentPath.includes('/my-requests'))) shouldAutoOpen = true; 
                 if (menuId === 'menu-purchasing' && currentPath.includes('/purchasing')) shouldAutoOpen = true;
                 if (menuId === 'menu-sales' && currentPath.includes('/sales')) shouldAutoOpen = true;
+                if (menuId === 'menu-crm' && (currentPath.includes('/crm') || currentPath.includes('/supplier-portal'))) shouldAutoOpen = true;
                 if (menuId === 'menu-inventory' && currentPath.includes('/inventory')) shouldAutoOpen = true;
                 if (menuId === 'menu-finance' && currentPath.includes('/finance')) shouldAutoOpen = true;
 

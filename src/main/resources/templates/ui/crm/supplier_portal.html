@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container" style="padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="margin-top:0; margin-bottom:20px;">🚚 Portal Supplier</h3>
+
+                <div th:if="${error}" style="margin-bottom:10px; padding:10px; background:#fee2e2; color:#991b1b; border-radius:4px;" th:text="${error}"></div>
+
+                <!-- SUMMARY CARDS -->
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:20px;">
+                    <div style="background:#eff6ff; border-radius:8px; padding:15px;">
+                        <div style="font-size:12px; color:#1e40af; font-weight:bold;">SUPPLIER AKTIF</div>
+                        <div style="font-size:26px; font-weight:bold; color:#1e3a8a;" th:text="${activeCount}">0</div>
+                    </div>
+                    <div style="background:#fefce8; border-radius:8px; padding:15px;">
+                        <div style="font-size:12px; color:#a16207; font-weight:bold;">PO TERBUKA</div>
+                        <div style="font-size:26px; font-weight:bold; color:#713f12;" th:text="${totalOpenPo}">0</div>
+                    </div>
+                    <div style="background:#f0fdf4; border-radius:8px; padding:15px;">
+                        <div style="font-size:12px; color:#166534; font-weight:bold;">NILAI PO TOTAL</div>
+                        <div style="font-size:22px; font-weight:bold; color:#14532d;" th:text="${#numbers.formatDecimal(totalPoValue,1,'POINT',2,'COMMA')}">0</div>
+                    </div>
+                    <div style="background:#fef2f2; border-radius:8px; padding:15px;">
+                        <div style="font-size:12px; color:#991b1b; font-weight:bold;">UTANG BELUM DIBAYAR (AP)</div>
+                        <div style="font-size:22px; font-weight:bold; color:#7f1d1d;" th:text="${#numbers.formatDecimal(totalApOutstanding,1,'POINT',2,'COMMA')}">0</div>
+                    </div>
+                </div>
+
+                <!-- SEARCH -->
+                <div style="margin-bottom:15px;">
+                    <form method="get" th:action="@{/ui/supplier-portal}" style="display:flex; gap:8px;">
+                        <input type="text" name="q" th:value="${q}" placeholder="🔍 Cari nama / kode supplier..." style="flex:1; padding:10px; border:1px solid #cbd5e1; border-radius:4px;">
+                        <button type="submit" style="background:#2563eb; color:white; padding:10px 20px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Cari</button>
+                        <a th:href="@{/ui/supplier-portal}" style="background:#e2e8f0; color:#334155; padding:10px 15px; border-radius:4px; text-decoration:none; font-weight:bold;">Reset</a>
+                    </form>
+                </div>
+
+                <!-- SUPPLIER TABLE -->
+                <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:4px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead>
+                            <tr style="background-color:#1e293b; color:white;">
+                                <th style="padding:10px;">KODE</th>
+                                <th style="padding:10px;">NAMA SUPPLIER</th>
+                                <th style="padding:10px; text-align:center;">STATUS</th>
+                                <th style="padding:10px; text-align:center;">PO (OPEN)</th>
+                                <th style="padding:10px; text-align:right;">NILAI PO</th>
+                                <th style="padding:10px; text-align:center;">PENGIRIMAN</th>
+                                <th style="padding:10px; text-align:center;">KIRIM TERAKHIR</th>
+                                <th style="padding:10px; text-align:right;">UTANG (AP)</th>
+                                <th style="padding:10px; text-align:center; width:80px;">AKSI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${#lists.isEmpty(suppliers)}">
+                                <td colspan="9" style="text-align:center; padding:20px; color:#94a3b8;">Belum ada supplier.</td>
+                            </tr>
+                            <tr th:each="s : ${suppliers}" style="border-bottom:1px solid #eee;">
+                                <td style="padding:10px;" th:text="${s.code}"></td>
+                                <td style="padding:10px; font-weight:bold;" th:text="${s.name}"></td>
+                                <td style="padding:10px; text-align:center;">
+                                    <span th:styleappend="${s.status == 'ACTIVE' ? 'background:#dcfce7; color:#166534;' : 'background:#e2e8f0; color:#475569;'}"
+                                          style="padding:3px 10px; border-radius:12px; font-size:11px; font-weight:bold;" th:text="${s.status}"></span>
+                                </td>
+                                <td style="padding:10px; text-align:center;" th:text="${s.poCount} + ' (' + ${s.poOpen} + ')'"></td>
+                                <td style="padding:10px; text-align:right;" th:text="${#numbers.formatDecimal(s.poValue,1,'POINT',2,'COMMA')}"></td>
+                                <td style="padding:10px; text-align:center;" th:text="${s.grnCount}"></td>
+                                <td style="padding:10px; text-align:center;"
+                                    th:text="${s.lastDelivery != null ? #temporals.format(s.lastDelivery, 'dd-MM-yyyy') : '-'}"></td>
+                                <td style="padding:10px; text-align:right; font-weight:bold;"
+                                    th:styleappend="${s.apOutstanding.signum() > 0} ? 'color:#b45309;' : 'color:#166534;'"
+                                    th:text="${#numbers.formatDecimal(s.apOutstanding,1,'POINT',2,'COMMA')}"></td>
+                                <td style="padding:10px; text-align:center;">
+                                    <a th:href="@{/ui/supplier-portal/{id}(id=${s.id})}"
+                                       style="background:#2563eb; color:white; padding:4px 10px; border-radius:3px; text-decoration:none; font-size:11px; font-weight:bold;">Detail</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>
