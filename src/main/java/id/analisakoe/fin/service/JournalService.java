@@ -33,7 +33,7 @@ public class JournalService {
 
     @Transactional
     public void createJournal(LocalDate date, String type, String remarks, List<JournalLine> lines) {
-        createJournal(1L, 1L, date, type, remarks, lines);
+        createJournal(1L, 11L, date, type, remarks, lines);
     }
 
     /** Versi eksplisit: jurnal mengikuti company dokumen asal. */

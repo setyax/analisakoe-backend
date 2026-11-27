@@ -24,7 +24,7 @@ public class FixedAssetService {
     @Transactional
     public void capitalizeAsset(String name, String category, BigDecimal cost, int usefulLifeYears, LocalDate acqDate) {
         AssetMaster asset = new AssetMaster();
-        asset.setTenantId(1L); asset.setCompanyId(1L);
+        asset.setTenantId(1L); asset.setCompanyId(11L);
         asset.setAssetCode("AST-" + System.currentTimeMillis());
         asset.setAssetName(name); asset.setCategory(category);
         asset.setAcquisitionDate(acqDate); asset.setAcquisitionCost(cost);

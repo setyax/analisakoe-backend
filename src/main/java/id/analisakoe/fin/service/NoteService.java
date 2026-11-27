@@ -22,7 +22,7 @@ public class NoteService {
     @Transactional
     public void create(LocalDate date, String type, Long partnerId, BigDecimal amount, String remarks) {
         Note note = new Note();
-        note.setTenantId(1L); note.setCompanyId(1L);
+        note.setTenantId(1L); note.setCompanyId(11L);
         note.setDocNo(type + "-" + System.currentTimeMillis());
         note.setDocDate(date); note.setNoteType(type);
         note.setPartnerId(partnerId);

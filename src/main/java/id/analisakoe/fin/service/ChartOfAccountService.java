@@ -17,7 +17,7 @@ import java.util.List;
 @Service
 public class ChartOfAccountService {
     private static final Long TENANT = 1L;
-    private static final Long COMPANY = 1L;
+    private static final Long COMPANY = 11L;
 
     private final ChartOfAccountRepository repo;
 

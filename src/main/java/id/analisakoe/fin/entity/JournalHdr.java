@@ -13,6 +13,8 @@ public class JournalHdr {
     @Column(name = "doc_date") private LocalDate docDate;
     @Column(name = "journal_type") private String journalType;
     private String remarks;
+    @Column(name = "ref_type") private String refType;
+    @Column(name = "ref_id") private Long refId;
 
     @OneToMany(mappedBy = "header", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<JournalDtl> details = new ArrayList<>();
@@ -23,6 +25,8 @@ public class JournalHdr {
     public LocalDate getDocDate() { return docDate; } public void setDocDate(LocalDate v) { this.docDate = v; }
     public String getJournalType() { return journalType; } public void setJournalType(String v) { this.journalType = v; }
     public String getRemarks() { return remarks; } public void setRemarks(String v) { this.remarks = v; }
+    public String getRefType() { return refType; } public void setRefType(String v) { this.refType = v; }
+    public Long getRefId() { return refId; } public void setRefId(Long v) { this.refId = v; }
     public Long getTenantId() { return tenantId; } public void setTenantId(Long v) { this.tenantId = v; }
     public Long getCompanyId() { return companyId; } public void setCompanyId(Long v) { this.companyId = v; }
     public List<JournalDtl> getDetails() { return details; }
