@@ -49,7 +49,7 @@ public class PayrollService {
         } else {
             run = new PayrollRun();
             run.setTenantId(1L); 
-            run.setCompanyId(1L);
+            run.setCompanyId(11L);
             run.setPeriod(period); 
             run.setStatus("DRAFT");
         }
