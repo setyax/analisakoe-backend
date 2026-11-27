@@ -39,7 +39,7 @@ public class SalesOrderService {
         if(lines == null || lines.isEmpty()) throw new BusinessException("Minimal 1 item");
 
         SalesOrderHdr hdr = new SalesOrderHdr();
-        hdr.setTenantId(1L); hdr.setCompanyId(1L);
+        hdr.setTenantId(1L); hdr.setCompanyId(11L);
         hdr.setDocNo(numberRangeService.generate("SO", "SO"));
         hdr.setDocDate(date); hdr.setCustomerId(customerId);
         hdr.setRemarks(remarks); hdr.setStatus("DRAFT"); 

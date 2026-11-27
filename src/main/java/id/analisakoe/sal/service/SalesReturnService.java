@@ -31,7 +31,7 @@ public class SalesReturnService {
         if(lines == null || lines.isEmpty()) throw new BusinessException("Minimal 1 item diretur");
 
         SalesReturnHdr hdr = new SalesReturnHdr();
-        hdr.setTenantId(1L); hdr.setCompanyId(1L);
+        hdr.setTenantId(1L); hdr.setCompanyId(11L);
         hdr.setDocNo("SR-" + System.currentTimeMillis());
         hdr.setDocDate(date); hdr.setCustomerId(customerId); hdr.setSalesInvoiceId(invoiceId);
         hdr.setWarehouseId(warehouseId); hdr.setRemarks(remarks); hdr.setStatus("DRAFT");

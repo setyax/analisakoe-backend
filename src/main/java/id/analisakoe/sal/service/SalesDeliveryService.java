@@ -47,7 +47,7 @@ public class SalesDeliveryService {
         // ============================================================
         DeliveryOrderHdr hdr = new DeliveryOrderHdr();
         hdr.setTenantId(1L);
-        hdr.setCompanyId(1L);
+        hdr.setCompanyId(11L);
         hdr.setDocNo("DOC-" + System.currentTimeMillis());
         hdr.setDocDate(LocalDate.now());
         hdr.setSoId(soId);
@@ -87,7 +87,7 @@ public class SalesDeliveryService {
 
         DeliveryOrderHdr hdr = new DeliveryOrderHdr();
         hdr.setTenantId(1L);
-        hdr.setCompanyId(1L);
+        hdr.setCompanyId(11L);
         hdr.setDocNo("DOC-" + System.currentTimeMillis());
         hdr.setDocDate(docDate != null ? docDate : LocalDate.now());
         hdr.setSoId(soId);
@@ -117,7 +117,7 @@ public class SalesDeliveryService {
         SalesOrderHdr so = soRepo.findById(doHdr.getSoId()).orElseThrow();
 
         SalesInvoiceHdr hdr = new SalesInvoiceHdr();
-        hdr.setTenantId(1L); hdr.setCompanyId(1L);
+        hdr.setTenantId(1L); hdr.setCompanyId(11L);
         hdr.setDocNo(numberRangeService.generate("SI", "SI"));
         hdr.setDocDate(invDate); hdr.setDueDate(dueDate);
         hdr.setDoId(doId); hdr.setCustomerId(so.getCustomerId()); hdr.setStatus("POSTED");

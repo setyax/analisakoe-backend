@@ -26,6 +26,9 @@ public class DeliveryOrderService {
     @Autowired
     private StockValuationService stockValuationService;
 
+    @Autowired
+    private id.analisakoe.fin.service.JournalService journalService;
+
     @Transactional(readOnly = true)
     public String previewDocNo(Long compId) {
         return buildDocNo(compId);
@@ -338,11 +341,43 @@ public class DeliveryOrderService {
                     "WHERE id=:detailId AND header_id=:doId AND gi_posted_qty+:qty<=qty")
                     .setParameter("qty", qty).setParameter("detailId", doDetailId).setParameter("doId", id)
                     .executeUpdate();
+
+            // Catat HPP baris ini ke DO detail (dari movement stok yang baru dibuat)
+            BigDecimal lineCost = (BigDecimal) em.createNativeQuery(
+                    "SELECT COALESCE(total_cost, 0) FROM inv.stock_movement WHERE id = :mid")
+                    .setParameter("mid", movementId).getSingleResult();
+            em.createNativeQuery(
+                    "UPDATE sal.delivery_order_dtl SET cogs_total = COALESCE(cogs_total, 0) + :cost, " +
+                    "cogs_unit = CASE WHEN qty > 0 THEN ROUND((COALESCE(cogs_total, 0) + :cost) / qty, 4) ELSE 0 END " +
+                    "WHERE id = :detailId")
+                    .setParameter("cost", lineCost).setParameter("detailId", doDetailId)
+                    .executeUpdate();
         }
 
         refreshGoodsIssueStatus(id);
         Long soId = h[2] == null ? null : ((Number) h[2]).longValue();
         if (soId != null) updateSOStatus(soId);
+
+        // Jurnal HPP: Debit 5101 HPP / Kredit 1301 Persediaan (sekali per GI, idempotent via ref)
+        BigDecimal giCost = (BigDecimal) em.createNativeQuery(
+                "SELECT COALESCE(SUM(total_cost), 0) FROM inv.stock_movement " +
+                "WHERE tenant_id = :t AND reference_type = 'DO_GI' AND reference_id = :giId AND direction = 'OUT'")
+                .setParameter("t", tenantId).setParameter("giId", giId).getSingleResult();
+        if (giCost.compareTo(BigDecimal.ZERO) > 0) {
+            Long existing = ((Number) em.createNativeQuery(
+                "SELECT COUNT(*) FROM fin.journal_hdr WHERE ref_type = 'DO_GI' AND ref_id = :giId")
+                .setParameter("giId", giId).getSingleResult()).longValue();
+            if (existing == 0) {
+                String note = "HPP " + giDocNo + " dari DO " + docNo;
+                journalService.createJournal(tenantId, compId, docDate, "COGS", note, java.util.List.of(
+                    new id.analisakoe.fin.service.JournalService.JournalLine("5101", giCost, BigDecimal.ZERO, "HPP " + giDocNo),
+                    new id.analisakoe.fin.service.JournalService.JournalLine("1301", BigDecimal.ZERO, giCost, "Persediaan keluar " + giDocNo)));
+                em.createNativeQuery(
+                    "UPDATE fin.journal_hdr SET ref_type = 'DO_GI', ref_id = :giId " +
+                    "WHERE id = (SELECT id FROM fin.journal_hdr WHERE journal_type = 'COGS' AND remarks = :note ORDER BY id DESC LIMIT 1)")
+                    .setParameter("giId", giId).setParameter("note", note).executeUpdate();
+            }
+        }
         return giDocNo;
     }
 
@@ -373,6 +408,7 @@ public class DeliveryOrderService {
                 .getResultList();
         if (originalRows.isEmpty()) throw new IllegalStateException("Goods Issue asal tidak ditemukan atau bukan milik DO ini.");
         String originalDocNo = String.valueOf(originalRows.get(0)[1]);
+        BigDecimal reversedTotal = BigDecimal.ZERO;
 
         @SuppressWarnings("unchecked")
         List<Object[]> lines = em.createNativeQuery(
@@ -443,11 +479,29 @@ public class DeliveryOrderService {
                     .setParameter("qty", qty).setParameter("doDetailId", doDetailId).setParameter("doId", doId)
                     .executeUpdate();
             if (changed == 0) throw new IllegalStateException("Qty posted DO tidak cukup untuk reversal detail " + doDetailId + ".");
+
+            // Kurangi HPP yang tercatat di DO detail sebesar nilai yang dibalik
+            BigDecimal reversedCost = unitCost.multiply(qtyBase);
+            em.createNativeQuery(
+                    "UPDATE sal.delivery_order_dtl SET cogs_total = GREATEST(COALESCE(cogs_total, 0) - :cost, 0), " +
+                    "cogs_unit = CASE WHEN qty > 0 THEN ROUND(GREATEST(COALESCE(cogs_total, 0) - :cost, 0) / qty, 4) ELSE 0 END " +
+                    "WHERE id = :doDetailId")
+                    .setParameter("cost", reversedCost).setParameter("doDetailId", doDetailId)
+                    .executeUpdate();
+            reversedTotal = reversedTotal.add(reversedCost);
         }
 
         refreshGoodsIssueStatus(doId);
         Long soId = h[2] == null ? null : ((Number) h[2]).longValue();
         if (soId != null) updateSOStatus(soId);
+
+        // Jurnal pembalik HPP: Debit 1301 Persediaan / Kredit 5101 HPP
+        if (reversedTotal.compareTo(BigDecimal.ZERO) > 0) {
+            journalService.createJournal(tenantId, compId, reversalDate, "COGS_REVERSAL",
+                "Pembalik HPP reversal " + originalDocNo + " untuk DO " + doNo, java.util.List.of(
+                    new id.analisakoe.fin.service.JournalService.JournalLine("1301", reversedTotal, BigDecimal.ZERO, "Persediaan kembali " + reversalDocNo),
+                    new id.analisakoe.fin.service.JournalService.JournalLine("5101", BigDecimal.ZERO, reversedTotal, "HPP dibalik " + reversalDocNo)));
+        }
         return reversalDocNo;
     }
 
