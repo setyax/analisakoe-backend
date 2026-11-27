@@ -636,6 +636,23 @@ CREATE TABLE core.user_role (
 );
 
 
+CREATE TABLE core.notification (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    type varchar(32) NOT NULL,
+    title varchar(255) NOT NULL,
+    message varchar(1000),
+    link varchar(500),
+    is_read boolean NOT NULL DEFAULT false,
+    read_at timestamptz,
+    actor varchar(64),
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_notification_user_unread ON core.notification(user_id, is_read);
+
+
 --
 -- Name: ap_payment; Type: TABLE; Schema: fin; Owner: -
 --
@@ -3145,6 +3162,7 @@ CREATE TABLE pur.purchase_invoice_dtl (
     id bigint NOT NULL,
     header_id bigint NOT NULL,
     item_id bigint NOT NULL,
+    uom_id bigint,
     qty numeric(18,4) NOT NULL,
     price numeric(18,4) DEFAULT 0 NOT NULL,
     total numeric(18,4) DEFAULT 0 NOT NULL,
