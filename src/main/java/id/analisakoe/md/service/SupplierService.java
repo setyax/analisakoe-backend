@@ -2,6 +2,7 @@ package id.analisakoe.md.service;
 
 import id.analisakoe.common.BusinessException;
 import id.analisakoe.common.PageResponse;
+import id.analisakoe.context.ContextService;
 import id.analisakoe.md.dto.SupplierRequest;
 import id.analisakoe.md.dto.SupplierResponse;
 import id.analisakoe.md.entity.Supplier;
@@ -17,42 +18,51 @@ import java.time.OffsetDateTime;
 @Service
 public class SupplierService {
 
-    private static final Long TENANT = 1L;
-    private static final Long COMPANY = 1L;
     private final SupplierRepository repo;
+    private final ContextService context;
 
-    public SupplierService(SupplierRepository repo) { this.repo = repo; }
+    public SupplierService(SupplierRepository repo, ContextService context) {
+        this.repo = repo;
+        this.context = context;
+    }
 
     @Transactional(readOnly = true)
     public PageResponse<SupplierResponse> list(String search, Pageable pageable) {
+        Long tenantId = context.tenantId();
+        Long companyId = context.companyId();
         Page<Supplier> page = (search == null || search.isBlank())
-            ? repo.findByTenantIdAndDeletedAtIsNull(TENANT, pageable)
-            : repo.findByTenantIdAndDeletedAtIsNullAndNameContainingIgnoreCase(TENANT, search, pageable);
+            ? repo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(tenantId, companyId, pageable)
+            : repo.findByTenantIdAndCompanyIdAndDeletedAtIsNullAndNameContainingIgnoreCase(
+                tenantId, companyId, search, pageable);
         return PageResponse.of(page.map(SupplierResponse::from));
     }
 
     @Transactional(readOnly = true)
     public SupplierResponse get(Long id) {
-        Supplier e = repo.findByIdAndTenantIdAndDeletedAtIsNull(id, TENANT)
+        Supplier e = repo.findByIdAndTenantIdAndCompanyIdAndDeletedAtIsNull(
+                id, context.tenantId(), context.companyId())
             .orElseThrow(() -> new EntityNotFoundException("Supplier tidak ditemukan: " + id));
         return SupplierResponse.from(e);
     }
 
     @Transactional
     public SupplierResponse create(SupplierRequest req) {
-        if (repo.existsByTenantIdAndCompanyIdAndCode(TENANT, COMPANY, req.code())) {
+        Long tenantId = context.tenantId();
+        Long companyId = context.companyId();
+        if (repo.existsByTenantIdAndCompanyIdAndCode(tenantId, companyId, req.code())) {
             throw new BusinessException("Kode supplier sudah dipakai: " + req.code());
         }
         Supplier e = new Supplier();
-        e.setTenantId(TENANT);
-        e.setCompanyId(COMPANY);
+        e.setTenantId(tenantId);
+        e.setCompanyId(companyId);
         apply(e, req);
         return SupplierResponse.from(repo.save(e));
     }
 
     @Transactional
     public SupplierResponse update(Long id, SupplierRequest req) {
-        Supplier e = repo.findByIdAndTenantIdAndDeletedAtIsNull(id, TENANT)
+        Supplier e = repo.findByIdAndTenantIdAndCompanyIdAndDeletedAtIsNull(
+                id, context.tenantId(), context.companyId())
             .orElseThrow(() -> new EntityNotFoundException("Supplier tidak ditemukan: " + id));
         apply(e, req);
         return SupplierResponse.from(repo.save(e));
@@ -60,7 +70,8 @@ public class SupplierService {
 
     @Transactional
     public void delete(Long id) {
-        Supplier e = repo.findByIdAndTenantIdAndDeletedAtIsNull(id, TENANT)
+        Supplier e = repo.findByIdAndTenantIdAndCompanyIdAndDeletedAtIsNull(
+                id, context.tenantId(), context.companyId())
             .orElseThrow(() -> new EntityNotFoundException("Supplier tidak ditemukan: " + id));
         e.setDeletedAt(OffsetDateTime.now());
         repo.save(e);

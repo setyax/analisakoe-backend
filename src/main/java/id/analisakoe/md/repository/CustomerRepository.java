@@ -11,4 +11,13 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     Page<Customer> findByTenantIdAndDeletedAtIsNullAndNameContainingIgnoreCase(Long tenantId, String name, Pageable pageable);
     Optional<Customer> findByIdAndTenantIdAndDeletedAtIsNull(Long id, Long tenantId);
     boolean existsByTenantIdAndCompanyIdAndCode(Long tenantId, Long companyId, String code);
+
+    Page<Customer> findByTenantIdAndCompanyIdAndDeletedAtIsNull(
+            Long tenantId, Long companyId, Pageable pageable);
+
+    Page<Customer> findByTenantIdAndCompanyIdAndDeletedAtIsNullAndNameContainingIgnoreCase(
+            Long tenantId, Long companyId, String name, Pageable pageable);
+
+    Optional<Customer> findByIdAndTenantIdAndCompanyIdAndDeletedAtIsNull(
+            Long id, Long tenantId, Long companyId);
 }

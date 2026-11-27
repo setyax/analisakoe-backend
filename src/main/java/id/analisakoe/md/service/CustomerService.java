@@ -2,6 +2,7 @@ package id.analisakoe.md.service;
 
 import id.analisakoe.common.BusinessException;
 import id.analisakoe.common.PageResponse;
+import id.analisakoe.context.ContextService;
 import id.analisakoe.md.dto.CustomerRequest;
 import id.analisakoe.md.dto.CustomerResponse;
 import id.analisakoe.md.entity.Customer;
@@ -18,42 +19,51 @@ import java.time.OffsetDateTime;
 @Service
 public class CustomerService {
 
-    private static final Long TENANT = 1L;
-    private static final Long COMPANY = 1L;
     private final CustomerRepository repo;
+    private final ContextService context;
 
-    public CustomerService(CustomerRepository repo) { this.repo = repo; }
+    public CustomerService(CustomerRepository repo, ContextService context) {
+        this.repo = repo;
+        this.context = context;
+    }
 
     @Transactional(readOnly = true)
     public PageResponse<CustomerResponse> list(String search, Pageable pageable) {
+        Long tenantId = context.tenantId();
+        Long companyId = context.companyId();
         Page<Customer> page = (search == null || search.isBlank())
-            ? repo.findByTenantIdAndDeletedAtIsNull(TENANT, pageable)
-            : repo.findByTenantIdAndDeletedAtIsNullAndNameContainingIgnoreCase(TENANT, search, pageable);
+            ? repo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(tenantId, companyId, pageable)
+            : repo.findByTenantIdAndCompanyIdAndDeletedAtIsNullAndNameContainingIgnoreCase(
+                tenantId, companyId, search, pageable);
         return PageResponse.of(page.map(CustomerResponse::from));
     }
 
     @Transactional(readOnly = true)
     public CustomerResponse get(Long id) {
-        Customer e = repo.findByIdAndTenantIdAndDeletedAtIsNull(id, TENANT)
+        Customer e = repo.findByIdAndTenantIdAndCompanyIdAndDeletedAtIsNull(
+                id, context.tenantId(), context.companyId())
             .orElseThrow(() -> new EntityNotFoundException("Customer tidak ditemukan: " + id));
         return CustomerResponse.from(e);
     }
 
     @Transactional
     public CustomerResponse create(CustomerRequest req) {
-        if (repo.existsByTenantIdAndCompanyIdAndCode(TENANT, COMPANY, req.code())) {
+        Long tenantId = context.tenantId();
+        Long companyId = context.companyId();
+        if (repo.existsByTenantIdAndCompanyIdAndCode(tenantId, companyId, req.code())) {
             throw new BusinessException("Kode customer sudah dipakai: " + req.code());
         }
         Customer e = new Customer();
-        e.setTenantId(TENANT);
-        e.setCompanyId(COMPANY);
+        e.setTenantId(tenantId);
+        e.setCompanyId(companyId);
         apply(e, req);
         return CustomerResponse.from(repo.save(e));
     }
 
     @Transactional
     public CustomerResponse update(Long id, CustomerRequest req) {
-        Customer e = repo.findByIdAndTenantIdAndDeletedAtIsNull(id, TENANT)
+        Customer e = repo.findByIdAndTenantIdAndCompanyIdAndDeletedAtIsNull(
+                id, context.tenantId(), context.companyId())
             .orElseThrow(() -> new EntityNotFoundException("Customer tidak ditemukan: " + id));
         apply(e, req);
         return CustomerResponse.from(repo.save(e));
@@ -61,7 +71,8 @@ public class CustomerService {
 
     @Transactional
     public void delete(Long id) {
-        Customer e = repo.findByIdAndTenantIdAndDeletedAtIsNull(id, TENANT)
+        Customer e = repo.findByIdAndTenantIdAndCompanyIdAndDeletedAtIsNull(
+                id, context.tenantId(), context.companyId())
             .orElseThrow(() -> new EntityNotFoundException("Customer tidak ditemukan: " + id));
         e.setDeletedAt(OffsetDateTime.now());
         repo.save(e);

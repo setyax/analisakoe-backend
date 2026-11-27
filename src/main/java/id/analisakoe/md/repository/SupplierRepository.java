@@ -11,4 +11,13 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long> {
     Page<Supplier> findByTenantIdAndDeletedAtIsNullAndNameContainingIgnoreCase(Long tenantId, String name, Pageable pageable);
     Optional<Supplier> findByIdAndTenantIdAndDeletedAtIsNull(Long id, Long tenantId);
     boolean existsByTenantIdAndCompanyIdAndCode(Long tenantId, Long companyId, String code);
+
+    Page<Supplier> findByTenantIdAndCompanyIdAndDeletedAtIsNull(
+            Long tenantId, Long companyId, Pageable pageable);
+
+    Page<Supplier> findByTenantIdAndCompanyIdAndDeletedAtIsNullAndNameContainingIgnoreCase(
+            Long tenantId, Long companyId, String name, Pageable pageable);
+
+    Optional<Supplier> findByIdAndTenantIdAndCompanyIdAndDeletedAtIsNull(
+            Long id, Long tenantId, Long companyId);
 }

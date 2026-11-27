@@ -2,6 +2,7 @@ package id.analisakoe.md.service;
 
 import id.analisakoe.common.BusinessException;
 import id.analisakoe.common.PageResponse;
+import id.analisakoe.context.ContextService;
 import id.analisakoe.md.dto.WarehouseRequest;
 import id.analisakoe.md.dto.WarehouseResponse;
 import id.analisakoe.md.entity.Warehouse;
@@ -15,35 +16,43 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class WarehouseService {
 
-    private static final Long TENANT = 1L;
-    private static final Long COMPANY = 1L;
     private final WarehouseRepository repo;
+    private final ContextService context;
 
-    public WarehouseService(WarehouseRepository repo) { this.repo = repo; }
+    public WarehouseService(WarehouseRepository repo, ContextService context) {
+        this.repo = repo;
+        this.context = context;
+    }
 
     @Transactional(readOnly = true)
     public PageResponse<WarehouseResponse> list(String search, Pageable pageable) {
+        Long tenantId = context.tenantId();
+        Long companyId = context.companyId();
         Page<Warehouse> page = (search == null || search.isBlank())
-            ? repo.findByTenantId(TENANT, pageable)
-            : repo.findByTenantIdAndNameContainingIgnoreCase(TENANT, search, pageable);
+            ? repo.findByTenantIdAndCompanyId(tenantId, companyId, pageable)
+            : repo.findByTenantIdAndCompanyIdAndNameContainingIgnoreCase(
+                tenantId, companyId, search, pageable);
         return PageResponse.of(page.map(WarehouseResponse::from));
     }
 
     @Transactional(readOnly = true)
     public WarehouseResponse get(Long id) {
-        Warehouse e = repo.findByIdAndTenantId(id, TENANT)
+        Warehouse e = repo.findByIdAndTenantIdAndCompanyId(
+                id, context.tenantId(), context.companyId())
             .orElseThrow(() -> new EntityNotFoundException("Warehouse tidak ditemukan: " + id));
         return WarehouseResponse.from(e);
     }
 
     @Transactional
     public WarehouseResponse create(WarehouseRequest req) {
-        if (repo.existsByTenantIdAndCode(TENANT, req.code())) {
+        Long tenantId = context.tenantId();
+        Long companyId = context.companyId();
+        if (repo.existsByTenantIdAndCompanyIdAndCode(tenantId, companyId, req.code())) {
             throw new BusinessException("Kode warehouse sudah dipakai: " + req.code());
         }
         Warehouse e = new Warehouse();
-        e.setTenantId(TENANT);
-        e.setCompanyId(COMPANY);
+        e.setTenantId(tenantId);
+        e.setCompanyId(companyId);
         e.setCode(req.code().trim());
         e.setName(req.name().trim());
         e.setAddress(req.address());
@@ -53,7 +62,8 @@ public class WarehouseService {
 
     @Transactional
     public WarehouseResponse update(Long id, WarehouseRequest req) {
-        Warehouse e = repo.findByIdAndTenantId(id, TENANT)
+        Warehouse e = repo.findByIdAndTenantIdAndCompanyId(
+                id, context.tenantId(), context.companyId())
             .orElseThrow(() -> new EntityNotFoundException("Warehouse tidak ditemukan: " + id));
         e.setName(req.name().trim());
         e.setAddress(req.address());
@@ -63,7 +73,9 @@ public class WarehouseService {
 
     @Transactional
     public void delete(Long id) {
-        if (!repo.existsById(id)) throw new EntityNotFoundException("Warehouse tidak ditemukan: " + id);
-        repo.deleteById(id);
+        Warehouse e = repo.findByIdAndTenantIdAndCompanyId(
+                id, context.tenantId(), context.companyId())
+            .orElseThrow(() -> new EntityNotFoundException("Warehouse tidak ditemukan: " + id));
+        repo.delete(e);
     }
 }
