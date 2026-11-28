@@ -43,7 +43,10 @@ public class UiPositionController {
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         List<Object[]> items = em.createNativeQuery(
             "SELECT p.id, p.code, p.name, p.level, COALESCE(d.name,'-') AS dept_name, p.min_salary, p.max_salary, p.is_active " +
-            "FROM hr.position p LEFT JOIN hr.department d ON p.department_id = d.id ORDER BY p.level, p.code").getResultList();
+            "FROM hr.position p LEFT JOIN hr.department d ON p.department_id = d.id " +
+            "WHERE p.tenant_id = :tenantId AND p.company_id = :compId ORDER BY p.level, p.code")
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+            .getResultList();
         model.addAttribute("items", items);
         return "ui/master/position_list";
     }
@@ -55,7 +58,8 @@ public class UiPositionController {
         model.addAttribute("pageTitle", "New Position");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         model.addAttribute("isNew", true);
-        model.addAttribute("departments", em.createNativeQuery("SELECT id, code, name FROM hr.department ORDER BY code").getResultList());
+        model.addAttribute("departments", em.createNativeQuery("SELECT id, code, name FROM hr.department WHERE tenant_id = :tenantId AND company_id = :compId ORDER BY code")
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList());
         return "ui/master/position_form";
     }
 
@@ -66,10 +70,14 @@ public class UiPositionController {
         model.addAttribute("pageTitle", "Edit Position");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         model.addAttribute("isNew", false);
-        model.addAttribute("departments", em.createNativeQuery("SELECT id, code, name FROM hr.department ORDER BY code").getResultList());
+        model.addAttribute("departments", em.createNativeQuery("SELECT id, code, name FROM hr.department WHERE tenant_id = :tenantId AND company_id = :compId ORDER BY code")
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList());
         try {
-            Object[] row = (Object[]) em.createNativeQuery("SELECT id, code, name, level, department_id, min_salary, max_salary, is_active FROM hr.position WHERE id = :id")
-                .setParameter("id", id).getSingleResult();
+            Object[] row = (Object[]) em.createNativeQuery("SELECT id, code, name, level, department_id, min_salary, max_salary, is_active FROM hr.position " +
+                "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getSingleResult();
             Map<String, Object> c = new HashMap<>();
             c.put("id", row[0]); c.put("code", row[1]); c.put("name", row[2]); c.put("level", row[3]);
             c.put("departmentId", row[4]); c.put("minSalary", row[5]); c.put("maxSalary", row[6]); c.put("isActive", row[7]);
@@ -104,10 +112,12 @@ public class UiPositionController {
                   .setParameter("active", isActive).executeUpdate();
                 ra.addFlashAttribute("success", "Position berhasil ditambahkan.");
             } else {
-                em.createNativeQuery("UPDATE hr.position SET code=:code, name=:name, level=:lvl, department_id=:dept, min_salary=:min, max_salary=:max, is_active=:active WHERE id=:id")
+                em.createNativeQuery("UPDATE hr.position SET code=:code, name=:name, level=:lvl, department_id=:dept, min_salary=:min, max_salary=:max, is_active=:active "
+                  + "WHERE id=:id AND tenant_id=:tenantId AND company_id=:compId")
                   .setParameter("code", code).setParameter("name", name).setParameter("lvl", level)
                   .setParameter("dept", departmentId).setParameter("min", minSalary).setParameter("max", maxSalary)
-                  .setParameter("active", isActive).setParameter("id", id).executeUpdate();
+                  .setParameter("active", isActive).setParameter("id", id)
+                  .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
                 ra.addFlashAttribute("success", "Position berhasil diupdate.");
             }
         } catch (Exception e) {
@@ -120,7 +130,10 @@ public class UiPositionController {
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("DELETE FROM hr.position WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("DELETE FROM hr.position WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute("success", "Position berhasil dihapus.");
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Gagal hapus: " + e.getMessage());

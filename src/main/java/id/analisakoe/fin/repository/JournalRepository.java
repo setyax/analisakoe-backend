@@ -15,6 +15,13 @@ public interface JournalRepository extends JpaRepository<JournalHdr, Long> {
 
     List<JournalHdr> findByJournalTypeAndRemarks(String journalType, String remarks);
 
+    @Query("SELECT h FROM JournalHdr h WHERE h.tenantId = :tenantId AND h.companyId = :companyId "
+           + "AND h.journalType = :journalType AND h.remarks = :remarks")
+    List<JournalHdr> findByScopedTypeAndRemarks(@Param("tenantId") Long tenantId,
+                                                @Param("companyId") Long companyId,
+                                                @Param("journalType") String journalType,
+                                                @Param("remarks") String remarks);
+
     @Query("SELECT d.accountId, SUM(d.debit), SUM(d.credit) " +
            "FROM JournalDtl d JOIN d.header h " +
            "WHERE h.docDate BETWEEN :start AND :end " +

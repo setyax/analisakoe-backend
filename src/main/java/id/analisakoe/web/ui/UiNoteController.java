@@ -44,7 +44,7 @@ public class UiNoteController {
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "Debit / Credit Notes");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        model.addAttribute("notes", repo.findAllByOrderByDocDateDesc());
+        model.addAttribute("notes", repo.findByTenantIdAndCompanyIdOrderByDocDateDesc(context.tenantId(), context.companyId()));
         return "ui/finance/note_list";
     }
 
@@ -55,8 +55,8 @@ public class UiNoteController {
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "New Note");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
-        model.addAttribute("suppliers", supRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("customers", custRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(context.tenantId(), context.companyId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("suppliers", supRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(context.tenantId(), context.companyId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("today", LocalDate.now());
         return "ui/finance/note_form";
     }
@@ -77,10 +77,11 @@ public class UiNoteController {
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "Edit Note");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
-        model.addAttribute("suppliers", supRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("customers", custRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(context.tenantId(), context.companyId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("suppliers", supRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(context.tenantId(), context.companyId(), PageRequest.of(0, 100)).getContent());
         try {
-            var note = repo.findById(id).orElseThrow(() -> new IllegalArgumentException("Note tidak ditemukan"));
+            var note = repo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId())
+                .orElseThrow(() -> new IllegalArgumentException("Note tidak ditemukan"));
             if (!"DRAFT".equals(note.getStatus())) {
                 ra.addFlashAttribute("error", "Hanya Note berstatus DRAFT yang dapat diedit.");
                 return "redirect:/ui/finance/notes";

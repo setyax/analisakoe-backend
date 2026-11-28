@@ -67,12 +67,13 @@ public class UiFixedAssetController {
                 "SELECT id, asset_code, asset_name, category, acquisition_date, " +
                 "acquisition_cost, useful_life_years, salvage_value, " +
                 "accumulated_depreciation, book_value, status " +
-                "FROM fin.asset_master WHERE 1=1");
+                "FROM fin.asset_master WHERE tenant_id = :tenantId AND company_id = :compId");
             if (hasKw)     sql.append(" AND (LOWER(asset_code) LIKE :kw OR LOWER(asset_name) LIKE :kw OR LOWER(category) LIKE :kw)");
             if (hasStatus) sql.append(" AND status = :status");
             sql.append(" ORDER BY id DESC");
 
-            var q = em.createNativeQuery(sql.toString());
+            var q = em.createNativeQuery(sql.toString())
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId());
             if (hasKw)     q.setParameter("kw", "%" + keyword.toLowerCase() + "%");
             if (hasStatus) q.setParameter("status", status);
 
@@ -134,8 +135,10 @@ public class UiFixedAssetController {
             Object[] row = (Object[]) em.createNativeQuery(
                 "SELECT id, asset_code, asset_name, category, acquisition_date, " +
                 "acquisition_cost, useful_life_years, salvage_value, status " +
-                "FROM fin.asset_master WHERE id = :id")
-                .setParameter("id", id).getSingleResult();
+                "FROM fin.asset_master WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getSingleResult();
 
             Map<String, Object> a = new HashMap<>();
             a.put("id", row[0]);
@@ -204,11 +207,13 @@ public class UiFixedAssetController {
                          @RequestParam BigDecimal salvageValue,
                          @RequestParam(required = false, defaultValue = "ACTIVE") String status,
                          RedirectAttributes ra) {
+        final Long tenantId = context.tenantId();
+        final Long compId = context.companyId();
         try {
             int n = em.createNativeQuery(
                 "UPDATE fin.asset_master SET asset_code=:code, asset_name=:name, category=:cat, " +
                 "acquisition_date=:acqDate, acquisition_cost=:acqCost, useful_life_years=:life, " +
-                "salvage_value=:salvage, status=:status WHERE id=:id")
+                "salvage_value=:salvage, status=:status WHERE id=:id AND tenant_id=:tenantId AND company_id=:compId")
                 .setParameter("code", assetCode)
                 .setParameter("name", assetName)
                 .setParameter("cat", category)
@@ -218,6 +223,7 @@ public class UiFixedAssetController {
                 .setParameter("salvage", salvageValue)
                 .setParameter("status", status)
                 .setParameter("id", id)
+                .setParameter("tenantId", tenantId).setParameter("compId", compId)
                 .executeUpdate();
             ra.addFlashAttribute(n > 0 ? "success" : "error",
                                  n > 0 ? "Aset berhasil diupdate." : "Aset tidak ditemukan.");
@@ -231,11 +237,16 @@ public class UiFixedAssetController {
     @PostMapping("/{id}/delete")
     @Transactional
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
+        final Long tenantId = context.tenantId();
+        final Long compId = context.companyId();
         try {
-            em.createNativeQuery("DELETE FROM fin.asset_depreciation_log WHERE asset_id = :id")
-              .setParameter("id", id).executeUpdate();
-            int n = em.createNativeQuery("DELETE FROM fin.asset_master WHERE id = :id")
-                      .setParameter("id", id).executeUpdate();
+            em.createNativeQuery("DELETE FROM fin.asset_depreciation_log WHERE asset_id = :id "
+              + "AND asset_id IN (SELECT id FROM fin.asset_master WHERE tenant_id = :tenantId AND company_id = :compId)")
+              .setParameter("id", id).setParameter("tenantId", tenantId).setParameter("compId", compId)
+              .executeUpdate();
+            int n = em.createNativeQuery("DELETE FROM fin.asset_master WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                      .setParameter("id", id).setParameter("tenantId", tenantId).setParameter("compId", compId)
+                      .executeUpdate();
             ra.addFlashAttribute(n > 0 ? "success" : "error",
                                  n > 0 ? "Aset berhasil dihapus." : "Aset tidak ditemukan.");
         } catch (Exception e) {
@@ -251,7 +262,10 @@ public class UiFixedAssetController {
         try {
             int count = 0;
             List<?> rows = em.createNativeQuery(
-                "SELECT id, acquisition_cost, useful_life_years, salvage_value FROM fin.asset_master WHERE status = 'ACTIVE'").getResultList();
+                "SELECT id, acquisition_cost, useful_life_years, salvage_value FROM fin.asset_master "
+                + "WHERE status = 'ACTIVE' AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
 
             for (Object obj : rows) {
                 Object[] asset = (Object[]) obj;

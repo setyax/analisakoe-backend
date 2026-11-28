@@ -39,7 +39,7 @@ public class NoteService {
 
     @Transactional
     public void post(Long id) {
-        Note note = repo.findById(id).orElseThrow(() -> new BusinessException("Note tidak ditemukan"));
+        Note note = repo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId()).orElseThrow(() -> new BusinessException("Note tidak ditemukan"));
         if (!"DRAFT".equals(note.getStatus())) throw new BusinessException("Sudah diposting.");
 
         BigDecimal amount = note.getTotalAmount();
@@ -82,7 +82,7 @@ public class NoteService {
     /** Update note — hanya yang masih DRAFT. */
     @Transactional
     public void update(Long id, LocalDate date, String type, Long partnerId, BigDecimal amount, String remarks) {
-        Note note = repo.findById(id).orElseThrow(() -> new BusinessException("Note tidak ditemukan"));
+        Note note = repo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId()).orElseThrow(() -> new BusinessException("Note tidak ditemukan"));
         if (!"DRAFT".equals(note.getStatus()))
             throw new BusinessException("Hanya Note berstatus DRAFT yang dapat diedit. Unpost dulu jika sudah diposting.");
         note.setDocDate(date);
@@ -99,7 +99,7 @@ n     * (jurnal dicari berdasarkan type + remarks yang memuat docNo note).
      */
     @Transactional
     public void unpost(Long id) {
-        Note note = repo.findById(id).orElseThrow(() -> new BusinessException("Note tidak ditemukan"));
+        Note note = repo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId()).orElseThrow(() -> new BusinessException("Note tidak ditemukan"));
         if (!"POSTED".equals(note.getStatus()))
             throw new BusinessException("Hanya Note berstatus POSTED yang dapat di-unpost.");
 
@@ -113,7 +113,7 @@ n     * (jurnal dicari berdasarkan type + remarks yang memuat docNo note).
             default: throw new BusinessException("Tipe note tidak dikenal: " + note.getNoteType());
         }
 
-        int deleted = journalService.deleteByTypeAndRemarks(jrnlType, jrnlRemarks);
+        int deleted = journalService.deleteByTypeAndRemarks(note.getTenantId(), note.getCompanyId(), jrnlType, jrnlRemarks);
         if (deleted == 0)
             throw new BusinessException("Jurnal posting tidak ditemukan. Note tidak diubah.");
 
@@ -124,7 +124,7 @@ n     * (jurnal dicari berdasarkan type + remarks yang memuat docNo note).
     /** Hapus note — hanya yang masih DRAFT. */
     @Transactional
     public void delete(Long id) {
-        Note note = repo.findById(id).orElseThrow(() -> new BusinessException("Note tidak ditemukan"));
+        Note note = repo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId()).orElseThrow(() -> new BusinessException("Note tidak ditemukan"));
         if (!"DRAFT".equals(note.getStatus()))
             throw new BusinessException("Hanya Note berstatus DRAFT yang dapat dihapus. Unpost dulu jika sudah diposting.");
         repo.delete(note);

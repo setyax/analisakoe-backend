@@ -59,7 +59,12 @@ public class UiUserController {
                 "       dc.name " +
                 "FROM core.app_user u " +
                 "LEFT JOIN core.company dc ON dc.id = u.default_company_id " +
-                "ORDER BY u.id").getResultList();
+                "WHERE u.tenant_id = :tenantId AND EXISTS " +
+                "(SELECT 1 FROM core.user_company uc WHERE uc.user_id = u.id AND uc.company_id = :compId) " +
+                "ORDER BY u.id")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("compId", context.companyId())
+                .getResultList();
         model.addAttribute("users", users);
 
         return "ui/users/user_list";
@@ -74,7 +79,7 @@ public class UiUserController {
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
 
         model.addAttribute("isNew", true);
-        prepareFormData(model, null);
+        prepareFormData(model, null, user.getId());
         return "ui/users/user_form";
     }
 
@@ -86,15 +91,20 @@ public class UiUserController {
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
 
         model.addAttribute("isNew", false);
-        prepareFormData(model, id);
+        prepareFormData(model, id, user.getId());
         return "ui/users/user_form";
     }
 
     // Helper untuk memuat data ke Form
-    private void prepareFormData(Model model, Long userId) {
-        // Company dari core.company (tabel yang dipakai login & modul)
+    private void prepareFormData(Model model, Long userId, Long actorId) {
+        // Hanya company yang bisa diakses user yang sedang login.
         List<Object[]> companies = em.createNativeQuery(
-                "SELECT id, name, status FROM core.company ORDER BY name").getResultList();
+                "SELECT id, name, status FROM core.company " +
+                "WHERE tenant_id = :tenantId AND id IN " +
+                "(SELECT company_id FROM core.user_company WHERE user_id = :actorId) ORDER BY name")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("actorId", actorId)
+                .getResultList();
         model.addAttribute("allCompanies", companies);
 
         List<String> allPermissions = List.of("DASHBOARD", "MASTER_DATA", "PURCHASING", "SALES", "INVENTORY", "FINANCE", "HRGA", "USER_MGMT");
@@ -108,8 +118,14 @@ public class UiUserController {
         if (userId != null) {
             try {
                 Object[] row = (Object[]) em.createNativeQuery(
-                        "SELECT id, username, email, full_name, status, default_company_id FROM core.app_user WHERE id = :id")
-                        .setParameter("id", userId).getSingleResult();
+                        "SELECT u.id, u.username, u.email, u.full_name, u.status, u.default_company_id " +
+                        "FROM core.app_user u " +
+                        "WHERE u.id = :id AND u.tenant_id = :tenantId AND EXISTS " +
+                        "(SELECT 1 FROM core.user_company uc WHERE uc.user_id = u.id AND uc.company_id = :compId)")
+                        .setParameter("id", userId)
+                        .setParameter("tenantId", context.tenantId())
+                        .setParameter("compId", context.companyId())
+                        .getSingleResult();
 
                 u = new HashMap<>();
                 u.put("id", row[0]);
@@ -119,8 +135,10 @@ public class UiUserController {
                 u.put("status", row[4] != null ? row[4] : "ACTIVE");
                 defaultCompanyId = row[5] != null ? ((Number) row[5]).longValue() : null;
 
-                List<?> uc = em.createNativeQuery("SELECT company_id FROM core.user_company WHERE user_id = :id")
-                        .setParameter("id", userId).getResultList();
+                List<?> uc = em.createNativeQuery(
+                        "SELECT company_id FROM core.user_company WHERE user_id = :id " +
+                        "AND company_id IN (SELECT company_id FROM core.user_company WHERE user_id = :actorId)")
+                        .setParameter("id", userId).setParameter("actorId", actorId).getResultList();
                 for (Object o : uc) userCompanies.add(((Number) o).longValue());
 
                 List<?> up = em.createNativeQuery("SELECT permission_code FROM sys.user_permission WHERE user_id = :id")
@@ -149,9 +167,26 @@ public class UiUserController {
                        @RequestParam(required = false) List<Long> companyIds,
                        @RequestParam(required = false) Long defaultCompanyId,
                        @RequestParam(required = false) List<String> permissions,
+                        HttpSession session,
                        RedirectAttributes ra) {
+        final SessionUser actor = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
         try {
             transactionTemplate.executeWithoutResult(tx -> {
+                final List<Long> assigned = (companyIds != null) ? companyIds : new ArrayList<>();
+                for (Long cid : assigned) {
+                    Long allowed = ((Number) em.createNativeQuery(
+                            "SELECT COUNT(*) FROM core.user_company WHERE user_id = :actorId AND company_id = :cid")
+                            .setParameter("actorId", actor.getId()).setParameter("cid", cid)
+                            .getSingleResult()).longValue();
+                    if (allowed == 0L) {
+                        throw new IllegalArgumentException("Company " + cid + " tidak tersedia untuk akun Anda.");
+                    }
+                }
+                Long defId = defaultCompanyId;
+                if (defId == null || !assigned.contains(defId)) {
+                    defId = assigned.isEmpty() ? null : assigned.get(0);
+                }
+
                 final Long userId;
                 if (id == null) {
                     // --- CREATE USER BARU ---
@@ -167,7 +202,7 @@ public class UiUserController {
                       .setParameter("p", hashedPassword)
                       .setParameter("f", fullName)
                       .setParameter("s", status)
-                      .setParameter("d", defaultCompanyId)
+                      .setParameter("d", defId)
                       .setParameter("tenantId", context.tenantId()).getSingleResult();
                     userId = ((Number) newId).longValue();
                 } else {
@@ -175,7 +210,8 @@ public class UiUserController {
                     userId = id;
                     if (password != null && !password.trim().isEmpty()) {
                         String hashedPassword = passwordEncoder.encode(password);
-                        em.createNativeQuery("UPDATE core.app_user SET username = :u, email = :e, password_hash = :p, full_name = :f, status = :s, default_company_id = :d WHERE id = :id")
+                        em.createNativeQuery("UPDATE core.app_user SET username = :u, email = :e, password_hash = :p, full_name = :f, status = :s, default_company_id = :d WHERE id = :id AND tenant_id = :tenantId " +
+                            "AND EXISTS (SELECT 1 FROM core.user_company uc WHERE uc.user_id = core.app_user.id AND uc.company_id = :compId)")
                           .setParameter("u", username)
                           .setParameter("e", email)
                           .setParameter("p", hashedPassword)
@@ -183,25 +219,20 @@ public class UiUserController {
                           .setParameter("s", status)
                           .setParameter("d", defaultCompanyId)
                           .setParameter("id", id)
+                          .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
                           .executeUpdate();
                     } else {
-                        em.createNativeQuery("UPDATE core.app_user SET username = :u, email = :e, full_name = :f, status = :s, default_company_id = :d WHERE id = :id")
+                        em.createNativeQuery("UPDATE core.app_user SET username = :u, email = :e, full_name = :f, status = :s, default_company_id = :d WHERE id = :id AND tenant_id = :tenantId " +
+                            "AND EXISTS (SELECT 1 FROM core.user_company uc WHERE uc.user_id = core.app_user.id AND uc.company_id = :compId)")
                           .setParameter("u", username)
                           .setParameter("e", email)
                           .setParameter("f", fullName)
                           .setParameter("s", status)
                           .setParameter("d", defaultCompanyId)
                           .setParameter("id", id)
+                          .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
                           .executeUpdate();
                     }
-                }
-
-                // Validasi: default company harus termasuk salah satu company yang di-assign.
-                // Jika kosong/tidak valid, pakai company pertama yang di-assign.
-                final List<Long> assigned = (companyIds != null) ? companyIds : new ArrayList<>();
-                Long defId = defaultCompanyId;
-                if (defId == null || !assigned.contains(defId)) {
-                    defId = assigned.isEmpty() ? null : assigned.get(0);
                 }
 
                 // SIMPAN MAPPING COMPANY (core.user_company — dipakai login)
@@ -212,8 +243,11 @@ public class UiUserController {
                 }
 
                 if (defId != null) {
-                    em.createNativeQuery("UPDATE core.app_user SET default_company_id = :d WHERE id = :id")
-                      .setParameter("d", defId).setParameter("id", userId).executeUpdate();
+                    em.createNativeQuery("UPDATE core.app_user SET default_company_id = :d WHERE id = :id AND tenant_id = :tenantId " +
+                            "AND EXISTS (SELECT 1 FROM core.user_company uc WHERE uc.user_id = core.app_user.id AND uc.company_id = :compId)")
+                      .setParameter("d", defId).setParameter("id", userId)
+                      .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                      .executeUpdate();
                 }
 
                 // SIMPAN MAPPING PERMISSION
@@ -245,8 +279,12 @@ public class UiUserController {
                 if (current != null && id.equals(current.getId()))
                     throw new IllegalStateException("Tidak bisa menghapus akun sendiri.");
 
-                List<?> rows = em.createNativeQuery("SELECT username FROM core.app_user WHERE id = :id")
-                        .setParameter("id", id).getResultList();
+                List<?> rows = em.createNativeQuery(
+                        "SELECT u.username FROM core.app_user u WHERE u.id = :id AND u.tenant_id = :tenantId " +
+                        "AND EXISTS (SELECT 1 FROM core.user_company uc WHERE uc.user_id = u.id AND uc.company_id = :compId)")
+                        .setParameter("id", id)
+                        .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                        .getResultList();
                 if (rows.isEmpty()) throw new IllegalStateException("User tidak ditemukan.");
                 String username = rows.get(0).toString();
 

@@ -41,7 +41,10 @@ public class UiSalespersonController {
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "Salespersons");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        List<Object[]> items = em.createNativeQuery("SELECT id, code, name, COALESCE(phone,'-'), COALESCE(email,'-'), commission_pct, is_active FROM md.salesperson ORDER BY code").getResultList();
+        List<Object[]> items = em.createNativeQuery("SELECT id, code, name, COALESCE(phone,'-'), COALESCE(email,'-'), commission_pct, is_active FROM md.salesperson "
+            + "WHERE tenant_id = :tenantId AND company_id = :compId ORDER BY code")
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+            .getResultList();
         model.addAttribute("items", items);
         return "ui/master/salesperson_list";
     }
@@ -53,7 +56,8 @@ public class UiSalespersonController {
         model.addAttribute("pageTitle", "New Salesperson");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         model.addAttribute("isNew", true);
-        model.addAttribute("employees", em.createNativeQuery("SELECT id, nip, name FROM hr.employee WHERE status='ACTIVE' ORDER BY name").getResultList());
+        model.addAttribute("employees", em.createNativeQuery("SELECT id, nip, name FROM hr.employee WHERE status='ACTIVE' AND tenant_id = :tenantId AND company_id = :compId ORDER BY name")
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList());
         return "ui/master/salesperson_form";
     }
 
@@ -64,10 +68,14 @@ public class UiSalespersonController {
         model.addAttribute("pageTitle", "Edit Salesperson");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         model.addAttribute("isNew", false);
-        model.addAttribute("employees", em.createNativeQuery("SELECT id, nip, name FROM hr.employee WHERE status='ACTIVE' ORDER BY name").getResultList());
+        model.addAttribute("employees", em.createNativeQuery("SELECT id, nip, name FROM hr.employee WHERE status='ACTIVE' AND tenant_id = :tenantId AND company_id = :compId ORDER BY name")
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList());
         try {
-            Object[] row = (Object[]) em.createNativeQuery("SELECT id, code, name, employee_id, COALESCE(commission_pct,0), COALESCE(phone,''), COALESCE(email,''), is_active FROM md.salesperson WHERE id = :id")
-                .setParameter("id", id).getSingleResult();
+            Object[] row = (Object[]) em.createNativeQuery("SELECT id, code, name, employee_id, COALESCE(commission_pct,0), COALESCE(phone,''), COALESCE(email,''), is_active FROM md.salesperson "
+                + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getSingleResult();
             Map<String, Object> c = new HashMap<>();
             c.put("id", row[0]); c.put("code", row[1]); c.put("name", row[2]); c.put("employeeId", row[3]);
             c.put("commissionPct", row[4]); c.put("phone", row[5]); c.put("email", row[6]); c.put("isActive", row[7]);
@@ -102,10 +110,12 @@ public class UiSalespersonController {
                   .setParameter("active", isActive).executeUpdate();
                 ra.addFlashAttribute("success", "Salesperson berhasil ditambahkan.");
             } else {
-                em.createNativeQuery("UPDATE md.salesperson SET code=:code, name=:name, employee_id=:emp, commission_pct=:comm, phone=:phone, email=:email, is_active=:active WHERE id=:id")
+                em.createNativeQuery("UPDATE md.salesperson SET code=:code, name=:name, employee_id=:emp, commission_pct=:comm, phone=:phone, email=:email, is_active=:active "
+                  + "WHERE id=:id AND tenant_id=:tenantId AND company_id=:compId")
                   .setParameter("code", code).setParameter("name", name).setParameter("emp", employeeId)
                   .setParameter("comm", commissionPct).setParameter("phone", phone).setParameter("email", email)
-                  .setParameter("active", isActive).setParameter("id", id).executeUpdate();
+                  .setParameter("active", isActive).setParameter("id", id)
+                  .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
                 ra.addFlashAttribute("success", "Salesperson berhasil diupdate.");
             }
         } catch (Exception e) {
@@ -118,7 +128,10 @@ public class UiSalespersonController {
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("DELETE FROM md.salesperson WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("DELETE FROM md.salesperson WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute("success", "Salesperson berhasil dihapus.");
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Gagal hapus: " + e.getMessage());

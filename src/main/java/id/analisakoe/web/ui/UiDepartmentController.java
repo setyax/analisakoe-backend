@@ -42,7 +42,10 @@ public class UiDepartmentController {
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         List<Object[]> items = em.createNativeQuery(
             "SELECT d.id, d.code, d.name, COALESCE(c.name,'-') AS cost_center_name, d.is_active " +
-            "FROM hr.department d LEFT JOIN fin.cost_center c ON d.cost_center_id = c.id ORDER BY d.code").getResultList();
+            "FROM hr.department d LEFT JOIN fin.cost_center c ON d.cost_center_id = c.id " +
+            "WHERE d.tenant_id = :tenantId AND d.company_id = :compId ORDER BY d.code")
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+            .getResultList();
         model.addAttribute("items", items);
         return "ui/master/department_list";
     }
@@ -54,7 +57,8 @@ public class UiDepartmentController {
         model.addAttribute("pageTitle", "New Department");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         model.addAttribute("isNew", true);
-        model.addAttribute("costCenters", em.createNativeQuery("SELECT id, code, name FROM fin.cost_center ORDER BY code").getResultList());
+        model.addAttribute("costCenters", em.createNativeQuery("SELECT id, code, name FROM fin.cost_center WHERE tenant_id = :tenantId AND company_id = :compId ORDER BY code")
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList());
         return "ui/master/department_form";
     }
 
@@ -65,10 +69,14 @@ public class UiDepartmentController {
         model.addAttribute("pageTitle", "Edit Department");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         model.addAttribute("isNew", false);
-        model.addAttribute("costCenters", em.createNativeQuery("SELECT id, code, name FROM fin.cost_center ORDER BY code").getResultList());
+        model.addAttribute("costCenters", em.createNativeQuery("SELECT id, code, name FROM fin.cost_center WHERE tenant_id = :tenantId AND company_id = :compId ORDER BY code")
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList());
         try {
-            Object[] row = (Object[]) em.createNativeQuery("SELECT id, code, name, cost_center_id, is_active FROM hr.department WHERE id = :id")
-                .setParameter("id", id).getSingleResult();
+            Object[] row = (Object[]) em.createNativeQuery("SELECT id, code, name, cost_center_id, is_active FROM hr.department " +
+                "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getSingleResult();
             Map<String, Object> c = new HashMap<>();
             c.put("id", row[0]); c.put("code", row[1]); c.put("name", row[2]); c.put("costCenterId", row[3]); c.put("isActive", row[4]);
             model.addAttribute("c", c);
@@ -97,8 +105,11 @@ public class UiDepartmentController {
                   .setParameter("code", code).setParameter("name", name).setParameter("cc", costCenterId).setParameter("active", isActive).executeUpdate();
                 ra.addFlashAttribute("success", "Department berhasil ditambahkan.");
             } else {
-                em.createNativeQuery("UPDATE hr.department SET code=:code, name=:name, cost_center_id=:cc, is_active=:active WHERE id=:id")
-                  .setParameter("code", code).setParameter("name", name).setParameter("cc", costCenterId).setParameter("active", isActive).setParameter("id", id).executeUpdate();
+                em.createNativeQuery("UPDATE hr.department SET code=:code, name=:name, cost_center_id=:cc, is_active=:active " +
+                  "WHERE id=:id AND tenant_id=:tenantId AND company_id=:compId")
+                  .setParameter("code", code).setParameter("name", name).setParameter("cc", costCenterId).setParameter("active", isActive)
+                  .setParameter("id", id)
+                  .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
                 ra.addFlashAttribute("success", "Department berhasil diupdate.");
             }
         } catch (Exception e) {
@@ -111,7 +122,10 @@ public class UiDepartmentController {
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("DELETE FROM hr.department WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("DELETE FROM hr.department WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute("success", "Department berhasil dihapus.");
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Gagal hapus: " + e.getMessage());

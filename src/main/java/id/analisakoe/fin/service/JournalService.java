@@ -84,4 +84,13 @@ public class JournalService {
         repo.deleteAll(list);
         return list.size();
     }
+
+    /** Hapus jurnal milik tenant/company tertentu (untuk unpost Note). */
+    @Transactional
+    public int deleteByTypeAndRemarks(Long tenantId, Long companyId, String type, String remarks) {
+        List<JournalHdr> list = repo.findByScopedTypeAndRemarks(tenantId, companyId, type, remarks);
+        if (list.isEmpty()) return 0;
+        repo.deleteAll(list);
+        return list.size();
+    }
 }
