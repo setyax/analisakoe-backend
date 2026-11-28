@@ -33,10 +33,6 @@ public class ContextFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(ContextFilter.class);
 
-    /** Fallback sementara yang masih dipakai service lama. */
-    private static final Long LEGACY_TENANT_ID = 1L;
-    private static final Long LEGACY_COMPANY_ID = 11L;
-
     private static final Set<String> PUBLIC_EXACT = Set.of(
             "/ui", "/ui/", "/ui/login", "/ui/login/", "/ui/logout", "/ui/logout/",
             "/auth/login", "/auth/refresh",
@@ -47,7 +43,7 @@ public class ContextFilter extends OncePerRequestFilter {
             "/css/", "/js/", "/images/"
     );
 
-    @Value("${app.context.strict:false}")
+    @Value("${app.context.strict:true}")
     private boolean strict;
 
     @Value("${app.context.warn-on-fallback:true}")
@@ -70,10 +66,6 @@ public class ContextFilter extends OncePerRequestFilter {
                         path, ctx == null ? "-" : ctx.source());
                 reject(path, request, response);
                 return;
-            }
-
-            if (warnOnFallback && ctx != null) {
-                warnIfLegacyMismatch(path, ctx);
             }
 
             chain.doFilter(request, response);
@@ -110,8 +102,7 @@ public class ContextFilter extends OncePerRequestFilter {
                 log.warn("WARN: {} JWT tidak memiliki claim tenant", path);
             }
             if (companyId == null && warnOnFallback && !isPublic(path)) {
-                log.warn("WARN: {} JWT tidak memiliki claim company — service masih pakai fallback {}",
-                        path, LEGACY_COMPANY_ID);
+                log.warn("WARN: {} JWT tidak memiliki claim company — akses akan ditolak di mode strict", path);
             }
             return RequestContext.jwt(tenantId, companyId, userId);
         }
@@ -122,18 +113,6 @@ public class ContextFilter extends OncePerRequestFilter {
             log.warn("WARN: {} terautentikasi sebagai {} tetapi tidak ada JWT claims", path, auth.getName());
         }
         return null;
-    }
-
-    private void warnIfLegacyMismatch(String path, RequestContext ctx) {
-        if (ctx.tenantId() != null && !LEGACY_TENANT_ID.equals(ctx.tenantId())) {
-            log.warn("WARN: {} tenant aktif={} berbeda dari fallback lama={}",
-                    path, ctx.tenantId(), LEGACY_TENANT_ID);
-        }
-        if (ctx.companyId() != null && !LEGACY_COMPANY_ID.equals(ctx.companyId())) {
-            log.warn("WARN: {} company aktif={} berbeda dari fallback lama={}. "
-                            + "Transaksi masih berpotensi masuk ke company {} sampai konversi service selesai.",
-                    path, ctx.companyId(), LEGACY_COMPANY_ID, LEGACY_COMPANY_ID);
-        }
     }
 
     /**

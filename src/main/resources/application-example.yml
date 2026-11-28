@@ -3,7 +3,8 @@ app:
     secret: GANTI_DENGAN_NILAI_ASLI
     expiration: 86400000
   context:
-    strict: false
+    # warn = mode transisi; strict = context wajib ada (UI redirect login, REST 401)
+    strict: true
     warn-on-fallback: true
 server:
   port: 8085

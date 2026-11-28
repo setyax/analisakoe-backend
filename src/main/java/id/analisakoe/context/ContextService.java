@@ -8,8 +8,8 @@ import org.springframework.stereotype.Service;
 /**
  * Facade untuk injection ke service/controller tanpa mengakses ThreadLocal langsung.
  *
- * <p>Mode warn (default): bila context kosong, nilai lama dipakai sebagai fallback
- * dan dicatat di log. Mode strict: context kosong melempar exception.</p>
+ * <p>Mode strict (default saat ini): context kosong melempar exception. Mode warn
+ * (transisi): nilai lama 1/11 dipakai sebagai fallback dan dicatat di log.</p>
  */
 @Service
 public class ContextService {
@@ -20,7 +20,7 @@ public class ContextService {
     private static final Long LEGACY_TENANT_ID = 1L;
     private static final Long LEGACY_COMPANY_ID = 11L;
 
-    @Value("${app.context.strict:false}")
+    @Value("${app.context.strict:true}")
     private boolean strict;
 
     @Value("${app.context.warn-on-fallback:true}")

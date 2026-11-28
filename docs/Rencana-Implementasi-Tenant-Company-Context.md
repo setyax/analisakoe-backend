@@ -329,7 +329,7 @@ SET LOCAL app.company_id = :companyId;
 ```yaml
 app:
   context:
-    strict: false        # true setelah masa transisi
+    strict: true         # mode transisi: false
     warn-on-fallback: true
   jwt:
     secret: ${APP_JWT_SECRET}
@@ -387,7 +387,10 @@ Tambahkan `APP_JWT_SECRET` ke environment (docker-compose sudah punya `JWT_SECRE
 - **Urutan determinasi + condition terpisah (27 Nov 2026)**: migrasi `V59__price_condition_sequence.sql` menambah `condition_source` (`CONTRACT`/`INFO_RECORD`/`RFQ`/`LAST_PO`/`MANUAL`), `condition_class` (`PRICE`/`DISCOUNT`/`SURCHARGE`/`TAX`), `rate`, `calculation_order`, serta tabel audit `pur.po_condition`. Urutan: kontrak → price list/info record → RFQ yang menang → PO terakhir → manual. Diskon/surcharge/pajak dihitung setelah harga dasar dan disimpan per baris PO. `/api/get-price` mengembalikan `basePrice`, `price` (setelah condition non-pajak), `taxRate`, dan daftar condition; form PO menampilkan ringkasan condition dan mengirim `basePrice` agar tidak double discount saat simpan.
 - Verifikasi condition: diskon 10% + pajak 11% mengubah harga dasar 450.000 → 405.000 (`taxRate=11`); saat ada record CONTRACT 400.000, urutan memilih CONTRACT dan harga akhir 360.000. Simpan PO menghasilkan header `total=799.200`, `tax=79.200` untuk qty 2, dengan 3 baris `pur.po_condition` (PRICE CONTRACT, DISCOUNT, TAX). Data/user uji sudah dihapus.
 - Verifikasi RFQ & LAST_PO (28 Nov 2026): kombinasi supplier 1 / item 2 / uom 1 (tanpa price list) dengan RFQ `WON` harga 300.000 dan PO `RECEIVED` harga 250.000 menghasilkan `priceSource=RFQ`, `price=300.000`. Setelah status RFQ diubah jadi `LOST`, determinasi jatuh ke `priceSource=LAST_PO`, `price=250.000`. Semua fixture dan user uji sudah dihapus; jumlah baris kembali ke 6 PO, 2 RFQ, 21 price list, 0 `po_condition`.
-- Mode masih `warn` (`app.context.strict=false`); fallback transisi `1`/`11` masih ada di `ContextService`.
+- Audit context (28 Nov 2026): perbaikan fondasi strict — `/ui` ikut cabang UI, UI tanpa session di-redirect ke `/ui/login` (termasuk header `HX-Redirect` untuk HTMX), REST tanpa JWT dijawab **401 JSON**, `IllegalStateException` dari `ContextService` diterjemahkan **400** (bukan 500), dan polling notifikasi mengalihkan ke login bila session habis.
+- Konversi lanjutan (28 Nov 2026): 17 service bersama, 27 UI controller, dan 19 UI controller dengan literal SQL diubah memakai `context.tenantId()`/`context.companyId()` atau parameter `:tenantId`. Warning “company aktif ≠ fallback 11” dihapus karena tidak lagi mencerminkan perilaku transaksi. Fallback non-company (warehouse/supplier `1L`, increment `+ 1L`, argumen warehouse ke-2 `stockIn`/`stockOut`) sengaja dipertahankan.
+- Verifikasi strict (28 Nov 2026, instance port 8086): `/ping` 200; `/ui/login` 200; `/ui/` dan `/ui/purchasing/pr` tanpa session → **302 ke login**; `/auth/me` tanpa JWT → **401**; login UI → 302 dashboard; halaman purchasing dan `/ui/notifications/api/list` → **200**; login REST → token dan `/auth/me` ber-JWT → **200**. Probe `/md/items` → 500 karena user uji `usersby` (role STAFF/VIEWER) tidak memiliki permission `md.item.read`, bukan karena context.
+- **Mode saat ini: `app.context.strict=true`** di `application.yml` dan `application-example.yml`. Fallback transisi `1`/`11` masih ada di `ContextService` hanya untuk mode `warn` dan tidak dipakai dalam mode strict.
 - Belum selesai: RLS/DB role, Flyway, audit trail, test automatis, konversi O2C/R2R, dan service-service P2P yang dormant (`PurchaseInvoiceService.createFromGrn`, `PurchaseReturnService.create`).
 
 ---
