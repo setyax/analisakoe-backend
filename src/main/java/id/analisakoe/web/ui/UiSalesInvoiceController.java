@@ -62,11 +62,11 @@ public class UiSalesInvoiceController {
                      "FROM sal.sales_invoice_hdr h " +
                      "LEFT JOIN md.customer c ON h.customer_id = c.id " +
                      "LEFT JOIN md.salesperson sp ON h.salesperson_id = sp.id " +
-                     "WHERE h.tenant_id = :tenantId ORDER BY h.id DESC";
+                     "WHERE h.tenant_id = :tenantId AND h.company_id = :compId ORDER BY h.id DESC";
 
         List<Map<String, Object>> invoices = new ArrayList<>();
         try {
-            List<Object[]> results = em.createNativeQuery(sql).setParameter("tenantId", context.tenantId()).getResultList();
+            List<Object[]> results = em.createNativeQuery(sql).setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList();
             for (Object[] row : results) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", row[0]);
@@ -418,8 +418,10 @@ public class UiSalesInvoiceController {
                 // 1. Lock & baca header invoice (jurnal mengikuti company dokumen asal)
                 List<?> rows = em.createNativeQuery(
                     "SELECT status, doc_no, tenant_id, company_id, doc_date, COALESCE(total_amount,0), COALESCE(tax_amount,0) " +
-                    "FROM sal.sales_invoice_hdr WHERE id = :id FOR UPDATE")
-                    .setParameter("id", id).getResultList();
+                    "FROM sal.sales_invoice_hdr WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId FOR UPDATE")
+                    .setParameter("id", id)
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                    .getResultList();
                 if (rows.isEmpty()) throw new RuntimeException("Invoice tidak ditemukan.");
                 Object[] r = (Object[]) rows.get(0);
                 String status = r[0] != null ? r[0].toString() : "";
@@ -448,13 +450,19 @@ public class UiSalesInvoiceController {
                 // Tandai jurnal agar unconfirm/void bisa menemukannya
                 em.createNativeQuery(
                     "UPDATE fin.journal_hdr SET ref_type = 'SALES_INVOICE', ref_id = :id " +
-                    "WHERE remarks = :remarks AND journal_type = 'SALES' AND ref_type IS NULL")
-                    .setParameter("id", id).setParameter("remarks", remarks).executeUpdate();
+                    "WHERE remarks = :remarks AND journal_type = 'SALES' AND ref_type IS NULL "
+                    + "AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id).setParameter("remarks", remarks)
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                    .executeUpdate();
 
                 // 3. Status POSTED (dashboard menghitung POSTED)
                 em.createNativeQuery(
-                    "UPDATE sal.sales_invoice_hdr SET status = 'POSTED' WHERE id = :id")
-                    .setParameter("id", id).executeUpdate();
+                    "UPDATE sal.sales_invoice_hdr SET status = 'POSTED' WHERE id = :id "
+                    + "AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id)
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                    .executeUpdate();
             });
             ra.addFlashAttribute("success", "Sales Invoice berhasil di-post. Jurnal Piutang & Pendapatan dibuat.");
         } catch (Exception e) {
@@ -474,8 +482,11 @@ public class UiSalesInvoiceController {
         try {
             // 1. Cek status invoice
             List<?> statusList = em.createNativeQuery(
-                "SELECT status, doc_no FROM sal.sales_invoice_hdr WHERE id = :id")
-                .setParameter("id", id).getResultList();
+                "SELECT status, doc_no FROM sal.sales_invoice_hdr WHERE id = :id "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
 
             if (statusList.isEmpty()) {
                 throw new RuntimeException("Invoice tidak ditemukan.");
@@ -492,12 +503,16 @@ public class UiSalesInvoiceController {
             }
 
             // 2. Hapus jurnal SALES yang terkait (dibuat saat confirm)
-            journalService.deleteByTypeAndRemarks("SALES", "Auto-Journal Sales Invoice " + docNo);
+            journalService.deleteByTypeAndRemarks(context.tenantId(), context.companyId(),
+                "SALES", "Auto-Journal Sales Invoice " + docNo);
 
             // 3. Kembalikan status ke DRAFT
             em.createNativeQuery(
-                "UPDATE sal.sales_invoice_hdr SET status = 'DRAFT' WHERE id = :id")
-                .setParameter("id", id).executeUpdate();
+                "UPDATE sal.sales_invoice_hdr SET status = 'DRAFT' WHERE id = :id "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
 
             ra.addFlashAttribute("success",
                 "Sales Invoice " + docNo + " berhasil di-unconfirm. Status kembali ke DRAFT.");
@@ -521,8 +536,11 @@ public class UiSalesInvoiceController {
         try {
             // 1. Cek status invoice
             List<?> statusList = em.createNativeQuery(
-                "SELECT status, paid_amount, doc_no, tenant_id, company_id FROM sal.sales_invoice_hdr WHERE id = :id")
-                .setParameter("id", id).getResultList();
+                "SELECT status, paid_amount, doc_no, tenant_id, company_id FROM sal.sales_invoice_hdr "
+                + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
 
             if (statusList.isEmpty()) {
                 throw new RuntimeException("Invoice tidak ditemukan.");
@@ -575,14 +593,20 @@ public class UiSalesInvoiceController {
 
             // 6. Lakukan void + reversal jurnal
             em.createNativeQuery(
-                "UPDATE sal.sales_invoice_hdr SET status = 'VOID' WHERE id = :id")
-                .setParameter("id", id).executeUpdate();
+                "UPDATE sal.sales_invoice_hdr SET status = 'VOID' WHERE id = :id "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
 
             // 7. Reverse jurnal SALES (jika ada)
             try {
                 Object[] jvInfo = (Object[]) em.createNativeQuery(
-                    "SELECT id FROM fin.journal_hdr WHERE ref_type = 'SALES_INVOICE' AND ref_id = :id AND status = 'POSTED'")
-                    .setParameter("id", id).getSingleResult();
+                    "SELECT id FROM fin.journal_hdr WHERE ref_type = 'SALES_INVOICE' AND ref_id = :id AND status = 'POSTED' "
+                    + "AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id)
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                    .getSingleResult();
 
                 Long origJvId = ((Number) jvInfo[0]).longValue();
                 List<Object[]> jvLines = em.createNativeQuery(
@@ -638,8 +662,10 @@ public class UiSalesInvoiceController {
             List<?> hdrRows = em.createNativeQuery(
                 "SELECT id, doc_no, invoice_date, due_date, customer_id, total_amount, tax_amount, " +
                 "remarks, status, currency, paid_amount " +
-                "FROM sal.sales_invoice_hdr WHERE id = :id")
-                .setParameter("id", id).getResultList();
+                "FROM sal.sales_invoice_hdr WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
             if (hdrRows.isEmpty()) {
                 ra.addFlashAttribute("error", "Invoice #" + id + " tidak ditemukan.");
                 return "redirect:/ui/sales/invoices";
@@ -668,8 +694,10 @@ public class UiSalesInvoiceController {
             // Load customer
             try {
                 Object[] cust = (Object[]) em.createNativeQuery(
-                    "SELECT name FROM md.customer WHERE id = :id")
-                    .setParameter("id", hdr[4]).getSingleResult();
+                    "SELECT name FROM md.customer WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", hdr[4])
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                    .getSingleResult();
                 model.addAttribute("customerName", cust[0]);
             } catch (Exception e) { model.addAttribute("customerName", "-"); }
 
@@ -714,8 +742,11 @@ public class UiSalesInvoiceController {
         try {
             // Cek status
             List<?> statusRows = em.createNativeQuery(
-                "SELECT status FROM sal.sales_invoice_hdr WHERE id = :id")
-                .setParameter("id", id).getResultList();
+                "SELECT status FROM sal.sales_invoice_hdr WHERE id = :id "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
             if (statusRows.isEmpty()) throw new RuntimeException("Invoice tidak ditemukan.");
             String status = statusRows.get(0).toString();
             if ("POSTED".equals(status) || "PAID".equals(status) || "VOID".equals(status)) {
@@ -723,10 +754,12 @@ public class UiSalesInvoiceController {
             }
 
             em.createNativeQuery(
-                "UPDATE sal.sales_invoice_hdr SET due_date = :due, remarks = :rem WHERE id = :id")
+                "UPDATE sal.sales_invoice_hdr SET due_date = :due, remarks = :rem WHERE id = :id "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
                 .setParameter("due", LocalDate.parse(dueDate))
                 .setParameter("rem", remarks)
                 .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
                 .executeUpdate();
 
             ra.addFlashAttribute("success", "Sales Invoice #" + id + " berhasil diupdate.");

@@ -46,11 +46,11 @@ public class UiSalesReturnController {
         String sql = "SELECT h.id, h.doc_no, h.doc_date, COALESCE(c.name, '-') as customer_name, " +
                      "COALESCE(h.total_amount, 0) as total_amount, h.status, COALESCE(h.remarks, '-') as remarks " +
                      "FROM sal.sales_return_hdr h LEFT JOIN md.customer c ON h.customer_id = c.id " +
-                     "WHERE h.tenant_id = :tenantId ORDER BY h.id DESC";
+                     "WHERE h.tenant_id = :tenantId AND h.company_id = :compId ORDER BY h.id DESC";
 
         List<Map<String, Object>> returnList = new ArrayList<>();
         try {
-            List<Object[]> results = em.createNativeQuery(sql).setParameter("tenantId", context.tenantId()).getResultList();
+            List<Object[]> results = em.createNativeQuery(sql).setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList();
             for (Object[] row : results) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", row[0]);
@@ -83,8 +83,11 @@ public class UiSalesReturnController {
     @Transactional
     public String confirm(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("UPDATE sal.sales_return_hdr SET status = 'CONFIRMED' WHERE id = :id")
-              .setParameter("id", id).executeUpdate();
+            em.createNativeQuery("UPDATE sal.sales_return_hdr SET status = 'CONFIRMED' WHERE id = :id "
+              + "AND tenant_id = :tenantId AND company_id = :compId")
+              .setParameter("id", id)
+              .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+              .executeUpdate();
             ra.addFlashAttribute("success", "Sales Return berhasil di-confirm.");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/ui/sales/returns";
@@ -94,8 +97,11 @@ public class UiSalesReturnController {
     @Transactional
     public String unconfirm(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("UPDATE sal.sales_return_hdr SET status = 'DRAFT' WHERE id = :id")
-              .setParameter("id", id).executeUpdate();
+            em.createNativeQuery("UPDATE sal.sales_return_hdr SET status = 'DRAFT' WHERE id = :id "
+              + "AND tenant_id = :tenantId AND company_id = :compId")
+              .setParameter("id", id)
+              .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+              .executeUpdate();
             ra.addFlashAttribute("success", "Sales Return berhasil di-unconfirm.");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/ui/sales/returns";
@@ -105,8 +111,11 @@ public class UiSalesReturnController {
     @Transactional
     public String voidSR(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("UPDATE sal.sales_return_hdr SET status = 'VOID' WHERE id = :id")
-              .setParameter("id", id).executeUpdate();
+            em.createNativeQuery("UPDATE sal.sales_return_hdr SET status = 'VOID' WHERE id = :id "
+              + "AND tenant_id = :tenantId AND company_id = :compId")
+              .setParameter("id", id)
+              .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+              .executeUpdate();
             ra.addFlashAttribute("success", "Sales Return berhasil di-void.");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/ui/sales/returns";
@@ -116,8 +125,11 @@ public class UiSalesReturnController {
     @Transactional
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("DELETE FROM sal.sales_return_hdr WHERE id = :id AND status = 'DRAFT'")
-              .setParameter("id", id).executeUpdate();
+            em.createNativeQuery("DELETE FROM sal.sales_return_hdr WHERE id = :id AND status = 'DRAFT' "
+              + "AND tenant_id = :tenantId AND company_id = :compId")
+              .setParameter("id", id)
+              .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+              .executeUpdate();
             ra.addFlashAttribute("success", "Sales Return berhasil dihapus.");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/ui/sales/returns";

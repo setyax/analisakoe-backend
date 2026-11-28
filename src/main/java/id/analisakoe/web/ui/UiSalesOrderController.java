@@ -96,11 +96,14 @@ public class UiSalesOrderController {
         model.addAttribute("pageTitle", "New Sales Order");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
 
-        model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("customers", custRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(context.tenantId(), context.companyId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("uoms", uomRepo.findByTenantId(context.tenantId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("salespersons", em.createNativeQuery(
-                "SELECT id, code || ' - ' || name FROM md.salesperson WHERE is_active = true ORDER BY code").getResultList());
+                "SELECT id, code || ' - ' || name FROM md.salesperson WHERE is_active = true "
+                + "AND tenant_id = :tenantId AND company_id = :compId ORDER BY code")
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList());
         model.addAttribute("today", LocalDate.now());
         model.addAttribute("isNew", true);
         return "ui/sales/form";
@@ -155,7 +158,7 @@ public class UiSalesOrderController {
     @Transactional
     public String unconfirmOrder(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            var so = repo.findById(id).orElseThrow(() ->
+            var so = repo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId()).orElseThrow(() ->
                 new IllegalArgumentException("Sales Order #" + id + " tidak ditemukan."));
             String st = so.getStatus();
 
@@ -163,8 +166,11 @@ public class UiSalesOrderController {
                 // boleh langsung unconfirm (belum ada DO)
             } else if ("DELIVERED".equals(st)) {
                 Long activeDo = ((Number) em.createNativeQuery(
-                    "SELECT COUNT(*) FROM sal.delivery_order_hdr WHERE so_id = :id AND status <> 'VOID'")
-                    .setParameter("id", id).getSingleResult()).longValue();
+                    "SELECT COUNT(*) FROM sal.delivery_order_hdr WHERE so_id = :id AND status <> 'VOID' "
+                    + "AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id)
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                    .getSingleResult()).longValue();
                 if (activeDo > 0) {
                     ra.addFlashAttribute("error",
                         "Tidak bisa unconfirm: masih ada " + activeDo +
@@ -176,8 +182,11 @@ public class UiSalesOrderController {
                 return "redirect:/ui/sales/orders";
             }
 
-            em.createNativeQuery("UPDATE sal.sales_order_hdr SET status = 'DRAFT' WHERE id = :id")
-              .setParameter("id", id).executeUpdate();
+            em.createNativeQuery("UPDATE sal.sales_order_hdr SET status = 'DRAFT' WHERE id = :id "
+              + "AND tenant_id = :tenantId AND company_id = :compId")
+              .setParameter("id", id)
+              .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+              .executeUpdate();
             ra.addFlashAttribute("success", "Sales Order dikembalikan ke DRAFT, siap diedit.");
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Gagal Unconfirm: " + e.getMessage());
@@ -238,8 +247,11 @@ public class UiSalesOrderController {
                 @PostMapping("/{id}/void")
     public String voidOrder(@PathVariable Long id, RedirectAttributes ra) {
         List<?> res = em.createNativeQuery(
-            "SELECT status FROM sal.sales_order_hdr WHERE id = :id")
-            .setParameter("id", id).getResultList();
+            "SELECT status FROM sal.sales_order_hdr WHERE id = :id "
+            + "AND tenant_id = :tenantId AND company_id = :compId")
+            .setParameter("id", id)
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+            .getResultList();
 
         if (res.isEmpty()) {
             ra.addFlashAttribute("error", "Sales Order #" + id + " tidak ditemukan.");
@@ -260,8 +272,11 @@ public class UiSalesOrderController {
         }
 
         int n = em.createNativeQuery(
-            "UPDATE sal.sales_order_hdr SET status = 'VOID' WHERE id = :id AND status = 'DRAFT'")
-            .setParameter("id", id).executeUpdate();
+            "UPDATE sal.sales_order_hdr SET status = 'VOID' WHERE id = :id AND status = 'DRAFT' "
+            + "AND tenant_id = :tenantId AND company_id = :compId")
+            .setParameter("id", id)
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+            .executeUpdate();
 
         ra.addFlashAttribute(n > 0 ? "success" : "error",
             n > 0 ? "Sales Order berhasil di-void." : "Gagal void: tidak ada baris terupdate.");
@@ -278,13 +293,16 @@ public class UiSalesOrderController {
         model.addAttribute("pageTitle", "Edit Sales Order");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
 
-        var order = repo.findById(id).orElseThrow();
+        var order = repo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId()).orElseThrow();
         model.addAttribute("order", order);
-        model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("customers", custRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(context.tenantId(), context.companyId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("uoms", uomRepo.findByTenantId(context.tenantId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("salespersons", em.createNativeQuery(
-                "SELECT id, code || ' - ' || name FROM md.salesperson WHERE is_active = true ORDER BY code").getResultList());
+                "SELECT id, code || ' - ' || name FROM md.salesperson WHERE is_active = true "
+                + "AND tenant_id = :tenantId AND company_id = :compId ORDER BY code")
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList());
         model.addAttribute("isNew", false);
         return "ui/sales/form";
     }

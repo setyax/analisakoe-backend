@@ -59,7 +59,7 @@ public class SalesOrderService {
 
     @Transactional
     public void update(Long id, LocalDate date, Long customerId, String remarks, String currency, String taxType, List<LineRequest> lines, Long salespersonId) {
-        SalesOrderHdr hdr = repo.findById(id)
+        SalesOrderHdr hdr = repo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId())
             .orElseThrow(() -> new BusinessException("Sales Order tidak ditemukan"));
         
         if (!"DRAFT".equals(hdr.getStatus())) {
@@ -120,7 +120,7 @@ public class SalesOrderService {
 
     @Transactional
     public void confirmOrder(Long orderId) {
-        SalesOrderHdr hdr = repo.findById(orderId)
+        SalesOrderHdr hdr = repo.findByIdAndTenantIdAndCompanyId(orderId, context.tenantId(), context.companyId())
             .orElseThrow(() -> new BusinessException("Sales Order tidak ditemukan"));
 
         if (!"DRAFT".equals(hdr.getStatus())) {
@@ -136,7 +136,7 @@ public class SalesOrderService {
     public record LineRequest(Long itemId, Long uomId, BigDecimal qty, BigDecimal price) {}
     @Transactional
     public void unconfirmOrder(Long orderId) {
-        SalesOrderHdr hdr = repo.findById(orderId).orElseThrow(() -> new BusinessException("SO tidak ditemukan"));
+        SalesOrderHdr hdr = repo.findByIdAndTenantIdAndCompanyId(orderId, context.tenantId(), context.companyId()).orElseThrow(() -> new BusinessException("SO tidak ditemukan"));
         if (!"CONFIRMED".equals(hdr.getStatus())) {
             throw new BusinessException("Hanya SO berstatus CONFIRMED yang bisa dibatalkan konfirmasinya.");
         }
@@ -146,7 +146,7 @@ public class SalesOrderService {
 
     @Transactional
     public void voidOrder(Long orderId) {
-        SalesOrderHdr hdr = repo.findById(orderId).orElseThrow(() -> new BusinessException("SO tidak ditemukan"));
+        SalesOrderHdr hdr = repo.findByIdAndTenantIdAndCompanyId(orderId, context.tenantId(), context.companyId()).orElseThrow(() -> new BusinessException("SO tidak ditemukan"));
         if ("DELIVERED".equals(hdr.getStatus()) || "INVOICED".equals(hdr.getStatus())) {
             throw new BusinessException("SO sudah diproses ke pengiriman/tagihan. Tidak bisa di-Void.");
         }

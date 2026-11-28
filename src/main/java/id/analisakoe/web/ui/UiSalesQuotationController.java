@@ -59,11 +59,11 @@ public class UiSalesQuotationController {
                      "q.total_amount, q.currency, q.converted_so_id " +
                      "FROM sal.sales_quotation_hdr q " +
                      "LEFT JOIN md.customer c ON c.id = q.customer_id " +
-                     "WHERE q.tenant_id = :tenantId ORDER BY q.id DESC";
+                     "WHERE q.tenant_id = :tenantId AND q.company_id = :compId ORDER BY q.id DESC";
 
         List<Map<String, Object>> quotations = new ArrayList<>();
         try {
-            for (Object[] row : (List<Object[]>) em.createNativeQuery(sql).setParameter("tenantId", context.tenantId()).getResultList()) {
+            for (Object[] row : (List<Object[]>) em.createNativeQuery(sql).setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList()) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id", row[0]);
                 m.put("docNo", row[1] != null ? row[1].toString() : "-");
@@ -110,7 +110,8 @@ public class UiSalesQuotationController {
         // Customers
         List<Map<String, Object>> customers = new ArrayList<>();
         for (Object[] row : (List<Object[]>) em.createNativeQuery(
-                "SELECT id, name FROM md.customer WHERE tenant_id = :tenantId ORDER BY name").setParameter("tenantId", context.tenantId()).getResultList()) {
+                "SELECT id, name FROM md.customer WHERE tenant_id = :tenantId AND company_id = :compId ORDER BY name")
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList()) {
             Map<String, Object> m = new HashMap<>();
             m.put("id", row[0]); m.put("name", row[1]);
             customers.add(m);
@@ -294,7 +295,10 @@ public class UiSalesQuotationController {
                 "SELECT q.doc_no, q.doc_date, q.valid_until, q.status, " +
                 "COALESCE(c.name, '-'), q.currency, q.remarks, q.total_amount, q.tax_amount, q.tax_type, q.converted_so_id " +
                 "FROM sal.sales_quotation_hdr q LEFT JOIN md.customer c ON c.id = q.customer_id " +
-                "WHERE q.id = :id").setParameter("id", id).getSingleResult();
+                "WHERE q.id = :id AND q.tenant_id = :tenantId AND q.company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getSingleResult();
             
             model.addAttribute("qDocNo", hdr[0]);
             model.addAttribute("qDate", hdr[1]);
@@ -338,8 +342,11 @@ public class UiSalesQuotationController {
     public String sendQuotation(@PathVariable Long id, RedirectAttributes ra) {
         try {
             int n = em.createNativeQuery(
-                "UPDATE sal.sales_quotation_hdr SET status = 'SENT' WHERE id = :id AND status = 'DRAFT'")
-                .setParameter("id", id).executeUpdate();
+                "UPDATE sal.sales_quotation_hdr SET status = 'SENT' WHERE id = :id AND status = 'DRAFT' "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute(n > 0 ? "success" : "error",
                 n > 0 ? "Quotation ditandai SENT (sudah dikirim ke customer)." : "Hanya DRAFT yang bisa di-send.");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
@@ -354,8 +361,11 @@ public class UiSalesQuotationController {
     public String acceptQuotation(@PathVariable Long id, RedirectAttributes ra) {
         try {
             int n = em.createNativeQuery(
-                "UPDATE sal.sales_quotation_hdr SET status = 'ACCEPTED' WHERE id = :id AND status = 'SENT'")
-                .setParameter("id", id).executeUpdate();
+                "UPDATE sal.sales_quotation_hdr SET status = 'ACCEPTED' WHERE id = :id AND status = 'SENT' "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute(n > 0 ? "success" : "error",
                 n > 0 ? "Quotation diterima customer. Siap convert ke SO." : "Hanya SENT yang bisa di-accept.");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
@@ -370,8 +380,11 @@ public class UiSalesQuotationController {
     public String rejectQuotation(@PathVariable Long id, RedirectAttributes ra) {
         try {
             int n = em.createNativeQuery(
-                "UPDATE sal.sales_quotation_hdr SET status = 'REJECTED' WHERE id = :id AND status = 'SENT'")
-                .setParameter("id", id).executeUpdate();
+                "UPDATE sal.sales_quotation_hdr SET status = 'REJECTED' WHERE id = :id AND status = 'SENT' "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute(n > 0 ? "success" : "error",
                 n > 0 ? "Quotation ditolak customer." : "Hanya SENT yang bisa di-reject.");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
@@ -385,8 +398,11 @@ public class UiSalesQuotationController {
     @Transactional
     public String voidQuotation(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("UPDATE sal.sales_quotation_hdr SET status = 'VOID' WHERE id = :id")
-                .setParameter("id", id).executeUpdate();
+            em.createNativeQuery("UPDATE sal.sales_quotation_hdr SET status = 'VOID' WHERE id = :id "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute("success", "Quotation berhasil di-void.");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/ui/sales/quotations/" + id;
@@ -407,7 +423,10 @@ public class UiSalesQuotationController {
 
             Object[] qhdr = (Object[]) em.createNativeQuery(
                 "SELECT doc_no, customer_id, currency, remarks, total_amount, tax_type, tax_amount, status " +
-                "FROM sal.sales_quotation_hdr WHERE id = :id").setParameter("id", id).getSingleResult();
+                "FROM sal.sales_quotation_hdr WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getSingleResult();
             
             String qNo = qhdr[0].toString();
             Long customerId = ((Number) qhdr[1]).longValue();
@@ -472,8 +491,11 @@ public class UiSalesQuotationController {
 
             // 3. Update Quotation
             em.createNativeQuery(
-                "UPDATE sal.sales_quotation_hdr SET status = 'CONVERTED', converted_so_id = :soId WHERE id = :id")
-                .setParameter("soId", soId).setParameter("id", id).executeUpdate();
+                "UPDATE sal.sales_quotation_hdr SET status = 'CONVERTED', converted_so_id = :soId "
+                + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("soId", soId).setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
 
             ra.addFlashAttribute("success", 
                 "Quotation " + qNo + " berhasil di-convert ke SO " + soNo + ". Silakan buka SO list untuk review.");
