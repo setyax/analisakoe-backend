@@ -1,4 +1,8 @@
 package id.analisakoe.web.ui;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
@@ -23,6 +27,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/inventory/cogs")
 public class UiCogsReportController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -65,8 +72,8 @@ public class UiCogsReportController {
         List<Map<String, Object>> items = new ArrayList<>();
         try {
             List<Object[]> rows = em.createNativeQuery(
-                "SELECT id, code, name FROM md.item WHERE tenant_id = 1 AND deleted_at IS NULL ORDER BY code")
-                .getResultList();
+                "SELECT id, code, name FROM md.item WHERE tenant_id = :tenantId AND deleted_at IS NULL ORDER BY code")
+                .setParameter("tenantId", context.tenantId()).getResultList();
             for (Object[] row : rows) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id", row[0]);
@@ -100,7 +107,7 @@ public class UiCogsReportController {
                 "JOIN md.item i ON i.id = d.item_id " +
                 "LEFT JOIN md.uom u ON u.id = d.uom_id " +
                 "LEFT JOIN md.uom bu ON bu.id = i.base_uom_id " +
-                "WHERE hdr.tenant_id = 1 AND d.gi_posted_qty > 0 " +
+                "WHERE hdr.tenant_id = :tenantId AND d.gi_posted_qty > 0 " +
                 "  AND UPPER(TRIM(hdr.status)) IN ('CONFIRMED','READY_TO_SHIP','PARTIALLY_SHIPPED','SHIPPED','DELIVERED','CLOSED') " +
                 "  AND hdr.doc_date BETWEEN :startDate AND :endDate ");
 
@@ -116,7 +123,7 @@ public class UiCogsReportController {
                 query.setParameter("itemId", itemId);
             }
 
-            List<Object[]> rows = query.getResultList();
+            List<Object[]> rows = query.setParameter("tenantId", context.tenantId()).getResultList();
             System.out.println("[COGS] Found " + rows.size() + " rows for " + start + " to " + end);
 
             for (Object[] row : rows) {

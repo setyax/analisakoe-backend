@@ -1,5 +1,9 @@
 package id.analisakoe.web.ui;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -17,6 +21,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/master/payment-terms")
 public class UiPaymentTermController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -79,9 +86,9 @@ public class UiPaymentTermController {
                        RedirectAttributes ra) {
         try {
             if (id == null) {
-                em.createNativeQuery("INSERT INTO md.payment_term (tenant_id, code, name, days, description, is_active) VALUES (1, :code, :name, :days, :desc, :active)")
+                em.createNativeQuery("INSERT INTO md.payment_term (tenant_id, code, name, days, description, is_active) VALUES (:tenantId, :code, :name, :days, :desc, :active)")
                   .setParameter("code", code).setParameter("name", name).setParameter("days", days)
-                  .setParameter("desc", description).setParameter("active", isActive).executeUpdate();
+                  .setParameter("desc", description).setParameter("active", isActive).setParameter("tenantId", context.tenantId()).executeUpdate();
                 ra.addFlashAttribute("success", "Payment Term berhasil ditambahkan.");
             } else {
                 em.createNativeQuery("UPDATE md.payment_term SET code=:code, name=:name, days=:days, description=:desc, is_active=:active WHERE id=:id")

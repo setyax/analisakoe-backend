@@ -115,8 +115,7 @@ public class UiRfqController {
         // 1. Ambil list PR (hanya yang CONFIRMED)
         List<Map<String, Object>> prs = new ArrayList<>();
         // SEBELUMNYA:
-// String sqlPr = "SELECT id, doc_no, doc_date FROM pur.purchase_request_hdr " +
-//                "WHERE tenant_id = 1 AND status = 'CONFIRMED' ORDER BY id DESC";
+
 
 // GANTI MENJADI:
 String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr h " +

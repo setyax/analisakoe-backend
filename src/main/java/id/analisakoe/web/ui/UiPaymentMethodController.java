@@ -1,5 +1,9 @@
 package id.analisakoe.web.ui;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -17,6 +21,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/master/payment-methods")
 public class UiPaymentMethodController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -76,8 +83,8 @@ public class UiPaymentMethodController {
                        RedirectAttributes ra) {
         try {
             if (id == null) {
-                em.createNativeQuery("INSERT INTO fin.payment_method (tenant_id, code, name, is_active) VALUES (1, :code, :name, :active)")
-                  .setParameter("code", code).setParameter("name", name).setParameter("active", isActive).executeUpdate();
+                em.createNativeQuery("INSERT INTO fin.payment_method (tenant_id, code, name, is_active) VALUES (:tenantId, :code, :name, :active)")
+                  .setParameter("code", code).setParameter("name", name).setParameter("active", isActive).setParameter("tenantId", context.tenantId()).executeUpdate();
                 ra.addFlashAttribute("success", "Payment Method berhasil ditambahkan.");
             } else {
                 em.createNativeQuery("UPDATE fin.payment_method SET code=:code, name=:name, is_active=:active WHERE id=:id")

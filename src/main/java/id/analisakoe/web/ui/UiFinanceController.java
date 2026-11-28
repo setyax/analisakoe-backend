@@ -178,7 +178,7 @@ public class UiFinanceController {
                 String docNo = "CB-" + System.currentTimeMillis();
                 Number newId = (Number) em.createNativeQuery(
                     "INSERT INTO fin.cash_bank_trx (tenant_id, company_id, doc_no, doc_date, trx_type, bank_id, amount, remarks, status) " +
-                    "VALUES (1, :cid, :doc, :date, :type, :bid, :amt, :rem, 'POSTED') RETURNING id")
+                    "VALUES (:tenantId, :cid, :doc, :date, :type, :bid, :amt, :rem, 'POSTED') RETURNING id")
                     .setParameter("cid", compId)
                     .setParameter("doc", docNo)
                     .setParameter("date", dateFinal)
@@ -186,7 +186,7 @@ public class UiFinanceController {
                     .setParameter("bid", bankId)
                     .setParameter("amt", amtFinal)
                     .setParameter("rem", remarksFinal)
-                    .getSingleResult();
+                    .setParameter("tenantId", context.tenantId()).getSingleResult();
                 trxIdHolder[0] = newId.longValue();
             });
             final Long trxId = trxIdHolder[0];
@@ -204,13 +204,13 @@ public class UiFinanceController {
                 transactionTemplate.executeWithoutResult(tx -> {
                     Long hdrId = ((Number) em.createNativeQuery(
                         "INSERT INTO fin.journal_hdr (tenant_id, company_id, doc_no, doc_date, journal_type, remarks, status, ref_type, ref_id) " +
-                        "VALUES (1, :cid, :docNo, :docDate, 'MODAL', :remarks, 'POSTED', 'CASH_BANK', :refId) RETURNING id")
+                        "VALUES (:tenantId, :cid, :docNo, :docDate, 'MODAL', :remarks, 'POSTED', 'CASH_BANK', :refId) RETURNING id")
                         .setParameter("cid", compId)
                         .setParameter("docNo", "JV-MODAL-" + trxId)
                         .setParameter("docDate", dateFinal)
                         .setParameter("remarks", note)
                         .setParameter("refId", trxId)
-                        .getSingleResult()).longValue();
+                        .setParameter("tenantId", context.tenantId()).getSingleResult()).longValue();
 
                     if (bankCoaId != null) {
                         em.createNativeQuery(
@@ -501,13 +501,13 @@ public class UiFinanceController {
         transactionTemplate.executeWithoutResult(tx -> {
             Long hdrId = ((Number) em.createNativeQuery(
                 "INSERT INTO fin.journal_hdr (tenant_id, company_id, doc_no, doc_date, journal_type, remarks, status, ref_type, ref_id) " +
-                "VALUES (1, :cid, :docNo, :docDate, 'MODAL', :remarks, 'POSTED', 'CASH_BANK', :refId) RETURNING id")
+                "VALUES (:tenantId, :cid, :docNo, :docDate, 'MODAL', :remarks, 'POSTED', 'CASH_BANK', :refId) RETURNING id")
                 .setParameter("cid", compId)
                 .setParameter("docNo", "JV-MODAL-" + trxId + "-V2")
                 .setParameter("docDate", dateFinal)
                 .setParameter("remarks", note + " (edited)")
                 .setParameter("refId", trxId)
-                .getSingleResult()).longValue();
+                .setParameter("tenantId", context.tenantId()).getSingleResult()).longValue();
 
             if (bankCoaIdFinal != null) {
                 em.createNativeQuery(

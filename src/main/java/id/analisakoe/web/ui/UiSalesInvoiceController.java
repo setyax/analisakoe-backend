@@ -1,5 +1,7 @@
 package id.analisakoe.web.ui;
 
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import id.analisakoe.fin.service.JournalService;
 import jakarta.persistence.EntityManager;
@@ -20,6 +22,9 @@ import java.util.*;
 @Controller
 @RequestMapping("/ui/sales/invoices")
 public class UiSalesInvoiceController {
+
+    @Autowired
+    private ContextService context;
 
     // ---- Konstanta alur SO -> DO -> SI ----
     private static final String SO_STATUSES = "('CONFIRMED','DELIVERED')";
@@ -57,11 +62,11 @@ public class UiSalesInvoiceController {
                      "FROM sal.sales_invoice_hdr h " +
                      "LEFT JOIN md.customer c ON h.customer_id = c.id " +
                      "LEFT JOIN md.salesperson sp ON h.salesperson_id = sp.id " +
-                     "WHERE h.tenant_id = 1 ORDER BY h.id DESC";
+                     "WHERE h.tenant_id = :tenantId ORDER BY h.id DESC";
 
         List<Map<String, Object>> invoices = new ArrayList<>();
         try {
-            List<Object[]> results = em.createNativeQuery(sql).getResultList();
+            List<Object[]> results = em.createNativeQuery(sql).setParameter("tenantId", context.tenantId()).getResultList();
             for (Object[] row : results) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", row[0]);
@@ -265,7 +270,7 @@ public class UiSalesInvoiceController {
                     "(tenant_id, company_id, doc_no, doc_date, invoice_date, due_date, customer_id, do_id, " +
                     "subtotal, dpp, ppn_rate, tax_amount, total_amount, tax_type, currency, " +
                     "remarks, status, paid_amount, coretax_status) " +
-                    "VALUES (1, :compId, :docNo, :invDate, :invDate, :dueDate, :customerId, :doId, " +
+                    "VALUES (:tenantId, :compId, :docNo, :invDate, :invDate, :dueDate, :customerId, :doId, " +
                     ":subtotal, :dpp, :ppnRate, :taxAmount, :totalAmount, :taxType, :currency, " +
                     ":remarks, 'DRAFT', 0, 'NOT_SUBMITTED') RETURNING id")
                     .setParameter("compId", compId)
@@ -282,7 +287,7 @@ public class UiSalesInvoiceController {
                     .setParameter("taxType", taxType)
                     .setParameter("currency", currency)
                     .setParameter("remarks", remarks)
-                    .getSingleResult();
+                    .setParameter("tenantId", context.tenantId()).getSingleResult();
             Long invoiceId = ((Number) newIdRaw).longValue();
 
             // 6. Insert detail

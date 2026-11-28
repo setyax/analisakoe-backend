@@ -59,11 +59,11 @@ public class UiSalesQuotationController {
                      "q.total_amount, q.currency, q.converted_so_id " +
                      "FROM sal.sales_quotation_hdr q " +
                      "LEFT JOIN md.customer c ON c.id = q.customer_id " +
-                     "WHERE q.tenant_id = 1 ORDER BY q.id DESC";
+                     "WHERE q.tenant_id = :tenantId ORDER BY q.id DESC";
 
         List<Map<String, Object>> quotations = new ArrayList<>();
         try {
-            for (Object[] row : (List<Object[]>) em.createNativeQuery(sql).getResultList()) {
+            for (Object[] row : (List<Object[]>) em.createNativeQuery(sql).setParameter("tenantId", context.tenantId()).getResultList()) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id", row[0]);
                 m.put("docNo", row[1] != null ? row[1].toString() : "-");
@@ -110,7 +110,7 @@ public class UiSalesQuotationController {
         // Customers
         List<Map<String, Object>> customers = new ArrayList<>();
         for (Object[] row : (List<Object[]>) em.createNativeQuery(
-                "SELECT id, name FROM md.customer WHERE tenant_id = 1 ORDER BY name").getResultList()) {
+                "SELECT id, name FROM md.customer WHERE tenant_id = :tenantId ORDER BY name").setParameter("tenantId", context.tenantId()).getResultList()) {
             Map<String, Object> m = new HashMap<>();
             m.put("id", row[0]); m.put("name", row[1]);
             customers.add(m);
@@ -120,7 +120,7 @@ public class UiSalesQuotationController {
         // Items
         List<Map<String, Object>> items = new ArrayList<>();
         for (Object[] row : (List<Object[]>) em.createNativeQuery(
-                "SELECT id, code, name FROM md.item WHERE tenant_id = 1 AND deleted_at IS NULL ORDER BY name").getResultList()) {
+                "SELECT id, code, name FROM md.item WHERE tenant_id = :tenantId AND deleted_at IS NULL ORDER BY name").setParameter("tenantId", context.tenantId()).getResultList()) {
             Map<String, Object> m = new HashMap<>();
             m.put("id", row[0]); m.put("code", row[1]); m.put("name", row[2]);
             items.add(m);
@@ -130,7 +130,7 @@ public class UiSalesQuotationController {
         // UOMs
         List<Map<String, Object>> uoms = new ArrayList<>();
         for (Object[] row : (List<Object[]>) em.createNativeQuery(
-                "SELECT id, code FROM md.uom WHERE tenant_id = 1 ORDER BY code").getResultList()) {
+                "SELECT id, code FROM md.uom WHERE tenant_id = :tenantId ORDER BY code").setParameter("tenantId", context.tenantId()).getResultList()) {
             Map<String, Object> m = new HashMap<>();
             m.put("id", row[0]); m.put("code", row[1]);
             uoms.add(m);
@@ -153,7 +153,7 @@ public class UiSalesQuotationController {
         try {
             String sql = "SELECT price, currency FROM md.item_price " +
                          "WHERE item_id = :itemId " +
-                         "  AND tenant_id = 1 " +
+                         "  AND tenant_id = :tenantId " +
                          "  AND (valid_from IS NULL OR valid_from <= CURRENT_DATE) " +
                          "  AND (valid_to IS NULL OR valid_to >= CURRENT_DATE) " +
                          "  AND (status IS NULL OR UPPER(TRIM(status)) = 'ACTIVE') " +
@@ -162,7 +162,7 @@ public class UiSalesQuotationController {
             
             List<?> rows = em.createNativeQuery(sql)
                 .setParameter("itemId", itemId)
-                .getResultList();
+                .setParameter("tenantId", context.tenantId()).getResultList();
             
             if (!rows.isEmpty()) {
                 Object[] row = (Object[]) rows.get(0);

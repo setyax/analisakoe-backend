@@ -1,5 +1,7 @@
 package id.analisakoe.web.ui;
 
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -26,6 +28,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/users")
 public class UiUserController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -156,14 +161,14 @@ public class UiUserController {
                     String hashedPassword = passwordEncoder.encode(password);
 
                     Object newId = em.createNativeQuery("INSERT INTO core.app_user (tenant_id, username, email, password_hash, full_name, status, must_change_pwd, default_company_id) " +
-                                         "VALUES (1, :u, :e, :p, :f, :s, false, :d) RETURNING id")
+                                         "VALUES (:tenantId, :u, :e, :p, :f, :s, false, :d) RETURNING id")
                       .setParameter("u", username)
                       .setParameter("e", email)
                       .setParameter("p", hashedPassword)
                       .setParameter("f", fullName)
                       .setParameter("s", status)
                       .setParameter("d", defaultCompanyId)
-                      .getSingleResult();
+                      .setParameter("tenantId", context.tenantId()).getSingleResult();
                     userId = ((Number) newId).longValue();
                 } else {
                     // --- UPDATE USER ---

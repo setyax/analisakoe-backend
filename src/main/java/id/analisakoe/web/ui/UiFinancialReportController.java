@@ -1,4 +1,8 @@
 package id.analisakoe.web.ui;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
@@ -22,6 +26,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/finance/fin-reports")
 public class UiFinancialReportController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -58,14 +65,14 @@ public class UiFinancialReportController {
                 "FROM fin.chart_of_account coa " +
                 "LEFT JOIN fin.journal_dtl jd ON jd.account_id = coa.id " +
                 "LEFT JOIN fin.journal_hdr jh ON jh.id = jd.header_id AND jh.doc_date <= :asOfDate " +
-                "WHERE coa.tenant_id = 1 AND (coa.is_header IS NULL OR coa.is_header = false) " +
+                "WHERE coa.tenant_id = :tenantId AND (coa.is_header IS NULL OR coa.is_header = false) " +
                 "GROUP BY coa.code, coa.name, coa.account_type " +
                 "HAVING COALESCE(SUM(CASE WHEN jh.status = 'POSTED' THEN jd.debit ELSE 0 END), 0) <> 0 " +
                 "   OR COALESCE(SUM(CASE WHEN jh.status = 'POSTED' THEN jd.credit ELSE 0 END), 0) <> 0 " +
                 "ORDER BY coa.code";
 
             List<Object[]> rows = em.createNativeQuery(sql)
-                .setParameter("asOfDate", asOf).getResultList();
+                .setParameter("asOfDate", asOf).setParameter("tenantId", context.tenantId()).getResultList();
 
             BigDecimal totalAssets = BigDecimal.ZERO;
             BigDecimal totalLiabilities = BigDecimal.ZERO;
@@ -106,9 +113,9 @@ public class UiFinancialReportController {
                 "FROM fin.chart_of_account coa " +
                 "JOIN fin.journal_dtl jd ON jd.account_id = coa.id " +
                 "JOIN fin.journal_hdr jh ON jh.id = jd.header_id " +
-                "WHERE coa.tenant_id = 1 AND jh.doc_date BETWEEN :start AND :end";
+                "WHERE coa.tenant_id = :tenantId AND jh.doc_date BETWEEN :start AND :end";
             Object[] labaArr = (Object[]) em.createNativeQuery(labaSql)
-                .setParameter("start", yearStart).setParameter("end", asOf).getSingleResult();
+                .setParameter("start", yearStart).setParameter("end", asOf).setParameter("tenantId", context.tenantId()).getSingleResult();
             BigDecimal netIncome = new BigDecimal(labaArr[0].toString()).subtract(new BigDecimal(labaArr[1].toString()));
 
             // Tambahkan Laba Berjalan ke Ekuitas
@@ -161,13 +168,13 @@ public class UiFinancialReportController {
                 "FROM fin.chart_of_account coa " +
                 "JOIN fin.journal_dtl jd ON jd.account_id = coa.id " +
                 "JOIN fin.journal_hdr jh ON jh.id = jd.header_id " +
-                "WHERE coa.tenant_id = 1 AND jh.doc_date BETWEEN :start AND :end " +
+                "WHERE coa.tenant_id = :tenantId AND jh.doc_date BETWEEN :start AND :end " +
                 "  AND coa.account_type IN ('REVENUE', 'EXPENSE') " +
                 "  AND (coa.is_header IS NULL OR coa.is_header = false) " +
                 "GROUP BY coa.code, coa.name, coa.account_type ORDER BY coa.code";
 
             List<Object[]> rows = em.createNativeQuery(sql)
-                .setParameter("start", start).setParameter("end", end).getResultList();
+                .setParameter("start", start).setParameter("end", end).setParameter("tenantId", context.tenantId()).getResultList();
 
             List<Map<String, Object>> revenues = new ArrayList<>();
             List<Map<String, Object>> expenses = new ArrayList<>();
@@ -238,14 +245,14 @@ public class UiFinancialReportController {
                 "FROM fin.chart_of_account coa " +
                 "LEFT JOIN fin.journal_dtl jd ON jd.account_id = coa.id " +
                 "LEFT JOIN fin.journal_hdr jh ON jh.id = jd.header_id AND jh.doc_date BETWEEN :start AND :end " +
-                "WHERE coa.tenant_id = 1 AND (coa.is_header IS NULL OR coa.is_header = false) " +
+                "WHERE coa.tenant_id = :tenantId AND (coa.is_header IS NULL OR coa.is_header = false) " +
                 "GROUP BY coa.code, coa.name, coa.account_type " +
                 "HAVING COALESCE(SUM(CASE WHEN jh.status = 'POSTED' THEN jd.debit ELSE 0 END), 0) <> 0 " +
                 "   OR COALESCE(SUM(CASE WHEN jh.status = 'POSTED' THEN jd.credit ELSE 0 END), 0) <> 0 " +
                 "ORDER BY coa.code";
 
             List<Object[]> rows = em.createNativeQuery(sql)
-                .setParameter("start", start).setParameter("end", end).getResultList();
+                .setParameter("start", start).setParameter("end", end).setParameter("tenantId", context.tenantId()).getResultList();
 
             List<Map<String, Object>> accounts = new ArrayList<>();
             BigDecimal totalDebit = BigDecimal.ZERO;
@@ -319,10 +326,10 @@ public class UiFinancialReportController {
                 "FROM fin.chart_of_account coa " +
                 "JOIN fin.journal_dtl jd ON jd.account_id = coa.id " +
                 "JOIN fin.journal_hdr jh ON jh.id = jd.header_id " +
-                "WHERE coa.tenant_id = 1 AND coa.code LIKE '11%' AND jh.status = 'POSTED' " +
+                "WHERE coa.tenant_id = :tenantId AND coa.code LIKE '11%' AND jh.status = 'POSTED' " +
                 "  AND jh.doc_date < :start";
             BigDecimal saldoAwal = new BigDecimal(
-                em.createNativeQuery(saldoAwalSql).setParameter("start", start).getSingleResult().toString());
+                em.createNativeQuery(saldoAwalSql).setParameter("start", start).setParameter("tenantId", context.tenantId()).getSingleResult().toString());
 
             // 2. Mutasi per kategori (berdasarkan ref_type)
             String mutasiSql = "SELECT COALESCE(jh.ref_type, 'MANUAL') AS kategori, " +
@@ -330,12 +337,12 @@ public class UiFinancialReportController {
                 "FROM fin.chart_of_account coa " +
                 "JOIN fin.journal_dtl jd ON jd.account_id = coa.id " +
                 "JOIN fin.journal_hdr jh ON jh.id = jd.header_id " +
-                "WHERE coa.tenant_id = 1 AND coa.code LIKE '11%' AND jh.status = 'POSTED' " +
+                "WHERE coa.tenant_id = :tenantId AND coa.code LIKE '11%' AND jh.status = 'POSTED' " +
                 "  AND jh.doc_date BETWEEN :start AND :end " +
                 "GROUP BY jh.ref_type ORDER BY jh.ref_type";
 
             List<Object[]> rows = em.createNativeQuery(mutasiSql)
-                .setParameter("start", start).setParameter("end", end).getResultList();
+                .setParameter("start", start).setParameter("end", end).setParameter("tenantId", context.tenantId()).getResultList();
 
             List<Map<String, Object>> inflows = new ArrayList<>();
             List<Map<String, Object>> outflows = new ArrayList<>();

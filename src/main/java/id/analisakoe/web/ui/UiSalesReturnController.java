@@ -1,4 +1,8 @@
 package id.analisakoe.web.ui;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
@@ -19,6 +23,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/sales/returns")
 public class UiSalesReturnController {
+
+    @Autowired
+    private ContextService context;
     private final MenuService menuService;
     private final EntityManager em;
 
@@ -39,11 +46,11 @@ public class UiSalesReturnController {
         String sql = "SELECT h.id, h.doc_no, h.doc_date, COALESCE(c.name, '-') as customer_name, " +
                      "COALESCE(h.total_amount, 0) as total_amount, h.status, COALESCE(h.remarks, '-') as remarks " +
                      "FROM sal.sales_return_hdr h LEFT JOIN md.customer c ON h.customer_id = c.id " +
-                     "WHERE h.tenant_id = 1 ORDER BY h.id DESC";
+                     "WHERE h.tenant_id = :tenantId ORDER BY h.id DESC";
 
         List<Map<String, Object>> returnList = new ArrayList<>();
         try {
-            List<Object[]> results = em.createNativeQuery(sql).getResultList();
+            List<Object[]> results = em.createNativeQuery(sql).setParameter("tenantId", context.tenantId()).getResultList();
             for (Object[] row : results) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", row[0]);

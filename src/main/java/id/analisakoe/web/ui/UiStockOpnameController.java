@@ -133,8 +133,8 @@ public class UiStockOpnameController {
                         .setParameter("itemId", itemIds.get(i)).setParameter("wh", warehouseId).getResultList();
                     
                     if (existing.isEmpty()) {
-                        em.createNativeQuery("INSERT INTO inv.stock_balance (tenant_id, item_id, warehouse_id, qty) VALUES (1, :itemId, :wh, :physQty)")
-                            .setParameter("itemId", itemIds.get(i)).setParameter("wh", warehouseId).setParameter("physQty", physQty).executeUpdate();
+                        em.createNativeQuery("INSERT INTO inv.stock_balance (tenant_id, item_id, warehouse_id, qty) VALUES (:tenantId, :itemId, :wh, :physQty)")
+                            .setParameter("itemId", itemIds.get(i)).setParameter("wh", warehouseId).setParameter("physQty", physQty).setParameter("tenantId", context.tenantId()).executeUpdate();
                     } else {
                         em.createNativeQuery("UPDATE inv.stock_balance SET qty = :physQty WHERE item_id = :itemId AND (warehouse_id = :wh OR (:wh IS NULL AND warehouse_id IS NULL))")
                             .setParameter("physQty", physQty).setParameter("itemId", itemIds.get(i)).setParameter("wh", warehouseId).executeUpdate();

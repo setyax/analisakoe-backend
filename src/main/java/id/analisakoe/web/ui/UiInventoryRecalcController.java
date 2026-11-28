@@ -1,4 +1,6 @@
 package id.analisakoe.web.ui;
+
+import id.analisakoe.context.ContextService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
@@ -23,6 +25,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/inventory/recalculate")
 public class UiInventoryRecalcController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -53,12 +58,12 @@ public class UiInventoryRecalcController {
                      "TO_CHAR(s.recalculated_at, 'DD-MM-YYYY HH24:MI') AS recalc_at " +
                      "FROM inv.stock_period_snapshot s " +
                      "JOIN md.item i ON i.id = s.item_id " +
-                     "WHERE s.tenant_id = 1 " +
+                     "WHERE s.tenant_id = :tenantId " +
                      "ORDER BY s.period DESC, i.code " +
                      "LIMIT 50";
         List<Map<String, Object>> snapshots = new ArrayList<>();
         try {
-            for (Object[] row : (List<Object[]>) em.createNativeQuery(sql).getResultList()) {
+            for (Object[] row : (List<Object[]>) em.createNativeQuery(sql).setParameter("tenantId", context.tenantId()).getResultList()) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("period", row[0]);
                 m.put("itemCode", row[2]);

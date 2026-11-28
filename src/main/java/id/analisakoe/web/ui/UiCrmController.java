@@ -1,5 +1,9 @@
 package id.analisakoe.web.ui;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -21,6 +25,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/crm")
 public class UiCrmController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -45,7 +52,7 @@ public class UiCrmController {
     public String dashboard(@RequestParam(required = false) String q, HttpSession session, Model model) {
         baseModel(session, model, "CRM - Monitoring Customer");
 
-        String where = "WHERE c.tenant_id = 1 AND c.deleted_at IS NULL " +
+        String where = "WHERE c.tenant_id = :tenantId AND c.deleted_at IS NULL " +
                        (q != null && !q.isBlank() ? "AND (LOWER(c.name) LIKE LOWER(:q) OR LOWER(c.code) LIKE LOWER(:q)) " : "");
 
         String sql = "SELECT c.id, c.code, c.name, c.status, c.credit_limit, c.payment_term_days, " +
@@ -66,7 +73,7 @@ public class UiCrmController {
                    totalOverdue = BigDecimal.ZERO;
         int activeCount = 0, overdueCount = 0;
         try {
-            for (Object[] row : (List<Object[]>) query.getResultList()) {
+            for (Object[] row : (List<Object[]>) query.setParameter("tenantId", context.tenantId()).getResultList()) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id", row[0]);
                 m.put("code", row[1]);

@@ -112,7 +112,7 @@ public class UiPaymentController {
         // List Customer
         List<Map<String, Object>> customers = new ArrayList<>();
         for (Object[] row : (List<Object[]>) em.createNativeQuery(
-                "SELECT id, name FROM md.customer WHERE tenant_id = 1 ORDER BY name").getResultList()) {
+                "SELECT id, name FROM md.customer WHERE tenant_id = :tenantId ORDER BY name").setParameter("tenantId", context.tenantId()).getResultList()) {
             Map<String, Object> m = new HashMap<>();
             m.put("id", row[0]);
             m.put("name", row[1]);
@@ -260,7 +260,7 @@ public class UiPaymentController {
                 .setParameter("customerId", customerId)
                 .setParameter("method", paymentMethod != null ? paymentMethod : "TRANSFER")
                 .setParameter("refNo", refNo)
-                .getSingleResult()).longValue();
+                .setParameter("tenantId", context.tenantId()).getSingleResult()).longValue();
 
             // 5. Loop invoice: alokasi & update
             for (int i = 0; i < invoiceIds.size(); i++) {

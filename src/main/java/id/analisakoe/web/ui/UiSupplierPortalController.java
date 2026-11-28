@@ -1,5 +1,9 @@
 package id.analisakoe.web.ui;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -20,6 +24,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/supplier-portal")
 public class UiSupplierPortalController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -44,7 +51,7 @@ public class UiSupplierPortalController {
     public String list(@RequestParam(required = false) String q, HttpSession session, Model model) {
         baseModel(session, model, "Portal Supplier");
 
-        String where = "WHERE s.tenant_id = 1 AND s.deleted_at IS NULL " +
+        String where = "WHERE s.tenant_id = :tenantId AND s.deleted_at IS NULL " +
                        (q != null && !q.isBlank() ? "AND (LOWER(s.name) LIKE LOWER(:q) OR LOWER(s.code) LIKE LOWER(:q)) " : "");
 
         String sql = "SELECT s.id, s.code, s.name, s.status, s.payment_term_days, s.supplier_group, " +
@@ -68,7 +75,7 @@ public class UiSupplierPortalController {
         BigDecimal totalPoValue = BigDecimal.ZERO, totalApOutstanding = BigDecimal.ZERO;
         int activeCount = 0, totalOpenPo = 0;
         try {
-            for (Object[] row : (List<Object[]>) query.getResultList()) {
+            for (Object[] row : (List<Object[]>) query.setParameter("tenantId", context.tenantId()).getResultList()) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id", row[0]);
                 m.put("code", row[1]);

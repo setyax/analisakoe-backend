@@ -1,5 +1,9 @@
 package id.analisakoe.web.ui;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -16,6 +20,9 @@ import java.util.List;
 @Controller
 @RequestMapping("/ui/finance/fiscal-periods")
 public class UiFiscalPeriodController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -64,9 +71,9 @@ public class UiFiscalPeriodController {
                 if (((Number) existing).longValue() == 0) {
                     LocalDate start = LocalDate.of(year, m, 1);
                     LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
-                    em.createNativeQuery("INSERT INTO fin.fiscal_period (tenant_id, company_id, year, month, start_date, end_date, status) VALUES (1, :compId, :yr, :mn, :start, :end, 'OPEN')")
+                    em.createNativeQuery("INSERT INTO fin.fiscal_period (tenant_id, company_id, year, month, start_date, end_date, status) VALUES (:tenantId, :compId, :yr, :mn, :start, :end, 'OPEN')")
                       .setParameter("compId", compId).setParameter("yr", year).setParameter("mn", m)
-                      .setParameter("start", start).setParameter("end", end).executeUpdate();
+                      .setParameter("start", start).setParameter("end", end).setParameter("tenantId", context.tenantId()).executeUpdate();
                     created++;
                 }
             }

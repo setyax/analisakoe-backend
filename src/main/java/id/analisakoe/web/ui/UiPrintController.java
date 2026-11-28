@@ -580,8 +580,8 @@ public class UiPrintController {
         try {
             List<Object[]> rows = em.createNativeQuery(
                 "SELECT id, name, COALESCE(phone, '-'), COALESCE(license_no, '-') " +
-                "FROM md.driver WHERE tenant_id = 1 AND status = 'ACTIVE' ORDER BY name")
-                .getResultList();
+                "FROM md.driver WHERE tenant_id = :tenantId AND status = 'ACTIVE' ORDER BY name")
+                .setParameter("tenantId", context.tenantId()).getResultList();
             for (Object[] r : rows) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id", r[0]);
@@ -607,8 +607,8 @@ public class UiPrintController {
             List<Object[]> rows = em.createNativeQuery(
                 "SELECT id, plate_no, COALESCE(vehicle_type, '-'), " +
                 "COALESCE(capacity_kg, 0), COALESCE(driver_id, 0) " +
-                "FROM md.vehicle WHERE tenant_id = 1 AND status = 'ACTIVE' ORDER BY plate_no")
-                .getResultList();
+                "FROM md.vehicle WHERE tenant_id = :tenantId AND status = 'ACTIVE' ORDER BY plate_no")
+                .setParameter("tenantId", context.tenantId()).getResultList();
             for (Object[] r : rows) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id", r[0]);

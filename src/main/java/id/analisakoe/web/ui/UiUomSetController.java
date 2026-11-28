@@ -1,5 +1,9 @@
 package id.analisakoe.web.ui;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -18,6 +22,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/master/uom-sets")
 public class UiUomSetController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -170,13 +177,13 @@ public class UiUomSetController {
                 // INSERT HEADER
                 Object newId = em.createNativeQuery(
                     "INSERT INTO md.uom_set (tenant_id, code, name, category, description, is_active, created_at, updated_at) " +
-                    "VALUES (1, :code, :name, :cat, :desc, :act, now(), now()) RETURNING id")
+                    "VALUES (:tenantId, :code, :name, :cat, :desc, :act, now(), now()) RETURNING id")
                     .setParameter("code", code)
                     .setParameter("name", name)
                     .setParameter("cat", category)
                     .setParameter("desc", description)
                     .setParameter("act", isActive)
-                    .getSingleResult();
+                    .setParameter("tenantId", context.tenantId()).getSingleResult();
                 setId = ((Number) newId).longValue();
             } else {
                 // UPDATE HEADER
