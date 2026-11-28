@@ -84,8 +84,8 @@ public class UiStockOpnameController {
         model.addAttribute("pageTitle", "New Stock Opname");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         model.addAttribute("today", LocalDate.now());
-        model.addAttribute("items", itemRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(
-                context.tenantId(), context.companyId(),
+        model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(
+                context.tenantId(),
                 org.springframework.data.domain.PageRequest.of(0, 1000)).getContent());
         model.addAttribute("uoms", uomRepo.findByTenantId(context.tenantId(),
                 org.springframework.data.domain.PageRequest.of(0, 1000)).getContent());

@@ -47,8 +47,8 @@ public class UiEmployeeRequestController {
             .getResultList());
         model.addAttribute("items", em.createNativeQuery(
                 "SELECT id, code || ' - ' || name FROM md.item " +
-                "WHERE tenant_id = :tenantId AND company_id = :compId AND deleted_at IS NULL ORDER BY name")
-            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                "WHERE tenant_id = :tenantId AND deleted_at IS NULL ORDER BY name")
+            .setParameter("tenantId", context.tenantId())
             .getResultList());
         model.addAttribute("uoms", em.createNativeQuery(
                 "SELECT id, code FROM md.uom WHERE tenant_id = :tenantId ORDER BY code")

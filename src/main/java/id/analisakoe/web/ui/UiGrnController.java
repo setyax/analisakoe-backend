@@ -132,8 +132,8 @@ public class UiGrnController {
                 org.springframework.data.domain.PageRequest.of(0, 100))
             .getContent().stream().filter(p -> "CONFIRMED".equals(p.getStatus())).toList();
         model.addAttribute("pos", availablePos);
-        model.addAttribute("items", itemRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(
-                context.tenantId(), context.companyId(),
+        model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(
+                context.tenantId(),
                 org.springframework.data.domain.PageRequest.of(0, 100)).getContent());
         model.addAttribute("uoms", uomRepo.findByTenantId(context.tenantId(),
                 org.springframework.data.domain.PageRequest.of(0, 100)).getContent());
@@ -175,8 +175,8 @@ public class UiGrnController {
                 .orElseThrow();
         model.addAttribute("grn", grn);
 
-        Map<Long, String> itemMap = itemRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(
-                context.tenantId(), context.companyId(),
+        Map<Long, String> itemMap = itemRepo.findByTenantIdAndDeletedAtIsNull(
+                context.tenantId(),
                 org.springframework.data.domain.PageRequest.of(0, 1000)).getContent().stream()
                 .collect(Collectors.toMap(Item::getId, Item::getName));
         model.addAttribute("itemMap", itemMap);

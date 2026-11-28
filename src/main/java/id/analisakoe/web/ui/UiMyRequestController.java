@@ -79,8 +79,8 @@ public class UiMyRequestController {
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "New Request");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        model.addAttribute("items", itemRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(
-            context.tenantId(), context.companyId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(
+            context.tenantId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("uoms", uomRepo.findByTenantId(context.tenantId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("today", LocalDate.now());
         return "ui/my_requests/form";
@@ -139,8 +139,8 @@ public class UiMyRequestController {
             model.addAttribute("user", user);
             model.addAttribute("pageTitle", "Edit Request");
             model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-            model.addAttribute("items", itemRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(
-                context.tenantId(), context.companyId(), PageRequest.of(0, 100)).getContent());
+            model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(
+                context.tenantId(), PageRequest.of(0, 100)).getContent());
             model.addAttribute("uoms", uomRepo.findByTenantId(context.tenantId(), PageRequest.of(0, 100)).getContent());
             model.addAttribute("pr", pr);
 
