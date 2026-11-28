@@ -1,4 +1,6 @@
 package id.analisakoe.web.ui;
+
+import id.analisakoe.context.ContextService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
@@ -24,6 +26,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/finance/expenses")
 public class UiExpenseController {
+
+    @Autowired
+    private ContextService context;
 
     private final MenuService menuService;
 
@@ -117,8 +122,8 @@ public class UiExpenseController {
                        HttpSession session,
                        RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 11L;
+        final Long tenantId = context.tenantId();
+        final Long compId = context.companyId();
         try {
             transactionTemplate.executeWithoutResult(tx -> {
                 if (amount.compareTo(BigDecimal.ZERO) <= 0)

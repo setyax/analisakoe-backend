@@ -1,5 +1,7 @@
 package id.analisakoe.web.ui;
 
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -24,6 +26,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/master/companies")
 public class UiCompanyController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -105,7 +110,7 @@ public class UiCompanyController {
                        HttpSession session,
                        RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
+        Long tenantId = context.tenantId();
         String statusVal = (status == null || status.isBlank()) ? "ACTIVE" : status;
 
         try {

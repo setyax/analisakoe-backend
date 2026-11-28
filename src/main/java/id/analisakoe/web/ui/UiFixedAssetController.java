@@ -1,4 +1,8 @@
 package id.analisakoe.web.ui;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
@@ -24,6 +28,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/finance/assets")
 public class UiFixedAssetController {
+
+    @Autowired
+    private ContextService context;
 
     private final MenuService menuService;
 
@@ -163,8 +170,8 @@ public class UiFixedAssetController {
                        @RequestParam BigDecimal acquisitionCost, @RequestParam Integer usefulLifeYears,
                        @RequestParam BigDecimal salvageValue, HttpSession session, RedirectAttributes ra) {
         SessionUser user = currentUser(session);
-        final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 11L;
+        final Long tenantId = context.tenantId();
+        final Long compId = context.companyId();
         try {
             em.createNativeQuery(
                 "INSERT INTO fin.asset_master (tenant_id, company_id, asset_code, asset_name, category, " +

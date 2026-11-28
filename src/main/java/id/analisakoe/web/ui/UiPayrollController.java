@@ -1,4 +1,8 @@
 package id.analisakoe.web.ui;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
@@ -24,6 +28,9 @@ import java.util.stream.Collectors;
 @Controller
 @RequestMapping("/ui/hr")
 public class UiPayrollController {
+
+    @Autowired
+    private ContextService context;
     private final PayrollService payrollService;
     private final PayrollRunRepository payrollRepo;
     private final AttendanceRepository attRepo;
@@ -61,7 +68,7 @@ public class UiPayrollController {
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "New Attendance");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        model.addAttribute("employees", empRepo.findByTenantIdAndStatus(1L, "ACTIVE"));
+        model.addAttribute("employees", empRepo.findByTenantIdAndStatus(context.tenantId(), "ACTIVE"));
         model.addAttribute("today", LocalDate.now());
         return "ui/hr/attendance_form";
     }
@@ -91,7 +98,7 @@ public class UiPayrollController {
         
         Attendance att = attRepo.findById(id).orElseThrow();
         model.addAttribute("attendance", att);
-        model.addAttribute("employees", empRepo.findByTenantIdAndStatus(1L, "ACTIVE"));
+        model.addAttribute("employees", empRepo.findByTenantIdAndStatus(context.tenantId(), "ACTIVE"));
         
         return "ui/hr/attendance_form";
     }

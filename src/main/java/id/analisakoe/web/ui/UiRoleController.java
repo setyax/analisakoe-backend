@@ -1,5 +1,7 @@
 package id.analisakoe.web.ui;
 
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import id.analisakoe.core.entity.Permission;
 import id.analisakoe.core.entity.Role;
@@ -28,7 +30,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/ui")
 public class UiRoleController {
 
-    private static final Long TENANT = 1L;
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -57,7 +60,7 @@ public class UiRoleController {
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
 
         List<Map<String, Object>> roles = new ArrayList<>();
-        for (Role r : roleRepo.findByTenantId(TENANT)) {
+        for (Role r : roleRepo.findByTenantId(context.tenantId())) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", r.getId());
             m.put("code", r.getCode());
@@ -131,17 +134,17 @@ public class UiRoleController {
                 Role role;
                 if (id == null) {
                     String cleanCode = code.trim().toUpperCase().replace(' ', '_');
-                    if (roleRepo.existsByTenantIdAndCode(TENANT, cleanCode)) {
+                    if (roleRepo.existsByTenantIdAndCode(context.tenantId(), cleanCode)) {
                         throw new IllegalArgumentException("Kode role \"" + cleanCode + "\" sudah dipakai role lain.");
                     }
                     role = new Role();
-                    role.setTenantId(TENANT);
+                    role.setTenantId(context.tenantId());
                     role.setCode(cleanCode);
                 } else {
                     role = roleRepo.findById(id).orElseThrow(() -> new IllegalArgumentException("Role tidak ditemukan"));
                     String cleanCode = code.trim().toUpperCase().replace(' ', '_');
                     if (!role.getCode().equals(cleanCode)
-                            && roleRepo.existsByTenantIdAndCode(TENANT, cleanCode)) {
+                            && roleRepo.existsByTenantIdAndCode(context.tenantId(), cleanCode)) {
                         throw new IllegalArgumentException("Kode role \"" + cleanCode + "\" sudah dipakai role lain.");
                     }
                     role.setCode(cleanCode);

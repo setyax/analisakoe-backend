@@ -1,5 +1,9 @@
 package id.analisakoe.web.ui;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import id.analisakoe.fin.repository.BankAccountRepository;
 import id.analisakoe.hr.entity.CashAdvanceExpense;
@@ -22,6 +26,9 @@ import java.util.stream.Collectors;
 @Controller
 @RequestMapping("/ui/hr/cash-advance")
 public class UiCashAdvanceController {
+
+    @Autowired
+    private ContextService context;
 
     private final CashAdvanceService service;
     private final CashAdvanceRepository repo;
@@ -79,7 +86,7 @@ public class UiCashAdvanceController {
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "New Cash Advance");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        model.addAttribute("employees", empRepo.findByTenantIdAndStatus(1L, "ACTIVE"));
+        model.addAttribute("employees", empRepo.findByTenantIdAndStatus(context.tenantId(), "ACTIVE"));
         model.addAttribute("banks", bankRepo.findAllByOrderByNameAsc());
         model.addAttribute("today", LocalDate.now());
         model.addAttribute("isNew", true);
@@ -123,7 +130,7 @@ public class UiCashAdvanceController {
         }
 
         model.addAttribute("ca", ca);
-        model.addAttribute("employees", empRepo.findByTenantIdAndStatus(1L, "ACTIVE"));
+        model.addAttribute("employees", empRepo.findByTenantIdAndStatus(context.tenantId(), "ACTIVE"));
         model.addAttribute("banks", bankRepo.findAllByOrderByNameAsc());
         model.addAttribute("isNew", false);
         return "ui/hr/cash_advance_form";

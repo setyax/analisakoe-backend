@@ -1,4 +1,8 @@
 package id.analisakoe.web.ui;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
 import java.util.List;
 import java.math.BigDecimal;
 import id.analisakoe.web.ui.SessionInterceptor;
@@ -22,6 +26,9 @@ import java.util.ArrayList;
 @Controller
 @RequestMapping("/ui/inventory")
 public class UiInventoryController {
+
+    @Autowired
+    private ContextService context;
 
     private final InventoryService inventoryService;
     private final MenuService menuService;
@@ -68,9 +75,9 @@ public class UiInventoryController {
         model.addAttribute("pageTitle", "New Transaction");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         
-        model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(1L, org.springframework.data.domain.PageRequest.of(0, 100)).getContent());
-        model.addAttribute("warehouses", whRepo.findByTenantId(1L, org.springframework.data.domain.PageRequest.of(0, 100)).getContent());
-        model.addAttribute("uoms", uomRepo.findByTenantId(1L, org.springframework.data.domain.PageRequest.of(0, 100)).getContent());
+        model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), org.springframework.data.domain.PageRequest.of(0, 100)).getContent());
+        model.addAttribute("warehouses", whRepo.findByTenantId(context.tenantId(), org.springframework.data.domain.PageRequest.of(0, 100)).getContent());
+        model.addAttribute("uoms", uomRepo.findByTenantId(context.tenantId(), org.springframework.data.domain.PageRequest.of(0, 100)).getContent());
         model.addAttribute("today", LocalDate.now());
         
         return "ui/inventory/form";

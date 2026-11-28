@@ -1,5 +1,9 @@
 package id.analisakoe.web.ui;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -18,6 +22,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/master/salespersons")
 public class UiSalespersonController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -84,8 +91,8 @@ public class UiSalespersonController {
                        HttpSession session,
                        RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 11L;
+        final Long tenantId = context.tenantId();
+        final Long compId = context.companyId();
         try {
             if (id == null) {
                 em.createNativeQuery("INSERT INTO md.salesperson (tenant_id, company_id, code, name, employee_id, commission_pct, phone, email, is_active) VALUES (:tenantId, :compId, :code, :name, :emp, :comm, :phone, :email, :active)")

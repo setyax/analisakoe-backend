@@ -1,5 +1,9 @@
 package id.analisakoe.web.ui;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -27,6 +31,9 @@ import java.util.Set;
 @RequestMapping("/ui/purchasing/rfq/approval-matrix")
 public class UiRfqApprovalMatrixController {
 
+    @Autowired
+    private ContextService context;
+
     @PersistenceContext
     private EntityManager em;
 
@@ -44,7 +51,7 @@ public class UiRfqApprovalMatrixController {
     }
 
     private Long tenantId(SessionUser user) {
-        return user.getTenantId() != null ? user.getTenantId() : 1L;
+        return context.tenantId();
     }
 
     private String normalize(String value) {

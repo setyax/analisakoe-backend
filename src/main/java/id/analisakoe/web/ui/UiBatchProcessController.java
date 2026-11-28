@@ -1,4 +1,8 @@
 package id.analisakoe.web.ui;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
@@ -18,6 +22,9 @@ import java.util.List;
 @Controller
 @RequestMapping("/ui/finance/batch-process")
 public class UiBatchProcessController {
+
+    @Autowired
+    private ContextService context;
 
     private final MenuService menuService;
 
@@ -41,11 +48,6 @@ public class UiBatchProcessController {
     @PostMapping("/run")
     @Transactional
     public String runBatchProcess(HttpSession session, RedirectAttributes ra) {
-        SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 11L;
-        this.batchTenantId = tenantId;
-        this.batchCompId = compId;
         try {
             int countAR = 0, countAP = 0, countIN = 0, countOUT = 0, countFA = 0, countCA = 0;
 
@@ -185,15 +187,12 @@ public class UiBatchProcessController {
         return "redirect:/ui/finance/batch-process";
     }
 
-    private volatile Long batchTenantId = 1L;
-    private volatile Long batchCompId = 11L;
-
     private Long createJournalHeader(String docPrefix, String jType, String remarks, String refType, Long refId) {
         String docNo = docPrefix + "-" + System.currentTimeMillis();
         return ((Number) em.createNativeQuery(
             "INSERT INTO fin.journal_hdr (tenant_id, company_id, doc_no, doc_date, journal_type, remarks, status, ref_type, ref_id) " +
             "VALUES (:tenantId, :compId, :docNo, CURRENT_DATE, :jt, :rem, 'POSTED', :rt, :rid) RETURNING id")
-            .setParameter("tenantId", batchTenantId).setParameter("compId", batchCompId)
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
             .setParameter("docNo", docNo).setParameter("jt", jType).setParameter("rem", remarks).setParameter("rt", refType).setParameter("rid", refId)
             .getSingleResult()).longValue();
     }

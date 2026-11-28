@@ -1,4 +1,8 @@
 package id.analisakoe.web.ui;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
@@ -18,6 +22,9 @@ import java.math.BigDecimal;
 @Controller
 @RequestMapping("/ui/hr/employees")
 public class UiEmployeeController {
+
+    @Autowired
+    private ContextService context;
 
     private final EmployeeRepository repo;
     private final EmployeeSalaryRepository salRepo;
@@ -59,8 +66,8 @@ public class UiEmployeeController {
     @PostMapping
     public String save(@ModelAttribute Employee emp, RedirectAttributes ra) {
         try {
-            if (emp.getTenantId() == null) emp.setTenantId(1L);
-            if (emp.getCompanyId() == null) emp.setCompanyId(11L);
+            if (emp.getTenantId() == null) emp.setTenantId(context.tenantId());
+            if (emp.getCompanyId() == null) emp.setCompanyId(context.companyId());
             if (emp.getStatus() == null) emp.setStatus("ACTIVE");
             repo.save(emp);
             ra.addFlashAttribute("success", "Karyawan berhasil ditambahkan.");

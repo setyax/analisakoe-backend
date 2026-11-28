@@ -1,4 +1,8 @@
 package id.analisakoe.web.ui;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
 import java.util.List;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
@@ -29,6 +33,9 @@ import java.util.stream.Collectors;
 @RequestMapping("/ui/inventory/transfers")
 public class UiStockTransferController {
 
+    @Autowired
+    private ContextService context;
+
     private final StockTransferService service;
     private final StockTransferRepository repo;
     private final WarehouseRepository whRepo;
@@ -58,7 +65,7 @@ public class UiStockTransferController {
         prepareModel(model, user);
         model.addAttribute("pageTitle", "Stock Transfers");
         
-        var list = repo.findByTenantIdOrderByIdDesc(1L);
+        var list = repo.findByTenantIdOrderByIdDesc(context.tenantId());
         model.addAttribute("transfers", list);
         
         // Map untuk nama gudang dan barang

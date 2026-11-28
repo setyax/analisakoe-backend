@@ -1,4 +1,8 @@
 package id.analisakoe.web.ui;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
@@ -22,6 +26,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/finance/journals")
 public class UiJournalController {
+
+    @Autowired
+    private ContextService context;
 
     private final MenuService menuService;
 
@@ -189,8 +196,8 @@ public class UiJournalController {
                               HttpSession session,
                               RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 11L;
+        final Long tenantId = context.tenantId();
+        final Long compId = context.companyId();
         try {
             if (amount.compareTo(BigDecimal.ZERO) <= 0) throw new RuntimeException("Nominal harus lebih dari 0");
             if (debitAccountId.equals(creditAccountId)) throw new RuntimeException("Akun Debit dan Kredit tidak boleh sama");

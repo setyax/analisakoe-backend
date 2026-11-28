@@ -1,4 +1,8 @@
 package id.analisakoe.web.ui;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
@@ -20,6 +24,9 @@ import java.time.LocalDate;
 @Controller
 @RequestMapping("/ui/finance/notes")
 public class UiNoteController {
+
+    @Autowired
+    private ContextService context;
     private final NoteService service;
     private final NoteRepository repo;
     private final CustomerRepository custRepo;
@@ -48,8 +55,8 @@ public class UiNoteController {
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "New Note");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(1L, PageRequest.of(0, 100)).getContent());
-        model.addAttribute("suppliers", supRepo.findByTenantIdAndDeletedAtIsNull(1L, PageRequest.of(0, 100)).getContent());
+        model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("suppliers", supRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("today", LocalDate.now());
         return "ui/finance/note_form";
     }
@@ -70,8 +77,8 @@ public class UiNoteController {
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "Edit Note");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(1L, PageRequest.of(0, 100)).getContent());
-        model.addAttribute("suppliers", supRepo.findByTenantIdAndDeletedAtIsNull(1L, PageRequest.of(0, 100)).getContent());
+        model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("suppliers", supRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
         try {
             var note = repo.findById(id).orElseThrow(() -> new IllegalArgumentException("Note tidak ditemukan"));
             if (!"DRAFT".equals(note.getStatus())) {

@@ -1,5 +1,7 @@
 package id.analisakoe.web.ui;
 
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import id.analisakoe.fin.entity.BankAccount;
 import id.analisakoe.fin.repository.BankAccountRepository;
@@ -18,6 +20,9 @@ import java.math.BigDecimal;
 @Controller
 @RequestMapping("/ui/master/banks")
 public class UiBankAccountController {
+
+    @Autowired
+    private ContextService context;
 
     private final BankAccountRepository repo;
     private final MenuService menuService;
@@ -97,7 +102,7 @@ public class UiBankAccountController {
 
             transactionTemplate.executeWithoutResult(tx -> {
                 BankAccount b = new BankAccount();
-                b.setTenantId(1L);
+                b.setTenantId(context.tenantId());
                 b.setCompanyId(compId);
                 fill(b, name, accountNo, bankCode, currency, branch, coaId, openingBalance);
                 b.setStatus("ACTIVE");

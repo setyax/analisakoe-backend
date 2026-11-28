@@ -1,4 +1,8 @@
 package id.analisakoe.web.ui;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
@@ -28,6 +32,9 @@ import java.util.HashMap;
 @Controller
 @RequestMapping("/ui/sales/orders")
 public class UiSalesOrderController {
+
+    @Autowired
+    private ContextService context;
 
     private final SalesOrderService service;
     private final SalesOrderRepository repo;
@@ -89,9 +96,9 @@ public class UiSalesOrderController {
         model.addAttribute("pageTitle", "New Sales Order");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
 
-        model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(1L, PageRequest.of(0, 100)).getContent());
-        model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(1L, PageRequest.of(0, 100)).getContent());
-        model.addAttribute("uoms", uomRepo.findByTenantId(1L, PageRequest.of(0, 100)).getContent());
+        model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("uoms", uomRepo.findByTenantId(context.tenantId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("salespersons", em.createNativeQuery(
                 "SELECT id, code || ' - ' || name FROM md.salesperson WHERE is_active = true ORDER BY code").getResultList());
         model.addAttribute("today", LocalDate.now());
@@ -273,9 +280,9 @@ public class UiSalesOrderController {
 
         var order = repo.findById(id).orElseThrow();
         model.addAttribute("order", order);
-        model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(1L, PageRequest.of(0, 100)).getContent());
-        model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(1L, PageRequest.of(0, 100)).getContent());
-        model.addAttribute("uoms", uomRepo.findByTenantId(1L, PageRequest.of(0, 100)).getContent());
+        model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("uoms", uomRepo.findByTenantId(context.tenantId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("salespersons", em.createNativeQuery(
                 "SELECT id, code || ' - ' || name FROM md.salesperson WHERE is_active = true ORDER BY code").getResultList());
         model.addAttribute("isNew", false);

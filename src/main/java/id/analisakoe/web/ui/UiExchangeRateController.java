@@ -1,5 +1,9 @@
 package id.analisakoe.web.ui;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import id.analisakoe.md.entity.ExchangeRate;
 import id.analisakoe.md.repository.CurrencyRepository;
@@ -18,6 +22,9 @@ import java.time.LocalDate;
 @RequestMapping("/ui/exchange-rates")
 public class UiExchangeRateController {
 
+    @Autowired
+    private ContextService context;
+
     private final ExchangeRateRepository repo;
     private final CurrencyRepository currencyRepo;
     private final MenuService menuService;
@@ -34,7 +41,7 @@ public class UiExchangeRateController {
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "Exchange Rates");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        model.addAttribute("rates", repo.findByTenantIdOrderByEffectiveDateDesc(1L, PageRequest.of(0, 50)).getContent());
+        model.addAttribute("rates", repo.findByTenantIdOrderByEffectiveDateDesc(context.tenantId(), PageRequest.of(0, 50)).getContent());
         return "ui/exchange_rates/list";
     }
 
@@ -59,7 +66,7 @@ public class UiExchangeRateController {
                        RedirectAttributes ra) {
         try {
             ExchangeRate x = new ExchangeRate();
-            x.setTenantId(1L);
+            x.setTenantId(context.tenantId());
             x.setFromCurrency(fromCurrency);
             x.setToCurrency(toCurrency);
             x.setRate(rate);

@@ -1,4 +1,6 @@
 package id.analisakoe.web.ui;
+
+import id.analisakoe.context.ContextService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
@@ -35,6 +37,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/finance")
 public class UiFinanceController {
+
+    @Autowired
+    private ContextService context;
 
     private final BankAccountRepository bankRepo;
     private final CashBankTrxRepository cashRepo;
@@ -559,7 +564,7 @@ public class UiFinanceController {
     @GetMapping("/ar/new")
     public String newAr(HttpSession session, Model model) {
         addCommonData(session, model, "New AR Collection");
-        model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(1L, PageRequest.of(0, 100)).getContent());
+        model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("banks", bankRepo.findAllByOrderByNameAsc());
         model.addAttribute("today", LocalDate.now());
         return "ui/finance/ar_form";
@@ -587,7 +592,7 @@ public class UiFinanceController {
     @GetMapping("/ap/new")
     public String newAp(HttpSession session, Model model) {
         addCommonData(session, model, "New AP Payment");
-        model.addAttribute("suppliers", supRepo.findByTenantIdAndDeletedAtIsNull(1L, PageRequest.of(0, 100)).getContent());
+        model.addAttribute("suppliers", supRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("banks", bankRepo.findAllByOrderByNameAsc());
         model.addAttribute("today", LocalDate.now());
         return "ui/finance/ap_form";

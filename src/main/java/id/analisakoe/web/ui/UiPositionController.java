@@ -1,5 +1,9 @@
 package id.analisakoe.web.ui;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
+
 import id.analisakoe.core.menu.MenuService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -18,6 +22,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/master/positions")
 public class UiPositionController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -86,8 +93,8 @@ public class UiPositionController {
                        HttpSession session,
                        RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 11L;
+        final Long tenantId = context.tenantId();
+        final Long compId = context.companyId();
         try {
             if (id == null) {
                 em.createNativeQuery("INSERT INTO hr.position (tenant_id, company_id, code, name, level, department_id, min_salary, max_salary, is_active) VALUES (:tenantId, :compId, :code, :name, :lvl, :dept, :min, :max, :active)")

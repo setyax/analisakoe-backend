@@ -1,5 +1,9 @@
 package id.analisakoe.web.ui;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import id.analisakoe.context.ContextService;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.HttpSession;
@@ -24,6 +28,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/print")
 public class UiPrintController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -53,11 +60,7 @@ public class UiPrintController {
     private Map<String, Object> getCompanyInfo(HttpSession session) {
         Map<String, Object> c = new HashMap<>();
         c.put("name", "AnalisaKoe ERP");
-        Long compId = 11L;
-        try {
-            SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-            if (user != null && user.getActiveCompanyId() != null) compId = user.getActiveCompanyId();
-        } catch (Exception e) { /* fallback */ }
+        Long compId = context.companyId();
         try {
             List<?> rows = em.createNativeQuery("SELECT name FROM core.company WHERE id = :id")
                 .setParameter("id", compId).getResultList();

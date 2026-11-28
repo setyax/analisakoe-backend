@@ -1,4 +1,6 @@
 package id.analisakoe.web.ui;
+
+import id.analisakoe.context.ContextService;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
 
@@ -25,6 +27,9 @@ import java.util.Map;
 @Controller
 @RequestMapping("/ui/sales/quotations")
 public class UiSalesQuotationController {
+
+    @Autowired
+    private ContextService context;
 
     @PersistenceContext
     private EntityManager em;
@@ -196,8 +201,8 @@ public class UiSalesQuotationController {
                        HttpSession session,
                        RedirectAttributes ra) {
         SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
-        final Long compId = (user != null && user.getActiveCompanyId() != null) ? user.getActiveCompanyId() : 11L;
+        final Long tenantId = context.tenantId();
+        final Long compId = context.companyId();
         try {
             if (itemIds == null || itemIds.isEmpty()) {
                 throw new RuntimeException("Minimal 1 item harus ada.");
@@ -398,7 +403,7 @@ public class UiSalesQuotationController {
         try {
             SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
         Long compId = user.getActiveCompanyId(); // Auto-Injected by Wizard
-        final Long tenantId = (user != null && user.getTenantId() != null) ? user.getTenantId() : 1L;
+        final Long tenantId = context.tenantId();
 
             Object[] qhdr = (Object[]) em.createNativeQuery(
                 "SELECT doc_no, customer_id, currency, remarks, total_amount, tax_type, tax_amount, status " +

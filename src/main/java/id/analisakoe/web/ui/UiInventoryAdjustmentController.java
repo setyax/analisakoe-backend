@@ -1,4 +1,6 @@
 package id.analisakoe.web.ui;
+
+import id.analisakoe.context.ContextService;
 import java.util.List;
 import id.analisakoe.web.ui.SessionInterceptor;
 import id.analisakoe.web.ui.SessionUser;
@@ -26,6 +28,9 @@ import java.util.ArrayList;
 @Controller
 @RequestMapping("/ui/inventory/adjustment")
 public class UiInventoryAdjustmentController {
+
+    @Autowired
+    private ContextService context;
     private final InventoryAdjustmentService service;
     private final ItemRepository itemRepo;
     private final UomRepository uomRepo;
@@ -54,9 +59,9 @@ public class UiInventoryAdjustmentController {
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "Inventory Adjustment");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(1L, PageRequest.of(0, 100)).getContent());
-        model.addAttribute("uoms", uomRepo.findByTenantId(1L, PageRequest.of(0, 100)).getContent());
-        model.addAttribute("warehouses", whRepo.findByTenantId(1L, PageRequest.of(0, 100)).getContent());
+        model.addAttribute("items", itemRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("uoms", uomRepo.findByTenantId(context.tenantId(), PageRequest.of(0, 100)).getContent());
+        model.addAttribute("warehouses", whRepo.findByTenantId(context.tenantId(), PageRequest.of(0, 100)).getContent());
         model.addAttribute("today", LocalDate.now());
 
         // Riwayat adjustment (transaction_header dengan remarks 'Adj ...') per cabang aktif
@@ -131,7 +136,7 @@ public class UiInventoryAdjustmentController {
             for (int i = 0; i < itemIds.size(); i++) {
                 lines.add(new InventoryAdjustmentService.LineReq(itemIds.get(i), uomIds.get(i), qtys.get(i), prices.get(i)));
             }
-            service.createAdjustment(1L, sessCompId, adjType, docDate, warehouseId, remarks, lines);
+            service.createAdjustment(context.tenantId(), sessCompId, adjType, docDate, warehouseId, remarks, lines);
             ra.addFlashAttribute("success", "Inventory Adjustment berhasil. Stok & Jurnal telah diperbarui.");
         } catch (Exception e) { 
             ra.addFlashAttribute("error", e.getMessage()); 
