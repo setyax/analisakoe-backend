@@ -1,5 +1,8 @@
 package id.analisakoe.fin.service;
 
+import id.analisakoe.context.ContextService;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import id.analisakoe.common.BusinessException;
 import id.analisakoe.fin.entity.Note;
 import id.analisakoe.fin.repository.NoteRepository;
@@ -12,6 +15,9 @@ import java.util.List;
 
 @Service
 public class NoteService {
+
+    @Autowired
+    private ContextService context;
     private final NoteRepository repo;
     private final JournalService journalService;
 
@@ -22,7 +28,7 @@ public class NoteService {
     @Transactional
     public void create(LocalDate date, String type, Long partnerId, BigDecimal amount, String remarks) {
         Note note = new Note();
-        note.setTenantId(1L); note.setCompanyId(11L);
+        note.setTenantId(context.tenantId()); note.setCompanyId(context.companyId());
         note.setDocNo(type + "-" + System.currentTimeMillis());
         note.setDocDate(date); note.setNoteType(type);
         note.setPartnerId(partnerId);

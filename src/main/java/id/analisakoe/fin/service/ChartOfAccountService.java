@@ -2,6 +2,8 @@ package id.analisakoe.fin.service;
 
 import id.analisakoe.common.BusinessException;
 import id.analisakoe.common.PageResponse;
+import id.analisakoe.context.ContextService;
+import org.springframework.beans.factory.annotation.Autowired;
 import id.analisakoe.fin.dto.ChartOfAccountRequest;
 import id.analisakoe.fin.dto.ChartOfAccountResponse;
 import id.analisakoe.fin.entity.ChartOfAccount;
@@ -16,48 +18,52 @@ import java.util.List;
 
 @Service
 public class ChartOfAccountService {
-    private static final Long TENANT = 1L;
-    private static final Long COMPANY = 11L;
+
+    @Autowired
+    private ContextService context;
 
     private final ChartOfAccountRepository repo;
 
     public ChartOfAccountService(ChartOfAccountRepository repo) { this.repo = repo; }
 
+    private Long tenant() { return context.tenantId(); }
+    private Long company() { return context.companyId(); }
+
     @Transactional(readOnly = true)
     public PageResponse<ChartOfAccountResponse> list(String search, Pageable pageable) {
         Page<ChartOfAccount> page = (search == null || search.isBlank())
-            ? repo.findByTenantId(TENANT, pageable)
-            : repo.findByTenantIdAndNameContainingIgnoreCase(TENANT, search, pageable);
+            ? repo.findByTenantId(tenant(), pageable)
+            : repo.findByTenantIdAndNameContainingIgnoreCase(tenant(), search, pageable);
         return PageResponse.of(page.map(ChartOfAccountResponse::from));
     }
 
     @Transactional(readOnly = true)
     public ChartOfAccountResponse get(Long id) {
-        return ChartOfAccountResponse.from(repo.findByIdAndTenantId(id, TENANT)
+        return ChartOfAccountResponse.from(repo.findByIdAndTenantId(id, tenant())
             .orElseThrow(() -> new EntityNotFoundException("COA tidak ditemukan: " + id)));
     }
 
     @Transactional(readOnly = true)
     public List<ChartOfAccountResponse> listHeaders() {
-        return repo.findByTenantIdAndIsHeaderTrue(TENANT).stream()
+        return repo.findByTenantIdAndIsHeaderTrue(tenant()).stream()
             .map(ChartOfAccountResponse::from).toList();
     }
 
     @Transactional
     public ChartOfAccountResponse create(ChartOfAccountRequest req) {
-        if (repo.existsByTenantIdAndCompanyIdAndCode(TENANT, COMPANY, req.code())) {
+        if (repo.existsByTenantIdAndCompanyIdAndCode(tenant(), company(), req.code())) {
             throw new BusinessException("Kode Akun sudah dipakai: " + req.code());
         }
         ChartOfAccount e = new ChartOfAccount();
-        e.setTenantId(TENANT);
-        e.setCompanyId(COMPANY);
+        e.setTenantId(tenant());
+        e.setCompanyId(company());
         apply(e, req);
         return ChartOfAccountResponse.from(repo.save(e));
     }
 
     @Transactional
     public ChartOfAccountResponse update(Long id, ChartOfAccountRequest req) {
-        ChartOfAccount e = repo.findByIdAndTenantId(id, TENANT)
+        ChartOfAccount e = repo.findByIdAndTenantId(id, tenant())
             .orElseThrow(() -> new EntityNotFoundException("COA tidak ditemukan: " + id));
         apply(e, req);
         return ChartOfAccountResponse.from(repo.save(e));

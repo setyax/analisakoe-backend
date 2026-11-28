@@ -2,6 +2,8 @@ package id.analisakoe.core.service;
 
 import id.analisakoe.common.BusinessException;
 import id.analisakoe.common.PageResponse;
+import id.analisakoe.context.ContextService;
+import org.springframework.beans.factory.annotation.Autowired;
 import id.analisakoe.core.dto.*;
 import id.analisakoe.core.entity.AppUser;
 import id.analisakoe.core.entity.Role;
@@ -22,7 +24,8 @@ import java.util.Set;
 @Service
 public class UserService {
 
-    private static final Long TENANT = 1L;
+    @Autowired
+    private ContextService context;
 
     private final AppUserRepository userRepo;
     private final RoleRepository roleRepo;
@@ -37,29 +40,31 @@ public class UserService {
         this.refreshTokenService = refreshTokenService;
     }
 
+    private Long tenant() { return context.tenantId(); }
+
     @Transactional(readOnly = true)
     public PageResponse<UserResponse> list(String search, String status, Pageable pageable) {
         Page<AppUser> page;
         if (status != null && !status.isBlank()) {
-            page = userRepo.findByTenantIdAndStatus(TENANT, status, pageable);
+            page = userRepo.findByTenantIdAndStatus(tenant(), status, pageable);
         } else if (search != null && !search.isBlank()) {
-            page = userRepo.findByTenantIdAndUsernameContainingIgnoreCase(TENANT, search, pageable);
+            page = userRepo.findByTenantIdAndUsernameContainingIgnoreCase(tenant(), search, pageable);
         } else {
-            page = userRepo.findByTenantId(TENANT, pageable);
+            page = userRepo.findByTenantId(tenant(), pageable);
         }
         return PageResponse.of(page.map(UserResponse::from));
     }
 
     @Transactional(readOnly = true)
     public UserResponse get(Long id) {
-        AppUser u = userRepo.findByIdAndTenantId(id, TENANT)
+        AppUser u = userRepo.findByIdAndTenantId(id, tenant())
             .orElseThrow(() -> new EntityNotFoundException("User tidak ditemukan: " + id));
         return UserResponse.from(u);
     }
 
     @Transactional
     public UserResponse create(UserCreateRequest req) {
-        if (userRepo.existsByTenantIdAndUsername(TENANT, req.username())) {
+        if (userRepo.existsByTenantIdAndUsername(tenant(), req.username())) {
             throw new BusinessException("Username sudah dipakai: " + req.username());
         }
         if (req.email() != null && userRepo.findByEmail(req.email()).isPresent()) {
@@ -67,7 +72,7 @@ public class UserService {
         }
 
         AppUser u = new AppUser();
-        u.setTenantId(TENANT);
+        u.setTenantId(tenant());
         u.setUsername(req.username().trim());
         u.setEmail(req.email());
         u.setFullName(req.fullName());
@@ -82,7 +87,7 @@ public class UserService {
 
     @Transactional
     public UserResponse update(Long id, UserUpdateRequest req) {
-        AppUser u = userRepo.findByIdAndTenantId(id, TENANT)
+        AppUser u = userRepo.findByIdAndTenantId(id, tenant())
             .orElseThrow(() -> new EntityNotFoundException("User tidak ditemukan: " + id));
 
         if (req.email() != null && !req.email().equals(u.getEmail())) {
@@ -102,7 +107,7 @@ public class UserService {
 
     @Transactional
     public void delete(Long id) {
-        AppUser u = userRepo.findByIdAndTenantId(id, TENANT)
+        AppUser u = userRepo.findByIdAndTenantId(id, tenant())
             .orElseThrow(() -> new EntityNotFoundException("User tidak ditemukan: " + id));
         if ("admin".equals(u.getUsername())) {
             throw new BusinessException("User 'admin' tidak boleh dihapus");
@@ -115,7 +120,7 @@ public class UserService {
 
     @Transactional
     public void resetPassword(Long id, PasswordResetRequest req) {
-        AppUser u = userRepo.findByIdAndTenantId(id, TENANT)
+        AppUser u = userRepo.findByIdAndTenantId(id, tenant())
             .orElseThrow(() -> new EntityNotFoundException("User tidak ditemukan: " + id));
         u.setPasswordHash(passwordEncoder.encode(req.newPassword()));
         u.setMustChangePwd(Boolean.TRUE);
@@ -144,7 +149,7 @@ public class UserService {
 
     private Set<Role> resolveRoles(Set<String> codes) {
         if (codes == null || codes.isEmpty()) return new HashSet<>();
-        List<Role> roles = roleRepo.findByTenantIdAndCodeIn(TENANT, List.copyOf(codes));
+        List<Role> roles = roleRepo.findByTenantIdAndCodeIn(tenant(), List.copyOf(codes));
         if (roles.size() != codes.size()) {
             Set<String> found = new HashSet<>();
             roles.forEach(r -> found.add(r.getCode()));

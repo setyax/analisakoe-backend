@@ -1,5 +1,8 @@
 package id.analisakoe.hr.service;
 
+import id.analisakoe.context.ContextService;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import id.analisakoe.common.BusinessException;
 import id.analisakoe.fin.entity.CashBankTrx;
 import id.analisakoe.fin.repository.CashBankTrxRepository;
@@ -15,6 +18,9 @@ import java.util.List;
 
 @Service
 public class CashAdvanceService {
+
+    @Autowired
+    private ContextService context;
     private final CashAdvanceRepository repo;
     private final CashBankTrxRepository cashRepo;
     private final JournalService journalService;
@@ -49,7 +55,7 @@ public void create(Long companyId, LocalDate docDate, Long employeeId, Long bank
 
         // 1. Catat Kas Keluar
         CashBankTrx cash = new CashBankTrx();
-        cash.setTenantId(1L); cash.setCompanyId(11L);
+        cash.setTenantId(context.tenantId()); cash.setCompanyId(context.companyId());
         cash.setDocNo("CB-CA-" + System.currentTimeMillis());
         cash.setDocDate(ca.getDocDate()); cash.setTrxType("OUT"); cash.setBankId(ca.getBankId());
         cash.setAmount(ca.getAmount()); cash.setRemarks("Pencairan Kas Bon: " + ca.getDocNo());
@@ -115,7 +121,7 @@ public void create(Long companyId, LocalDate docDate, Long employeeId, Long bank
         // Jika ada sisa uang kembali, catat Kas Masuk
         if (returnAmount.compareTo(BigDecimal.ZERO) > 0) {
             CashBankTrx cash = new CashBankTrx();
-            cash.setTenantId(1L); cash.setCompanyId(11L);
+            cash.setTenantId(context.tenantId()); cash.setCompanyId(context.companyId());
             cash.setDocNo("CB-LPJ-" + System.currentTimeMillis());
             cash.setDocDate(settleDate); cash.setTrxType("IN"); cash.setBankId(ca.getBankId());
             cash.setAmount(returnAmount); cash.setRemarks("Pengembalian Sisa Kas Bon: " + ca.getDocNo());

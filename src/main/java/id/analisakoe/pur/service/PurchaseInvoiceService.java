@@ -1,4 +1,6 @@
 package id.analisakoe.pur.service;
+
+import id.analisakoe.context.ContextService;
 import org.springframework.beans.factory.annotation.Autowired;
 import id.analisakoe.core.service.NumberRangeService;
 
@@ -15,6 +17,9 @@ import java.util.List;
 
 @Service
 public class PurchaseInvoiceService {
+
+    @Autowired
+    private ContextService context;
 
     @Autowired
     private NumberRangeService numberRangeService;
@@ -44,7 +49,7 @@ public class PurchaseInvoiceService {
         PurchaseOrderHdr po = poRepo.findById(grn.getPoId()).orElse(null);
 
         PurchaseInvoiceHdr hdr = new PurchaseInvoiceHdr();
-        hdr.setTenantId(1L); hdr.setCompanyId(11L);
+        hdr.setTenantId(context.tenantId()); hdr.setCompanyId(context.companyId());
         hdr.setDocNo("DOC-" + System.currentTimeMillis());
         hdr.setSupplierInvoiceNo(supplierInvoiceNo);
         hdr.setInvoiceDate(invDate); hdr.setDueDate(dueDate);

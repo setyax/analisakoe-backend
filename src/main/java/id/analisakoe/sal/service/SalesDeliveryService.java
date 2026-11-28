@@ -1,4 +1,6 @@
 package id.analisakoe.sal.service;
+
+import id.analisakoe.context.ContextService;
 import org.springframework.beans.factory.annotation.Autowired;
 import id.analisakoe.core.service.NumberRangeService;
 
@@ -18,6 +20,9 @@ import java.util.List;
 
 @Service
 public class SalesDeliveryService {
+
+    @Autowired
+    private ContextService context;
 
     @Autowired
     private NumberRangeService numberRangeService;
@@ -46,8 +51,8 @@ public class SalesDeliveryService {
         // SO TIDAK diubah — tetap CONFIRMED sampai invoice dibuat
         // ============================================================
         DeliveryOrderHdr hdr = new DeliveryOrderHdr();
-        hdr.setTenantId(1L);
-        hdr.setCompanyId(11L);
+        hdr.setTenantId(context.tenantId());
+        hdr.setCompanyId(context.companyId());
         hdr.setDocNo("DOC-" + System.currentTimeMillis());
         hdr.setDocDate(LocalDate.now());
         hdr.setSoId(soId);
@@ -86,8 +91,8 @@ public class SalesDeliveryService {
         }
 
         DeliveryOrderHdr hdr = new DeliveryOrderHdr();
-        hdr.setTenantId(1L);
-        hdr.setCompanyId(11L);
+        hdr.setTenantId(context.tenantId());
+        hdr.setCompanyId(context.companyId());
         hdr.setDocNo("DOC-" + System.currentTimeMillis());
         hdr.setDocDate(docDate != null ? docDate : LocalDate.now());
         hdr.setSoId(soId);
@@ -117,7 +122,7 @@ public class SalesDeliveryService {
         SalesOrderHdr so = soRepo.findById(doHdr.getSoId()).orElseThrow();
 
         SalesInvoiceHdr hdr = new SalesInvoiceHdr();
-        hdr.setTenantId(1L); hdr.setCompanyId(11L);
+        hdr.setTenantId(context.tenantId()); hdr.setCompanyId(context.companyId());
         hdr.setDocNo(numberRangeService.generate("SI", "SI"));
         hdr.setDocDate(invDate); hdr.setDueDate(dueDate);
         hdr.setDoId(doId); hdr.setCustomerId(so.getCustomerId()); hdr.setStatus("POSTED");

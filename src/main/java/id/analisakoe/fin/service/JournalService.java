@@ -1,4 +1,6 @@
 package id.analisakoe.fin.service;
+
+import id.analisakoe.context.ContextService;
 import org.springframework.beans.factory.annotation.Autowired;
 import id.analisakoe.core.service.NumberRangeService;
 
@@ -19,6 +21,9 @@ import java.util.List;
 public class JournalService {
 
     @Autowired
+    private ContextService context;
+
+    @Autowired
     private NumberRangeService numberRangeService;
     private final JournalRepository repo;
     private final ChartOfAccountRepository coaRepo;
@@ -33,7 +38,7 @@ public class JournalService {
 
     @Transactional
     public void createJournal(LocalDate date, String type, String remarks, List<JournalLine> lines) {
-        createJournal(1L, 11L, date, type, remarks, lines);
+        createJournal(context.tenantId(), context.companyId(), date, type, remarks, lines);
     }
 
     /** Versi eksplisit: jurnal mengikuti company dokumen asal. */

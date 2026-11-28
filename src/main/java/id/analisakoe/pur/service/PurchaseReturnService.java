@@ -1,5 +1,8 @@
 package id.analisakoe.pur.service;
 
+import id.analisakoe.context.ContextService;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import id.analisakoe.common.BusinessException;
 import id.analisakoe.fin.service.JournalService;
 import id.analisakoe.inv.dto.InventoryDtos.TransactionLine;
@@ -18,6 +21,9 @@ import java.util.List;
 
 @Service
 public class PurchaseReturnService {
+
+    @Autowired
+    private ContextService context;
     private final PurchaseReturnRepository repo;
     private final InventoryService invService;
     private final JournalService journalService;
@@ -31,7 +37,7 @@ public class PurchaseReturnService {
         if(lines == null || lines.isEmpty()) throw new BusinessException("Minimal 1 item diretur");
 
         PurchaseReturnHdr hdr = new PurchaseReturnHdr();
-        hdr.setTenantId(1L); hdr.setCompanyId(11L);
+        hdr.setTenantId(context.tenantId()); hdr.setCompanyId(context.companyId());
         hdr.setDocNo("PRT-" + System.currentTimeMillis());
         hdr.setDocDate(date); hdr.setSupplierId(supplierId); hdr.setPurchaseInvoiceId(invoiceId);
         hdr.setWarehouseId(warehouseId); hdr.setRemarks(remarks); hdr.setStatus("DRAFT");

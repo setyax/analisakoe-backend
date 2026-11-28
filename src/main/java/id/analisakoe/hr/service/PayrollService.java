@@ -1,5 +1,8 @@
 package id.analisakoe.hr.service;
 
+import id.analisakoe.context.ContextService;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import id.analisakoe.common.BusinessException;
 import id.analisakoe.fin.service.JournalService;
 import id.analisakoe.hr.entity.*;
@@ -15,6 +18,9 @@ import java.util.List;
 
 @Service
 public class PayrollService {
+
+    @Autowired
+    private ContextService context;
     private final PayrollRunRepository runRepo;
     private final EmployeeSalaryRepository salRepo;
     private final EmployeeRepository empRepo;
@@ -48,8 +54,8 @@ public class PayrollService {
             run.setTotalNet(BigDecimal.ZERO);
         } else {
             run = new PayrollRun();
-            run.setTenantId(1L); 
-            run.setCompanyId(11L);
+            run.setTenantId(context.tenantId()); 
+            run.setCompanyId(context.companyId());
             run.setPeriod(period); 
             run.setStatus("DRAFT");
         }
@@ -58,7 +64,7 @@ public class PayrollService {
         LocalDate start = ym.atDay(1);
         LocalDate end = ym.atEndOfMonth();
 
-        List<Employee> employees = empRepo.findByTenantIdAndStatus(1L, "ACTIVE");
+        List<Employee> employees = empRepo.findByTenantIdAndStatus(context.tenantId(), "ACTIVE");
         BigDecimal totalGross = BigDecimal.ZERO;
         BigDecimal totalDeduction = BigDecimal.ZERO;
         BigDecimal totalNet = BigDecimal.ZERO;

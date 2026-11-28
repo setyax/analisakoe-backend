@@ -1,6 +1,8 @@
 package id.analisakoe.core.service;
 
+import id.analisakoe.context.ContextService;
 import jakarta.persistence.EntityManager;
+import org.springframework.beans.factory.annotation.Autowired;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +17,11 @@ public class StockValuationService {
 
     @PersistenceContext
     private EntityManager em;
+
+    @Autowired
+    private ContextService context;
+
+    private Long tenant() { return context.tenantId(); }
 
     /**
      * Konversi qty & unit cost dari satuan dokumen (uomId) ke satuan dasar item.
@@ -114,8 +121,8 @@ public class StockValuationService {
 
         em.createNativeQuery(
             "UPDATE inv.stock_balance SET qty = :qty, avg_cost = :avg, total_value = :val, last_updated = NOW() " +
-            "WHERE tenant_id = 1 AND item_id = :itemId AND warehouse_id = :whId")
-            .setParameter("qty", newQty).setParameter("avg", newAvgCost)
+            "WHERE tenant_id = :tenant AND item_id = :itemId AND warehouse_id = :whId")
+            .setParameter("tenant", tenant()).setParameter("qty", newQty).setParameter("avg", newAvgCost)
             .setParameter("val", newValue).setParameter("itemId", itemId)
             .setParameter("whId", warehouseId).executeUpdate();
 
@@ -148,8 +155,8 @@ public class StockValuationService {
 
         em.createNativeQuery(
             "UPDATE inv.stock_balance SET qty = :qty, avg_cost = :avg, total_value = :val, last_updated = NOW() " +
-            "WHERE tenant_id = 1 AND item_id = :itemId AND warehouse_id = :whId")
-            .setParameter("qty", newQty).setParameter("avg", newAvgCost)
+            "WHERE tenant_id = :tenant AND item_id = :itemId AND warehouse_id = :whId")
+            .setParameter("tenant", tenant()).setParameter("qty", newQty).setParameter("avg", newAvgCost)
             .setParameter("val", newValue).setParameter("itemId", itemId)
             .setParameter("whId", warehouseId).executeUpdate();
 
@@ -268,14 +275,16 @@ public class StockValuationService {
     private Object[] getOrCreateBalance(Long itemId, Long warehouseId) {
         List<?> rows = em.createNativeQuery(
             "SELECT qty, avg_cost, total_value FROM inv.stock_balance " +
-            "WHERE tenant_id = 1 AND item_id = :itemId AND warehouse_id = :whId")
-            .setParameter("itemId", itemId).setParameter("whId", warehouseId).getResultList();
+            "WHERE tenant_id = :tenant AND item_id = :itemId AND warehouse_id = :whId")
+            .setParameter("tenant", tenant()).setParameter("itemId", itemId)
+            .setParameter("whId", warehouseId).getResultList();
 
         if (rows.isEmpty()) {
             em.createNativeQuery(
                 "INSERT INTO inv.stock_balance (tenant_id, item_id, warehouse_id, qty, avg_cost, total_value) " +
-                "VALUES (1, :itemId, :whId, 0, 0, 0) ON CONFLICT DO NOTHING")
-                .setParameter("itemId", itemId).setParameter("whId", warehouseId).executeUpdate();
+                "VALUES (:tenant, :itemId, :whId, 0, 0, 0) ON CONFLICT DO NOTHING")
+                .setParameter("tenant", tenant()).setParameter("itemId", itemId)
+                .setParameter("whId", warehouseId).executeUpdate();
             return new Object[] { BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO };
         }
         Object[] row = (Object[]) rows.get(0);
@@ -293,8 +302,9 @@ public class StockValuationService {
         em.createNativeQuery(
             "INSERT INTO inv.stock_movement (tenant_id, movement_date, item_id, warehouse_id, direction, " +
             "qty, unit_cost, total_cost, balance_qty, balance_avg_cost, reference_type, reference_id, reference_no, remarks) " +
-            "VALUES (1, :dt, :itemId, :whId, :dir, :qty, :uc, :tc, :bq, :bac, :rt, :rid, :rno, :rem)")
-            .setParameter("dt", date).setParameter("itemId", itemId).setParameter("whId", warehouseId)
+            "VALUES (:tenant, :dt, :itemId, :whId, :dir, :qty, :uc, :tc, :bq, :bac, :rt, :rid, :rno, :rem)")
+            .setParameter("tenant", tenant()).setParameter("dt", date)
+            .setParameter("itemId", itemId).setParameter("whId", warehouseId)
             .setParameter("dir", direction).setParameter("qty", qty).setParameter("uc", unitCost)
             .setParameter("tc", totalCost).setParameter("bq", balQty).setParameter("bac", balAvgCost)
             .setParameter("rt", refType).setParameter("rid", refId).setParameter("rno", refNo)
@@ -304,8 +314,9 @@ public class StockValuationService {
     public BigDecimal getCurrentStock(Long itemId, Long warehouseId) {
         if (warehouseId == null) warehouseId = 1L;
         List<?> rows = em.createNativeQuery(
-            "SELECT qty FROM inv.stock_balance WHERE tenant_id = 1 AND item_id = :itemId AND warehouse_id = :whId")
-            .setParameter("itemId", itemId).setParameter("whId", warehouseId).getResultList();
+            "SELECT qty FROM inv.stock_balance WHERE tenant_id = :tenant AND item_id = :itemId AND warehouse_id = :whId")
+            .setParameter("tenant", tenant()).setParameter("itemId", itemId)
+            .setParameter("whId", warehouseId).getResultList();
         return rows.isEmpty() ? BigDecimal.ZERO : new BigDecimal(rows.get(0).toString());
     }
 	
@@ -322,9 +333,10 @@ public class StockValuationService {
         // 1. Ambil item yang punya movement VALID sampai endDate
         List<?> itemIdRows = em.createNativeQuery(
             "SELECT DISTINCT sm.item_id FROM inv.stock_movement sm " +
-            "WHERE sm.tenant_id = 1 AND sm.warehouse_id = :whId " +
+            "WHERE sm.tenant_id = :tenant AND sm.warehouse_id = :whId " +
             "AND sm.movement_date <= :endDate " +
             "AND (" + buildValidReferenceFilter("sm") + ")")
+            .setParameter("tenant", tenant())
             .setParameter("whId", warehouseId)
             .setParameter("endDate", endDate)
             .getResultList();
@@ -344,10 +356,11 @@ public class StockValuationService {
             List<?> movements = em.createNativeQuery(
                 "SELECT sm.direction, sm.qty, sm.unit_cost " +
                 "FROM inv.stock_movement sm " +
-                "WHERE sm.tenant_id = 1 AND sm.warehouse_id = :whId AND sm.item_id = :itemId " +
+                "WHERE sm.tenant_id = :tenant AND sm.warehouse_id = :whId AND sm.item_id = :itemId " +
                 "AND sm.movement_date BETWEEN :startDate AND :endDate " +
                 "AND (" + buildValidReferenceFilter("sm") + ") " +
                 "ORDER BY sm.movement_date, sm.id")
+                .setParameter("tenant", tenant())
                 .setParameter("whId", warehouseId)
                 .setParameter("itemId", itemId)
                 .setParameter("startDate", startDate)
@@ -396,7 +409,7 @@ public class StockValuationService {
                 " begin_qty, begin_avg_cost, begin_value, " +
                 " in_qty, in_value, out_qty, out_value, " +
                 " end_qty, end_avg_cost, end_value, cogs, recalculated_at) " +
-                "VALUES (1, :whId, :itemId, :period, :startDate, :endDate, " +
+                "VALUES (:tenant, :whId, :itemId, :period, :startDate, :endDate, " +
                 " :beginQty, :beginAvgCost, :beginValue, " +
                 " :inQty, :inValue, :outQty, :outValue, " +
                 " :endQty, :endAvgCost, :endValue, :cogs, NOW()) " +
@@ -405,6 +418,7 @@ public class StockValuationService {
                 " in_qty=:inQty, in_value=:inValue, out_qty=:outQty, out_value=:outValue, " +
                 " end_qty=:endQty, end_avg_cost=:endAvgCost, end_value=:endValue, " +
                 " cogs=:cogs, recalculated_at=NOW()")
+                .setParameter("tenant", tenant())
                 .setParameter("whId", warehouseId)
                 .setParameter("itemId", itemId)
                 .setParameter("period", period)
@@ -455,10 +469,11 @@ public class StockValuationService {
     private BigDecimal[] replayUpTo(Long itemId, Long warehouseId, LocalDate upToDate) {
         List<?> movements = em.createNativeQuery(
             "SELECT sm.direction, sm.qty, sm.unit_cost FROM inv.stock_movement sm " +
-            "WHERE sm.tenant_id = 1 AND sm.warehouse_id = :whId AND sm.item_id = :itemId " +
+            "WHERE sm.tenant_id = :tenant AND sm.warehouse_id = :whId AND sm.item_id = :itemId " +
             "AND sm.movement_date <= :upToDate " +
             "AND (" + buildValidReferenceFilter("sm") + ") " +
             "ORDER BY sm.movement_date, sm.id")
+            .setParameter("tenant", tenant())
             .setParameter("whId", warehouseId)
             .setParameter("itemId", itemId)
             .setParameter("upToDate", upToDate)

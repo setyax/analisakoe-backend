@@ -1,5 +1,6 @@
 package id.analisakoe.inv.entity;
 
+import id.analisakoe.context.ContextHolder;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -14,7 +15,7 @@ public class InvStockBalance {
     private Long id;
 
     @Column(name = "tenant_id", nullable = false)
-    private Long tenantId = 1L;
+    private Long tenantId;
 
     @Column(name = "warehouse_id", nullable = false)
     private Long warehouseId;
@@ -43,7 +44,10 @@ public class InvStockBalance {
         if (qtyOnHand == null) qtyOnHand = BigDecimal.ZERO;
         if (avgCost == null) avgCost = BigDecimal.ZERO;
         if (totalValue == null) totalValue = BigDecimal.ZERO;
-        if (tenantId == null) tenantId = 1L;
+        if (tenantId == null) {
+            var ctx = ContextHolder.get();
+            tenantId = ctx == null ? null : ctx.tenantId();
+        }
     }
 
     public Long getId() { return id; }

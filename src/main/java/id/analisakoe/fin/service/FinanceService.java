@@ -1,5 +1,8 @@
 package id.analisakoe.fin.service;
 
+import id.analisakoe.context.ContextService;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import id.analisakoe.common.BusinessException;
 import id.analisakoe.fin.entity.ApPayment;
 import id.analisakoe.fin.entity.ArCollection;
@@ -17,6 +20,9 @@ import java.util.List;
 
 @Service
 public class FinanceService {
+
+    @Autowired
+    private ContextService context;
     private final ArCollectionRepository arRepo;
     private final ApPaymentRepository apRepo;
     private final CashBankTrxRepository cashRepo;
@@ -29,7 +35,7 @@ public class FinanceService {
     @Transactional
     public void saveArCollection(LocalDate date, Long customerId, Long bankId, BigDecimal amount, String remarks) {
         ArCollection ar = new ArCollection();
-        ar.setTenantId(1L); ar.setCompanyId(11L);
+        ar.setTenantId(context.tenantId()); ar.setCompanyId(context.companyId());
         ar.setDocNo("AR-" + System.currentTimeMillis());
         ar.setDocDate(date); ar.setCustomerId(customerId); ar.setBankId(bankId);
         ar.setAmount(amount); ar.setRemarks(remarks);
@@ -44,7 +50,7 @@ public class FinanceService {
 
         // Catat Kas Bank
         CashBankTrx cash = new CashBankTrx();
-        cash.setTenantId(1L); cash.setCompanyId(11L);
+        cash.setTenantId(context.tenantId()); cash.setCompanyId(context.companyId());
         cash.setDocNo("CB-AR-" + System.currentTimeMillis());
         cash.setDocDate(ar.getDocDate()); cash.setTrxType("IN"); cash.setBankId(ar.getBankId());
         cash.setAmount(ar.getAmount()); cash.setRemarks("Pelunasan Piutang: " + ar.getDocNo());
@@ -63,7 +69,7 @@ public class FinanceService {
     @Transactional
     public void saveApPayment(LocalDate date, Long supplierId, Long bankId, BigDecimal amount, String remarks) {
         ApPayment ap = new ApPayment();
-        ap.setTenantId(1L); ap.setCompanyId(11L);
+        ap.setTenantId(context.tenantId()); ap.setCompanyId(context.companyId());
         ap.setDocNo("AP-" + System.currentTimeMillis());
         ap.setDocDate(date); ap.setSupplierId(supplierId); ap.setBankId(bankId);
         ap.setAmount(amount); ap.setRemarks(remarks);
@@ -77,7 +83,7 @@ public class FinanceService {
         if (!"DRAFT".equals(ap.getStatus())) throw new BusinessException("Sudah diposting.");
 
         CashBankTrx cash = new CashBankTrx();
-        cash.setTenantId(1L); cash.setCompanyId(11L);
+        cash.setTenantId(context.tenantId()); cash.setCompanyId(context.companyId());
         cash.setDocNo("CB-AP-" + System.currentTimeMillis());
         cash.setDocDate(ap.getDocDate()); cash.setTrxType("OUT"); cash.setBankId(ap.getBankId());
         cash.setAmount(ap.getAmount()); cash.setRemarks("Pelunasan Hutang: " + ap.getDocNo());

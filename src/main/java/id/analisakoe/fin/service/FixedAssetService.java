@@ -1,5 +1,8 @@
 package id.analisakoe.fin.service;
 
+import id.analisakoe.context.ContextService;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import id.analisakoe.common.BusinessException;
 import id.analisakoe.fin.entity.AssetMaster;
 import id.analisakoe.fin.repository.AssetMasterRepository;
@@ -13,6 +16,9 @@ import java.util.List;
 
 @Service
 public class FixedAssetService {
+
+    @Autowired
+    private ContextService context;
     private final AssetMasterRepository assetRepo;
     private final JournalService journalService;
 
@@ -24,7 +30,7 @@ public class FixedAssetService {
     @Transactional
     public void capitalizeAsset(String name, String category, BigDecimal cost, int usefulLifeYears, LocalDate acqDate) {
         AssetMaster asset = new AssetMaster();
-        asset.setTenantId(1L); asset.setCompanyId(11L);
+        asset.setTenantId(context.tenantId()); asset.setCompanyId(context.companyId());
         asset.setAssetCode("AST-" + System.currentTimeMillis());
         asset.setAssetName(name); asset.setCategory(category);
         asset.setAcquisitionDate(acqDate); asset.setAcquisitionCost(cost);

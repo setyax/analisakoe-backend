@@ -1,6 +1,8 @@
 package id.analisakoe.core.service;
 
+import id.analisakoe.context.ContextService;
 import id.analisakoe.core.dto.PermissionResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import id.analisakoe.core.dto.RoleResponse;
 import id.analisakoe.core.repository.PermissionRepository;
 import id.analisakoe.core.repository.RoleRepository;
@@ -12,7 +14,8 @@ import java.util.List;
 @Service
 public class RoleService {
 
-    private static final Long TENANT = 1L;
+    @Autowired
+    private ContextService context;
 
     private final RoleRepository roleRepo;
     private final PermissionRepository permissionRepo;
@@ -22,9 +25,11 @@ public class RoleService {
         this.permissionRepo = permissionRepo;
     }
 
+    private Long tenant() { return context.tenantId(); }
+
     @Transactional(readOnly = true)
     public List<RoleResponse> list() {
-        return roleRepo.findByTenantId(TENANT).stream().map(RoleResponse::from).toList();
+        return roleRepo.findByTenantId(tenant()).stream().map(RoleResponse::from).toList();
     }
 
     @Transactional(readOnly = true)

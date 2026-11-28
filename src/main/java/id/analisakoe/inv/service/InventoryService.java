@@ -1,7 +1,9 @@
 package id.analisakoe.inv.service;
 
 import id.analisakoe.common.BusinessException;
+import id.analisakoe.context.ContextService;
 import id.analisakoe.core.service.StockValuationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import id.analisakoe.inv.dto.InventoryDtos.*;
 import id.analisakoe.inv.entity.InvStockBalance;
 import id.analisakoe.inv.entity.InvTransactionDetail;
@@ -20,8 +22,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class InventoryService {
-    private static final Long TENANT = 1L;
-    private static final Long COMPANY = 11L;
+
+    @Autowired
+    private ContextService context;
 
     private final InvTransactionRepository trxRepo;
     private final InvStockBalanceRepository balanceRepo;
@@ -39,6 +42,9 @@ public class InventoryService {
         this.stockValuationService = stockValuationService;
     }
 
+    private Long tenant() { return context.tenantId(); }
+    private Long company() { return context.companyId(); }
+
     @Transactional(readOnly = true)
     public List<BalanceResponse> getBalances() {
         return balanceRepo.findAllWithStock().stream().map(b -> {
@@ -54,7 +60,7 @@ public class InventoryService {
 
     @Transactional(readOnly = true)
     public List<TransactionResponse> getTransactions() {
-        return trxRepo.findByTenantIdOrderByIdDesc(TENANT, PageRequest.of(0, 50)).getContent().stream().map(h -> {
+        return trxRepo.findByTenantIdOrderByIdDesc(tenant(), PageRequest.of(0, 50)).getContent().stream().map(h -> {
             var wh = whRepo.findById(h.getWarehouseId()).orElse(null);
             return new TransactionResponse(
                 h.getId(), h.getDocNo(), h.getDocType(), h.getDocDate(),
@@ -70,8 +76,8 @@ public class InventoryService {
         }
 
         InvTransactionHeader header = new InvTransactionHeader();
-        header.setTenantId(TENANT);
-        header.setCompanyId(COMPANY);
+        header.setTenantId(tenant());
+        header.setCompanyId(company());
         header.setDocType(req.docType());
         header.setDocDate(req.docDate());
         header.setWarehouseId(req.warehouseId());
@@ -95,6 +101,7 @@ public class InventoryService {
             InvStockBalance balance = balanceRepo.findByWarehouseAndItem(req.warehouseId(), line.itemId())
                 .orElseGet(() -> {
                     InvStockBalance b = new InvStockBalance();
+                    b.setTenantId(tenant());
                     b.setWarehouseId(req.warehouseId());
                     b.setItemId(line.itemId());
                     b.setQtyOnHand(BigDecimal.ZERO);
