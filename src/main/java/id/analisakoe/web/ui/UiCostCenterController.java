@@ -42,7 +42,11 @@ public class UiCostCenterController {
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         List<Object[]> items = em.createNativeQuery(
             "SELECT c.id, c.code, c.name, COALESCE(p.name,'-') AS parent_name, c.is_active " +
-            "FROM fin.cost_center c LEFT JOIN fin.cost_center p ON c.parent_id = p.id ORDER BY c.code").getResultList();
+            "FROM fin.cost_center c LEFT JOIN fin.cost_center p ON c.parent_id = p.id " +
+            "WHERE c.tenant_id = :tenantId AND c.company_id = :compId ORDER BY c.code")
+            .setParameter("tenantId", context.tenantId())
+            .setParameter("compId", context.companyId())
+            .getResultList();
         model.addAttribute("items", items);
         return "ui/master/cost_center_list";
     }
@@ -54,7 +58,11 @@ public class UiCostCenterController {
         model.addAttribute("pageTitle", "New Cost Center");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         model.addAttribute("isNew", true);
-        model.addAttribute("parents", em.createNativeQuery("SELECT id, code, name FROM fin.cost_center ORDER BY code").getResultList());
+        model.addAttribute("parents", em.createNativeQuery(
+                "SELECT id, code, name FROM fin.cost_center WHERE tenant_id = :tenantId AND company_id = :compId ORDER BY code")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("compId", context.companyId())
+                .getResultList());
         return "ui/master/cost_center_form";
     }
 
@@ -65,10 +73,19 @@ public class UiCostCenterController {
         model.addAttribute("pageTitle", "Edit Cost Center");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         model.addAttribute("isNew", false);
-        model.addAttribute("parents", em.createNativeQuery("SELECT id, code, name FROM fin.cost_center ORDER BY code").getResultList());
+        model.addAttribute("parents", em.createNativeQuery(
+                "SELECT id, code, name FROM fin.cost_center WHERE tenant_id = :tenantId AND company_id = :compId ORDER BY code")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("compId", context.companyId())
+                .getResultList());
         try {
-            Object[] row = (Object[]) em.createNativeQuery("SELECT id, code, name, parent_id, is_active FROM fin.cost_center WHERE id = :id")
-                .setParameter("id", id).getSingleResult();
+            Object[] row = (Object[]) em.createNativeQuery(
+                    "SELECT id, code, name, parent_id, is_active FROM fin.cost_center " +
+                    "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("compId", context.companyId())
+                .getSingleResult();
             Map<String, Object> c = new HashMap<>();
             c.put("id", row[0]); c.put("code", row[1]); c.put("name", row[2]); c.put("parentId", row[3]); c.put("isActive", row[4]);
             model.addAttribute("c", c);
@@ -97,8 +114,11 @@ public class UiCostCenterController {
                   .setParameter("code", code).setParameter("name", name).setParameter("parent", parentId).setParameter("active", isActive).executeUpdate();
                 ra.addFlashAttribute("success", "Cost Center berhasil ditambahkan.");
             } else {
-                em.createNativeQuery("UPDATE fin.cost_center SET code=:code, name=:name, parent_id=:parent, is_active=:active WHERE id=:id")
-                  .setParameter("code", code).setParameter("name", name).setParameter("parent", parentId).setParameter("active", isActive).setParameter("id", id).executeUpdate();
+                em.createNativeQuery("UPDATE fin.cost_center SET code=:code, name=:name, parent_id=:parent, is_active=:active " +
+                        "WHERE id=:id AND tenant_id = :tenantId AND company_id = :compId")
+                  .setParameter("code", code).setParameter("name", name).setParameter("parent", parentId).setParameter("active", isActive)
+                  .setParameter("id", id)
+                  .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
                 ra.addFlashAttribute("success", "Cost Center berhasil diupdate.");
             }
         } catch (Exception e) {
@@ -111,7 +131,11 @@ public class UiCostCenterController {
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("DELETE FROM fin.cost_center WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("DELETE FROM fin.cost_center WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("compId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute("success", "Cost Center berhasil dihapus.");
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Gagal hapus: " + e.getMessage());
