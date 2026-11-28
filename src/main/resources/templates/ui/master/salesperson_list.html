@@ -17,6 +17,7 @@
                 <table class="erp-table" style="width:100%;border-collapse:collapse;">
                     <thead><tr style="background:#1e293b;color:white;text-align:left;">
                         <th style="padding:12px;">CODE</th><th style="padding:12px;">NAME</th>
+                        <th style="padding:12px;">COMPANY</th>
                         <th style="padding:12px;">PHONE</th><th style="padding:12px;">EMAIL</th>
                         <th style="padding:12px;">COMM %</th><th style="padding:12px;">ACTIVE</th>
                         <th style="padding:12px;text-align:center;">AKSI</th>
@@ -29,6 +30,7 @@
                             <td style="padding:12px;" th:text="${it[4]}"></td>
                             <td style="padding:12px;" th:text="${it[5]}"></td>
                             <td style="padding:12px;" th:text="${it[6]}"></td>
+                            <td style="padding:12px;" th:text="${it[7]}"></td>
                             <td style="padding:12px;text-align:center;">
                                 <a th:href="@{/ui/master/salespersons/{id}/edit(id=${it[0]})}" style="background:#f59e0b;color:white;padding:5px 10px;border-radius:4px;text-decoration:none;font-size:12px;margin-right:3px;">Edit</a>
                                 <form th:action="@{/ui/master/salespersons/{id}/delete(id=${it[0]})}" method="post" style="display:inline;" onsubmit="return confirm('Hapus?');">

@@ -11,6 +11,14 @@
                 <h3 style="margin-top:0; margin-bottom:10px;" th:text="${isNew} ? '[HR] New Employee' : '[HR] Edit Employee'"></h3>
                 <form th:action="${isNew} ? @{/ui/hr/employees} : @{/ui/hr/employees/{id}(id=${emp.id})}" method="post">
                     <div class="erp-form-grid">
+                        <label>Company:</label>
+                        <select name="companyId" required>
+                            <option value="">-- Pilih Company --</option>
+                            <option th:each="co : ${companies}" th:value="${co[0]}"
+                                    th:text="${co[1] + ' - ' + co[2]}"
+                                    th:selected="${emp.companyId != null and #strings.toString(co[0]) == #strings.toString(emp.companyId)}"></option>
+                        </select>
+
                         <label>NIP:</label>
                         <input type="text" name="nip" th:value="${emp.nip}" required>
                         

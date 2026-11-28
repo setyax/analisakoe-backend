@@ -11,13 +11,19 @@ import id.analisakoe.hr.entity.Employee;
 import id.analisakoe.hr.entity.EmployeeSalary;
 import id.analisakoe.hr.repository.EmployeeRepository;
 import id.analisakoe.hr.repository.EmployeeSalaryRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Controller
 @RequestMapping("/ui/hr/employees")
@@ -26,12 +32,14 @@ public class UiEmployeeController {
     @Autowired
     private ContextService context;
 
+    @PersistenceContext
+    private EntityManager em;
+
     private final EmployeeRepository repo;
     private final EmployeeSalaryRepository salRepo;
     private final MenuService menuService;
 
-    // Constructor yang benar: mengisi SEMUA variabel final
-    public UiEmployeeController(EmployeeRepository repo, 
+    public UiEmployeeController(EmployeeRepository repo,
                                 EmployeeSalaryRepository salRepo,
                                 MenuService menuService) {
         this.repo = repo;
@@ -39,75 +47,131 @@ public class UiEmployeeController {
         this.menuService = menuService;
     }
 
+    private void commonModel(HttpSession session, Model model, String title) {
+        SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
+        model.addAttribute("user", user);
+        model.addAttribute("pageTitle", title);
+        model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
+    }
+
+    /** Company yang boleh dipilih user yang sedang login (sesuai user_company). */
+    private List<Object[]> allowedCompanies(HttpSession session) {
+        SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
+        return em.createNativeQuery(
+                "SELECT c.id, c.code, c.name FROM core.company c " +
+                "WHERE c.tenant_id = :tenantId AND c.status = 'ACTIVE' " +
+                "AND c.id IN (SELECT uc.company_id FROM core.user_company uc WHERE uc.user_id = :userId) " +
+                "ORDER BY c.name")
+            .setParameter("tenantId", context.tenantId())
+            .setParameter("userId", user.getId())
+            .getResultList();
+    }
+
+    private void validateCompany(HttpSession session, Long companyId) {
+        if (companyId == null) {
+            throw new IllegalArgumentException("Company wajib dipilih.");
+        }
+        boolean allowed = allowedCompanies(session).stream()
+            .anyMatch(row -> ((Number) row[0]).longValue() == companyId.longValue());
+        if (!allowed) {
+            throw new AccessDeniedException("Company tidak tersedia untuk user ini.");
+        }
+    }
+
+    private Map<Long, String> companyNames() {
+        List<Object[]> rows = em.createNativeQuery(
+                "SELECT id, name FROM core.company WHERE tenant_id = :tenantId")
+            .setParameter("tenantId", context.tenantId()).getResultList();
+        Map<Long, String> result = new HashMap<>();
+        for (Object[] row : rows) {
+            result.put(((Number) row[0]).longValue(), String.valueOf(row[1]));
+        }
+        return result;
+    }
+
+    private Employee ownedEmployee(Long id) {
+        return repo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId())
+            .orElseThrow(() -> new AccessDeniedException("Karyawan tidak ditemukan atau di luar company aktif."));
+    }
+
     // ==================== KARYAWAN ====================
     @GetMapping
     public String list(HttpSession session, Model model) {
-        SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long compId = user.getActiveCompanyId(); // Auto-Injected by Wizard
-        model.addAttribute("user", user);
-        model.addAttribute("pageTitle", "Employees");
-        model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        model.addAttribute("employees", repo.findAll());
+        commonModel(session, model, "Employees");
+        model.addAttribute("employees", repo.findByTenantIdAndCompanyIdOrderByIdDesc(
+            context.tenantId(), context.companyId()));
+        model.addAttribute("companyNames", companyNames());
         return "ui/hr/employee_list";
     }
 
     @GetMapping("/new")
     public String newForm(HttpSession session, Model model) {
-        SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long compId = user.getActiveCompanyId(); // Auto-Injected by Wizard
-        model.addAttribute("user", user);
-        model.addAttribute("pageTitle", "New Employee");
-        model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        model.addAttribute("emp", new Employee());
+        commonModel(session, model, "New Employee");
+        Employee emp = new Employee();
+        emp.setTenantId(context.tenantId());
+        emp.setCompanyId(context.companyId());
+        emp.setStatus("ACTIVE");
+        model.addAttribute("emp", emp);
+        model.addAttribute("companies", allowedCompanies(session));
         model.addAttribute("isNew", true);
         return "ui/hr/employee_form";
     }
 
     @PostMapping
-    public String save(@ModelAttribute Employee emp, RedirectAttributes ra) {
+    public String save(@ModelAttribute Employee emp, HttpSession session, RedirectAttributes ra) {
         try {
-            if (emp.getTenantId() == null) emp.setTenantId(context.tenantId());
+            validateCompany(session, emp.getCompanyId() != null ? emp.getCompanyId() : context.companyId());
+            emp.setTenantId(context.tenantId());
             if (emp.getCompanyId() == null) emp.setCompanyId(context.companyId());
             if (emp.getStatus() == null) emp.setStatus("ACTIVE");
             repo.save(emp);
             ra.addFlashAttribute("success", "Karyawan berhasil ditambahkan.");
-        } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
+        } catch (AccessDeniedException e) {
+            throw e;
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
         return "redirect:/ui/hr/employees";
     }
 
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, HttpSession session, Model model) {
-        SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long compId = user.getActiveCompanyId(); // Auto-Injected by Wizard
-        model.addAttribute("user", user);
-        model.addAttribute("pageTitle", "Edit Employee");
-        model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        model.addAttribute("emp", repo.findById(id).orElseThrow());
+        commonModel(session, model, "Edit Employee");
+        model.addAttribute("emp", ownedEmployee(id));
+        model.addAttribute("companies", allowedCompanies(session));
         model.addAttribute("isNew", false);
         return "ui/hr/employee_form";
     }
 
     @PostMapping("/{id}")
-    public String update(@PathVariable Long id, @ModelAttribute Employee emp, RedirectAttributes ra) {
+    public String update(@PathVariable Long id, @ModelAttribute Employee emp,
+                         HttpSession session, RedirectAttributes ra) {
         try {
-            Employee existing = repo.findById(id).orElseThrow();
+            validateCompany(session, emp.getCompanyId());
+            Employee existing = ownedEmployee(id);
             existing.setNip(emp.getNip());
             existing.setName(emp.getName());
             existing.setDepartment(emp.getDepartment());
             existing.setPosition(emp.getPosition());
             existing.setStatus(emp.getStatus());
+            existing.setCompanyId(emp.getCompanyId());
             repo.save(existing);
             ra.addFlashAttribute("success", "Data Karyawan berhasil diubah.");
-        } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
+        } catch (AccessDeniedException e) {
+            throw e;
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
         return "redirect:/ui/hr/employees";
     }
 
-        // UBAH DARI @DeleteMapping MENJADI @PostMapping
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            repo.deleteById(id);
+            repo.delete(ownedEmployee(id));
             ra.addFlashAttribute("success", "Karyawan berhasil dihapus.");
+        } catch (AccessDeniedException e) {
+            throw e;
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Gagal menghapus karyawan: " + e.getMessage());
         }
@@ -115,21 +179,16 @@ public class UiEmployeeController {
     }
 
     // ==================== GAJI KARYAWAN ====================
-    // PERBAIKAN: URL tidak perlu /employees lagi karena sudah ada di @RequestMapping
     @GetMapping("/{id}/salary")
     public String editSalary(@PathVariable Long id, HttpSession session, Model model, RedirectAttributes ra) {
-        SessionUser user = (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
-        Long compId = user.getActiveCompanyId(); // Auto-Injected by Wizard
-        model.addAttribute("user", user);
-        model.addAttribute("pageTitle", "Setting Gaji Karyawan");
-        model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-
+        commonModel(session, model, "Setting Gaji Karyawan");
         try {
-            Employee emp = repo.findById(id).orElseThrow(() -> new Exception("Karyawan tidak ditemukan"));
-            EmployeeSalary sal = salRepo.findById(id).orElse(new EmployeeSalary()); 
-            
+            Employee emp = ownedEmployee(id);
+            EmployeeSalary sal = salRepo.findById(id).orElse(new EmployeeSalary());
             model.addAttribute("emp", emp);
             model.addAttribute("sal", sal);
+        } catch (AccessDeniedException e) {
+            throw e;
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
             return "redirect:/ui/hr/employees";
@@ -137,7 +196,6 @@ public class UiEmployeeController {
         return "ui/hr/salary_form";
     }
 
-    // PERBAIKAN: URL tidak perlu /employees lagi
     @PostMapping("/{id}/salary")
     public String saveSalary(@PathVariable Long id,
                              @RequestParam BigDecimal baseSalary,
@@ -148,6 +206,7 @@ public class UiEmployeeController {
                              @RequestParam String ptkpStatus,
                              RedirectAttributes ra) {
         try {
+            ownedEmployee(id);
             EmployeeSalary sal = salRepo.findById(id).orElse(new EmployeeSalary());
             sal.setEmployeeId(id);
             sal.setBaseSalary(baseSalary);
@@ -156,9 +215,10 @@ public class UiEmployeeController {
             sal.setBpjsJhtRate(bpjsJhtRate);
             sal.setBpjsJpRate(bpjsJpRate);
             sal.setPtkpStatus(ptkpStatus);
-
             salRepo.save(sal);
             ra.addFlashAttribute("success", "Data gaji berhasil disimpan.");
+        } catch (AccessDeniedException e) {
+            throw e;
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Gagal menyimpan gaji: " + e.getMessage());
         }

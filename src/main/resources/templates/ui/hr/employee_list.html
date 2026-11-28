@@ -22,6 +22,7 @@
                 <table class="erp-table" style="width: 100%; border-collapse: collapse; font-size: 14px;">
                     <thead>
                         <tr style="background-color:#1e293b; color:white; text-align:left;">
+                            <th style="padding: 12px; border-bottom: 1px solid #e2e8f0;">COMPANY</th>
                             <th style="padding: 12px; border-bottom: 1px solid #e2e8f0;">NIK</th>
                             <th style="padding: 12px; border-bottom: 1px solid #e2e8f0;">NAMA</th>
                             <th style="padding: 12px; border-bottom: 1px solid #e2e8f0;">DEPARTEMEN</th>
@@ -32,6 +33,7 @@
                     </thead>
                     <tbody>
                         <tr th:each="emp : ${employees}" style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 12px;" th:text="${companyNames != null and companyNames[emp.companyId] != null ? companyNames[emp.companyId] : emp.companyId}">-</td>
                             <td style="padding: 12px; font-weight:bold;" th:text="${emp.nip}">-</td>
                             <td style="padding: 12px;" th:text="${emp.name}">-</td>
                             <td style="padding: 12px;" th:text="${emp.department}">-</td>
@@ -55,7 +57,7 @@
                             </td>
                         </tr>
                         <tr th:if="${employees.isEmpty()}">
-                            <td colspan="6" style="padding: 20px; text-align: center; color: #64748b;">Belum ada data karyawan.</td>
+                            <td colspan="7" style="padding: 20px; text-align: center; color: #64748b;">Belum ada data karyawan.</td>
                         </tr>
                     </tbody>
                 </table>
