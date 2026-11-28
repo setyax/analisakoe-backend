@@ -38,7 +38,8 @@ public class ContextFilter extends OncePerRequestFilter {
     private static final Long LEGACY_COMPANY_ID = 11L;
 
     private static final Set<String> PUBLIC_EXACT = Set.of(
-            "/ui/login", "/ui/logout", "/auth/login", "/auth/refresh",
+            "/ui", "/ui/", "/ui/login", "/ui/login/", "/ui/logout", "/ui/logout/",
+            "/auth/login", "/auth/refresh",
             "/ping", "/error", "/favicon.ico"
     );
 
@@ -67,8 +68,7 @@ public class ContextFilter extends OncePerRequestFilter {
             if (strict && !isPublic(path) && !isUsable(ctx)) {
                 log.warn("STRICT: menolak {} karena tenant/company context tidak lengkap (source={})",
                         path, ctx == null ? "-" : ctx.source());
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                        "Tenant/company context tidak ditemukan");
+                reject(path, request, response);
                 return;
             }
 
@@ -85,7 +85,7 @@ public class ContextFilter extends OncePerRequestFilter {
 
     private RequestContext resolve(String path, HttpServletRequest request) {
         // 1) UI — dari SessionUser di HttpSession
-        if (path.startsWith("/ui/")) {
+        if (isUiPath(path)) {
             HttpSession session = request.getSession(false);
             SessionUser user = session == null ? null
                     : (SessionUser) session.getAttribute(SessionInterceptor.SESSION_USER);
@@ -134,6 +134,41 @@ public class ContextFilter extends OncePerRequestFilter {
                             + "Transaksi masih berpotensi masuk ke company {} sampai konversi service selesai.",
                     path, ctx.companyId(), LEGACY_COMPANY_ID, LEGACY_COMPANY_ID);
         }
+    }
+
+    /**
+     * Strict hanya boleh menolak request yang memang sudah terautentikasi tetapi
+     * context-nya tidak lengkap. Request UI tanpa session di-redirect ke login,
+     * request REST tanpa JWT dijawab 401 (bukan 400).
+     */
+    private void reject(String path, HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
+        String ctx = request.getContextPath();
+        String prefix = ctx == null ? "" : ctx;
+
+        if (isUiPath(path)) {
+            String login = prefix + "/ui/login";
+            if ("true".equalsIgnoreCase(request.getHeader("HX-Request"))) {
+                response.setHeader("HX-Redirect", login);
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
+            response.sendRedirect(login);
+            return;
+        }
+
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write(
+                "{\"status\":401,\"error\":\"Unauthorized\","
+                        + "\"message\":\"Tenant/company context tidak ditemukan. Silakan login ulang.\","
+                        + "\"path\":\"" + path + "\"}"
+        );
+    }
+
+    private boolean isUiPath(String path) {
+        return path.equals("/ui") || path.startsWith("/ui/");
     }
 
     private boolean isUsable(RequestContext ctx) {

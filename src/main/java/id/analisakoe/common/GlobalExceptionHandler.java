@@ -43,6 +43,11 @@ public class GlobalExceptionHandler {
         return body(HttpStatus.CONFLICT, "Pelanggaran integritas data: " + msg, null);
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
+        return body(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+    }
+
     // ---- FIX: 405 tidak lagi jadi 500 ----
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<Map<String, Object>> handleMethodNotSupported(

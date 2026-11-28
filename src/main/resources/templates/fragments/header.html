@@ -49,9 +49,17 @@
         if (!bell) return;
         var listUrl = bell.getAttribute('data-list-url');
 
+        var loginUrl = listUrl.substring(0, listUrl.indexOf('/ui/')) + '/ui/login';
+
         function refreshNotif() {
             fetch(listUrl + '/api/list', { headers: { 'Accept': 'application/json' } })
-                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(r) {
+                    if (r.redirected || r.status === 401 || r.status === 403) {
+                        window.location.href = loginUrl;
+                        return null;
+                    }
+                    return r.ok ? r.json() : null;
+                })
                 .then(function(d) {
                     if (!d || d.error) return;
                     var badge = document.getElementById('notifBadge');
@@ -59,7 +67,7 @@
                     if (n > 0) { badge.textContent = n > 99 ? '99+' : n; badge.style.display = 'block'; }
                     else { badge.style.display = 'none'; }
                 })
-                .catch(function() { /* abaikan error polling */ });
+                .catch(function() { /* abaikan error polling sementara */ });
         }
 
         refreshNotif();
