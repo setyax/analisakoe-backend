@@ -120,7 +120,7 @@ public class UiSalesInvoiceController {
             "FROM sal.delivery_order_hdr doh " +
             "JOIN sal.sales_order_hdr so ON so.id = doh.so_id " +
             "LEFT JOIN md.customer c ON c.id = COALESCE(doh.customer_id, so.customer_id) " +
-            "WHERE doh.company_id = :compId " +
+            "WHERE doh.tenant_id = :tenantId AND doh.company_id = :compId " +
             "  AND doh.status IN " + DO_STATUSES + " " +
             "  AND so.status  IN " + SO_STATUSES + " " +
             // hanya DO yang masih punya sisa qty untuk ditagih
@@ -132,7 +132,7 @@ public class UiSalesInvoiceController {
             "ORDER BY doh.id DESC";
 
         List<Object[]> rows = em.createNativeQuery(sql)
-                .setParameter("compId", compId)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", compId)
                 .getResultList();
 
         List<Map<String, Object>> doList = new ArrayList<>();
@@ -328,11 +328,11 @@ public class UiSalesInvoiceController {
         Number n = (Number) em.createNativeQuery(
                 "SELECT COUNT(*) FROM sal.delivery_order_hdr doh " +
                 "JOIN sal.sales_order_hdr so ON so.id = doh.so_id " +
-                "WHERE doh.id = :doId AND doh.company_id = :compId " +
+                "WHERE doh.id = :doId AND doh.tenant_id = :tenantId AND doh.company_id = :compId " +
                 "AND doh.status IN " + DO_STATUSES + " " +
                 "AND so.status IN " + SO_STATUSES)
                 .setParameter("doId", doId)
-                .setParameter("compId", compId)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", compId)
                 .getSingleResult();
         return n.longValue() > 0;
     }
@@ -354,10 +354,14 @@ public class UiSalesInvoiceController {
             "JOIN md.item i ON i.id = dod.item_id " +
             "JOIN md.uom u ON u.id = dod.uom_id " +
             "WHERE dod.header_id = :doId " +
+            "  AND doh.tenant_id = :tenantId AND doh.company_id = :compId " +
             "ORDER BY dod.id";
 
         List<Map<String, Object>> list = new ArrayList<>();
-        List<Object[]> rows = em.createNativeQuery(sql).setParameter("doId", doId).getResultList();
+        List<Object[]> rows = em.createNativeQuery(sql)
+                .setParameter("doId", doId)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
         for (Object[] r : rows) {
             BigDecimal doQty = bd(r[4]);
             Map<String, Object> m = new HashMap<>();

@@ -73,10 +73,10 @@ public class UiSalesOrderController {
                          "FROM sal.sales_order_hdr h " +
                          "LEFT JOIN md.customer c ON h.customer_id = c.id " +
                          "LEFT JOIN md.salesperson sp ON h.salesperson_id = sp.id " +
-                         "WHERE h.company_id = :compId " +
+                         "WHERE h.tenant_id = :tenantId AND h.company_id = :compId " +
                          "ORDER BY h.id DESC";
             List<Object[]> salesOrders = em.createNativeQuery(sql)
-                    .setParameter("compId", compId)
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", compId)
                     .getResultList();
             model.addAttribute("salesOrders", salesOrders);
         } catch (Exception e) {
