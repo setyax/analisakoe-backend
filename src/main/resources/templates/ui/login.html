@@ -7,6 +7,10 @@
         <h2 style="text-align:center;">AnalisaKoe</h2>
         <p style="text-align:center; color: #666;">Masuk ke akun Anda</p>
 
+        <div style="background:#f0f6ff; border:1px solid #c8dcff; border-radius:4px; padding:8px 10px; margin:12px 0; text-align:center; font-size:0.9em;">
+            Akun demo &mdash; user : <strong>demo</strong> &nbsp; password : <strong>demo123</strong>
+        </div>
+
         <div th:if="${error}" class="error-msg" th:text="${error}"></div>
 
         <form th:action="@{/ui/login}" method="post">

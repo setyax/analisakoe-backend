@@ -81,7 +81,7 @@ public class UiFinanceController {
     @GetMapping("/banks")
     public String listBanks(HttpSession session, Model model) {
         addCommonData(session, model, "Bank Accounts");
-        model.addAttribute("banks", bankRepo.findAllByOrderByNameAsc());
+        model.addAttribute("banks", bankRepo.findByCompanyIdOrderByNameAsc(context.companyId()));
         return "ui/finance/banks";
     }
 
@@ -89,8 +89,8 @@ public class UiFinanceController {
     @GetMapping("/cashbank")
     public String listCashBank(HttpSession session, Model model) {
         addCommonData(session, model, "Cash & Bank Transactions");
-        List<CashBankTrx> trxs = cashRepo.findAllByOrderByDocDateDesc();
-        List<BankAccount> banks = bankRepo.findAllByOrderByNameAsc();
+        List<CashBankTrx> trxs = cashRepo.findByCompanyIdOrderByDocDateDesc(context.companyId());
+        List<BankAccount> banks = bankRepo.findByCompanyIdOrderByNameAsc(context.companyId());
         model.addAttribute("trxs", trxs);
         model.addAttribute("banks", banks);
         model.addAttribute("balances", computeBankBalances(banks, trxs));
@@ -129,7 +129,7 @@ public class UiFinanceController {
     @GetMapping("/cashbank/new")
     public String newCashBank(HttpSession session, Model model) {
         addCommonData(session, model, "New Cash & Bank Transaction");
-        model.addAttribute("banks", bankRepo.findAllByOrderByNameAsc());
+        model.addAttribute("banks", bankRepo.findByCompanyIdOrderByNameAsc(context.companyId()));
         model.addAttribute("today", LocalDate.now());
         return "ui/finance/cashbank_form";
     }
@@ -150,8 +150,11 @@ public class UiFinanceController {
             // Ambil info bank (nama + COA id) untuk jurnal & tampilan
             List<Object[]> bankInfo = em.createNativeQuery(
                 "SELECT b.name, c.id, c.code FROM fin.bank_account b " +
-                "LEFT JOIN fin.chart_of_account c ON c.id = b.coa_id WHERE b.id = :id")
-                .setParameter("id", bankId).getResultList();
+                "LEFT JOIN fin.chart_of_account c ON c.id = b.coa_id " +
+                "WHERE b.id = :id AND b.tenant_id = :tenantId AND b.company_id = :compId")
+                .setParameter("id", bankId)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
             final String bankName = bankInfo.isEmpty() ? "Bank#" + bankId
                 : (bankInfo.get(0)[0] != null ? bankInfo.get(0)[0].toString() : "Bank#" + bankId);
             final Long bankCoaId;
@@ -159,7 +162,8 @@ public class UiFinanceController {
             if (bankInfo.isEmpty() || bankInfo.get(0)[1] == null) {
                 // Default ke akun 1102 (Bank BCA) bila bank belum terhubung ke COA
                 List<Object[]> def = em.createNativeQuery(
-                    "SELECT id, code FROM fin.chart_of_account WHERE code = '1102'").getResultList();
+                    "SELECT id, code FROM fin.chart_of_account WHERE tenant_id = :tenantId AND company_id = :compId AND code = '1102'")
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList();
                 bankCoaId = def.isEmpty() ? null : ((Number) def.get(0)[0]).longValue();
                 bankCoaCode = def.isEmpty() ? "1102" : (String) def.get(0)[1];
             } else {
@@ -196,7 +200,8 @@ public class UiFinanceController {
                     + (remarksFinal != null && !remarksFinal.isBlank() ? " — " + remarksFinal : "");
                 final Long coaId3101;
                 List<Object[]> r3101 = em.createNativeQuery(
-                    "SELECT id FROM fin.chart_of_account WHERE code = '3101'").getResultList();
+                    "SELECT id FROM fin.chart_of_account WHERE tenant_id = :tenantId AND company_id = :compId AND code = '3101'")
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList();
                 if (r3101.isEmpty())
                     throw new IllegalStateException("Akun COA 3101 (Modal Disetor) tidak ditemukan.");
                 coaId3101 = ((Number) r3101.get(0)[0]).longValue();
@@ -247,7 +252,7 @@ public class UiFinanceController {
             .orElseThrow(() -> new IllegalArgumentException("Transaksi #" + id + " tidak ditemukan."));
         addCommonData(session, model, "Cash & Bank Transaction");
         model.addAttribute("trx", t);
-        model.addAttribute("banks", bankRepo.findAllByOrderByNameAsc());
+        model.addAttribute("banks", bankRepo.findByCompanyIdOrderByNameAsc(context.companyId()));
         model.addAttribute("journalLink", findRelatedJournal(id, t.getTrxType()));
         return "ui/finance/cashbank_view";
     }
@@ -262,7 +267,7 @@ public class UiFinanceController {
         }
         addCommonData(session, model, "Edit Cash & Bank Transaction");
         model.addAttribute("trx", t);
-        model.addAttribute("banks", bankRepo.findAllByOrderByNameAsc());
+        model.addAttribute("banks", bankRepo.findByCompanyIdOrderByNameAsc(context.companyId()));
         model.addAttribute("today", LocalDate.now());
         model.addAttribute("mode", "edit");
         return "ui/finance/cashbank_form";
@@ -470,8 +475,11 @@ public class UiFinanceController {
                                       LocalDate docDate, String remarks, Long compId) {
         List<Object[]> bankInfo = em.createNativeQuery(
             "SELECT b.name, c.id, c.code FROM fin.bank_account b " +
-            "LEFT JOIN fin.chart_of_account c ON c.id = b.coa_id WHERE b.id = :id")
-            .setParameter("id", bankId).getResultList();
+            "LEFT JOIN fin.chart_of_account c ON c.id = b.coa_id " +
+                "WHERE b.id = :id AND b.tenant_id = :tenantId AND b.company_id = :compId")
+            .setParameter("id", bankId)
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+            .getResultList();
         if (bankInfo.isEmpty())
             throw new IllegalArgumentException("Bank #" + bankId + " tidak ditemukan.");
         String bankName = bankInfo.get(0)[0] != null ? bankInfo.get(0)[0].toString() : ("Bank#" + bankId);
@@ -480,11 +488,13 @@ public class UiFinanceController {
 
         if (bankCoaId == null) {
             List<Object[]> def = em.createNativeQuery(
-                "SELECT id FROM fin.chart_of_account WHERE code = '1102'").getResultList();
+                "SELECT id FROM fin.chart_of_account WHERE tenant_id = :tenantId AND company_id = :compId AND code = '1102'")
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList();
             bankCoaId = def.isEmpty() ? null : ((Number) def.get(0)[0]).longValue();
         }
         List<Object[]> r3101 = em.createNativeQuery(
-            "SELECT id FROM fin.chart_of_account WHERE code = '3101'").getResultList();
+            "SELECT id FROM fin.chart_of_account WHERE tenant_id = :tenantId AND company_id = :compId AND code = '3101'")
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList();
         if (r3101.isEmpty())
             throw new IllegalStateException("Akun COA 3101 (Modal Disetor) tidak ditemukan.");
         Long coaId3101 = ((Number) r3101.get(0)[0]).longValue();
@@ -557,7 +567,7 @@ public class UiFinanceController {
     @GetMapping("/ar")
     public String listAr(HttpSession session, Model model) {
         addCommonData(session, model, "AR Collections");
-        model.addAttribute("collections", arRepo.findAllByOrderByDocDateDesc());
+        model.addAttribute("collections", arRepo.findByCompanyIdOrderByDocDateDesc(context.companyId()));
         return "ui/finance/ar_list";
     }
 
@@ -565,7 +575,7 @@ public class UiFinanceController {
     public String newAr(HttpSession session, Model model) {
         addCommonData(session, model, "New AR Collection");
         model.addAttribute("customers", custRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
-        model.addAttribute("banks", bankRepo.findAllByOrderByNameAsc());
+        model.addAttribute("banks", bankRepo.findByCompanyIdOrderByNameAsc(context.companyId()));
         model.addAttribute("today", LocalDate.now());
         return "ui/finance/ar_form";
     }
@@ -585,7 +595,7 @@ public class UiFinanceController {
     @GetMapping("/ap")
     public String listAp(HttpSession session, Model model) {
         addCommonData(session, model, "AP Payments");
-        model.addAttribute("payments", apRepo.findAllByOrderByDocDateDesc());
+        model.addAttribute("payments", apRepo.findByCompanyIdOrderByDocDateDesc(context.companyId()));
         return "ui/finance/ap_list";
     }
 
@@ -593,7 +603,7 @@ public class UiFinanceController {
     public String newAp(HttpSession session, Model model) {
         addCommonData(session, model, "New AP Payment");
         model.addAttribute("suppliers", supRepo.findByTenantIdAndDeletedAtIsNull(context.tenantId(), PageRequest.of(0, 100)).getContent());
-        model.addAttribute("banks", bankRepo.findAllByOrderByNameAsc());
+        model.addAttribute("banks", bankRepo.findByCompanyIdOrderByNameAsc(context.companyId()));
         model.addAttribute("today", LocalDate.now());
         return "ui/finance/ap_form";
     }
@@ -613,8 +623,8 @@ public class UiFinanceController {
     @GetMapping("/batch-posting")
     public String batchPosting(HttpSession session, Model model) {
         addCommonData(session, model, "Batch Posting");
-        var ars = arRepo.findAllByOrderByDocDateDesc().stream().filter(a -> "DRAFT".equals(a.getStatus())).toList();
-        var aps = apRepo.findAllByOrderByDocDateDesc().stream().filter(a -> "DRAFT".equals(a.getStatus())).toList();
+        var ars = arRepo.findByCompanyIdOrderByDocDateDesc(context.companyId()).stream().filter(a -> "DRAFT".equals(a.getStatus())).toList();
+        var aps = apRepo.findByCompanyIdOrderByDocDateDesc(context.companyId()).stream().filter(a -> "DRAFT".equals(a.getStatus())).toList();
         
         model.addAttribute("draftArs", ars);
         model.addAttribute("draftAps", aps);

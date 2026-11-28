@@ -50,6 +50,8 @@ public class UiBatchProcessController {
     public String runBatchProcess(HttpSession session, RedirectAttributes ra) {
         try {
             int countAR = 0, countAP = 0, countIN = 0, countOUT = 0, countFA = 0, countCA = 0;
+            final Long tenantId = context.tenantId();
+            final Long compId = context.companyId();
 
             Long accPiutang    = getCoaIdByCode("1201");
             Long accPersediaan = getCoaIdByCode("1301");
@@ -63,7 +65,9 @@ public class UiBatchProcessController {
 
             // 1. AR
             List<Object[]> arList = em.createNativeQuery(
-                "SELECT id, total_amount, tax_amount FROM sal.sales_invoice_hdr WHERE UPPER(TRIM(status)) = 'CONFIRMED'").getResultList();
+                "SELECT id, total_amount, tax_amount FROM sal.sales_invoice_hdr " +
+                "WHERE tenant_id = :tenantId AND company_id = :compId AND UPPER(TRIM(status)) = 'CONFIRMED'")
+                .setParameter("tenantId", tenantId).setParameter("compId", compId).getResultList();
             for (Object[] row : arList) {
                 Long id = ((Number) row[0]).longValue();
                 BigDecimal total = row[1] != null ? (BigDecimal) row[1] : BigDecimal.ZERO;
@@ -75,13 +79,17 @@ public class UiBatchProcessController {
                 insertJournalLine(hdrId, accPiutang, total, BigDecimal.ZERO, "Piutang - SI #" + id);
                 insertJournalLine(hdrId, accPendapatan, BigDecimal.ZERO, dpp, "Pendapatan - SI #" + id);
                 if (tax.compareTo(BigDecimal.ZERO) > 0 && accPPN != null) insertJournalLine(hdrId, accPPN, BigDecimal.ZERO, tax, "PPN - SI #" + id);
-                em.createNativeQuery("UPDATE sal.sales_invoice_hdr SET status = 'POSTED' WHERE id = :id").setParameter("id", id).executeUpdate();
+                em.createNativeQuery("UPDATE sal.sales_invoice_hdr SET status = 'POSTED' " +
+                        "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id).setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
                 countAR++;
             }
 
             // 2. AP
             List<Object[]> apList = em.createNativeQuery(
-                "SELECT id, total_amount FROM pur.purchase_invoice_hdr WHERE UPPER(TRIM(status)) = 'CONFIRMED'").getResultList();
+                "SELECT id, total_amount FROM pur.purchase_invoice_hdr " +
+                "WHERE tenant_id = :tenantId AND company_id = :compId AND UPPER(TRIM(status)) = 'CONFIRMED'")
+                .setParameter("tenantId", tenantId).setParameter("compId", compId).getResultList();
             for (Object[] row : apList) {
                 Long id = ((Number) row[0]).longValue();
                 BigDecimal total = row[1] != null ? (BigDecimal) row[1] : BigDecimal.ZERO;
@@ -89,22 +97,30 @@ public class UiBatchProcessController {
                 Long hdrId = createJournalHeader("JRN-AP-" + id, "PURCHASE", "Auto-Journal PI #" + id, "PURCHASE_INVOICE", id);
                 insertJournalLine(hdrId, accPersediaan, total, BigDecimal.ZERO, "Persediaan - PI #" + id);
                 insertJournalLine(hdrId, accHutang, BigDecimal.ZERO, total, "Hutang - PI #" + id);
-                em.createNativeQuery("UPDATE pur.purchase_invoice_hdr SET status = 'POSTED' WHERE id = :id").setParameter("id", id).executeUpdate();
+                em.createNativeQuery("UPDATE pur.purchase_invoice_hdr SET status = 'POSTED' " +
+                        "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id).setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
                 countAP++;
             }
 
             // 3. IN
             List<?> inList = em.createNativeQuery(
-                "SELECT id FROM inv.transaction_header WHERE UPPER(TRIM(status)) = 'CONFIRMED' AND doc_type = 'IN'").getResultList();
+                "SELECT id FROM inv.transaction_header WHERE tenant_id = :tenantId AND company_id = :compId " +
+                "AND UPPER(TRIM(status)) = 'CONFIRMED' AND doc_type = 'IN'")
+                .setParameter("tenantId", tenantId).setParameter("compId", compId).getResultList();
             for (Object row : inList) {
                 Long id = ((Number) row).longValue();
-                em.createNativeQuery("UPDATE inv.transaction_header SET status = 'POSTED' WHERE id = :id").setParameter("id", id).executeUpdate();
+                em.createNativeQuery("UPDATE inv.transaction_header SET status = 'POSTED' " +
+                        "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id).setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
                 countIN++;
             }
 
                         // 4. OUT
             List<?> outList = em.createNativeQuery(
-                "SELECT id FROM inv.transaction_header WHERE UPPER(TRIM(status)) = 'CONFIRMED' AND doc_type = 'OUT'").getResultList();
+                "SELECT id FROM inv.transaction_header WHERE tenant_id = :tenantId AND company_id = :compId " +
+                "AND UPPER(TRIM(status)) = 'CONFIRMED' AND doc_type = 'OUT'")
+                .setParameter("tenantId", tenantId).setParameter("compId", compId).getResultList();
             for (Object row : outList) {
                 Long id = ((Number) row).longValue();
                 
@@ -113,9 +129,12 @@ public class UiBatchProcessController {
                 List<Object[]> details = em.createNativeQuery(
                     "SELECT d.qty, COALESCE(i.standard_price, 0) " +
                     "FROM inv.transaction_detail d " +
+                    "JOIN inv.transaction_header h ON h.id = d.header_id " +
+                    "AND h.tenant_id = :tenantId AND h.company_id = :compId " +
                     "JOIN md.item i ON i.id = d.item_id " +
                     "WHERE d.header_id = :hid")
-                    .setParameter("hid", id).getResultList();
+                    .setParameter("hid", id)
+                    .setParameter("tenantId", tenantId).setParameter("compId", compId).getResultList();
                 
                 for (Object[] d : details) {
                     BigDecimal qty = d[0] != null ? new BigDecimal(d[0].toString()) : BigDecimal.ZERO;
@@ -131,14 +150,19 @@ public class UiBatchProcessController {
                     countOUT++;
                 }
                 
-                em.createNativeQuery("UPDATE inv.transaction_header SET status = 'POSTED' WHERE id = :id")
-                    .setParameter("id", id).executeUpdate();
+                em.createNativeQuery("UPDATE inv.transaction_header SET status = 'POSTED' " +
+                        "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id).setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
             }
 
             // 5. Fixed Asset (FA) - PAKAI UPPER(TRIM())
             if (accBebanDep != null && accAkumDep != null) {
                 List<Object[]> faList = em.createNativeQuery(
-                    "SELECT id, asset_id, depreciation_amount FROM fin.asset_depreciation_log WHERE UPPER(TRIM(status)) = 'CONFIRMED'").getResultList();
+                    "SELECT l.id, l.asset_id, l.depreciation_amount FROM fin.asset_depreciation_log l " +
+                    "JOIN fin.asset_master a ON a.id = l.asset_id " +
+                    "AND a.tenant_id = :tenantId AND a.company_id = :compId " +
+                    "WHERE UPPER(TRIM(l.status)) = 'CONFIRMED'")
+                    .setParameter("tenantId", tenantId).setParameter("compId", compId).getResultList();
                 for (Object[] row : faList) {
                     Long logId = ((Number) row[0]).longValue();
                     Long assetId = ((Number) row[1]).longValue();
@@ -148,10 +172,16 @@ public class UiBatchProcessController {
                     insertJournalLine(hdrId, accBebanDep, depAmt, BigDecimal.ZERO, "Beban Depresiasi - Asset #" + assetId);
                     insertJournalLine(hdrId, accAkumDep, BigDecimal.ZERO, depAmt, "Akumulasi Depresiasi - Asset #" + assetId);
 
-                    em.createNativeQuery("UPDATE fin.asset_master SET accumulated_depreciation = accumulated_depreciation + :amt, book_value = book_value - :amt WHERE id = :assetId")
-                        .setParameter("amt", depAmt).setParameter("assetId", assetId).executeUpdate();
+                    em.createNativeQuery("UPDATE fin.asset_master SET accumulated_depreciation = accumulated_depreciation + :amt, book_value = book_value - :amt " +
+                            "WHERE id = :assetId AND tenant_id = :tenantId AND company_id = :compId")
+                        .setParameter("amt", depAmt).setParameter("assetId", assetId)
+                        .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
 
-                    em.createNativeQuery("UPDATE fin.asset_depreciation_log SET status = 'POSTED' WHERE id = :logId").setParameter("logId", logId).executeUpdate();
+                    em.createNativeQuery("UPDATE fin.asset_depreciation_log SET status = 'POSTED' " +
+                            "WHERE id = :logId AND asset_id IN " +
+                            "(SELECT id FROM fin.asset_master WHERE tenant_id = :tenantId AND company_id = :compId)")
+                        .setParameter("logId", logId)
+                        .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
                     countFA++;
                 }
             }
@@ -159,7 +189,9 @@ public class UiBatchProcessController {
             // 6. Kas/Bank (CA)
             if (accBankCA != null && accPiutang != null && accHutang != null) {
                 List<Object[]> caList = em.createNativeQuery(
-                    "SELECT id, amount, trx_type, remarks FROM fin.cash_bank_trx WHERE UPPER(TRIM(status)) = 'CONFIRMED'").getResultList();
+                    "SELECT id, amount, trx_type, remarks FROM fin.cash_bank_trx " +
+                    "WHERE tenant_id = :tenantId AND company_id = :compId AND UPPER(TRIM(status)) = 'CONFIRMED'")
+                    .setParameter("tenantId", tenantId).setParameter("compId", compId).getResultList();
                 for (Object[] row : caList) {
                     Long id = ((Number) row[0]).longValue();
                     BigDecimal amt = (BigDecimal) row[1];
@@ -174,7 +206,9 @@ public class UiBatchProcessController {
                         insertJournalLine(hdrId, accHutang, amt, BigDecimal.ZERO, "Pelunasan Hutang");
                         insertJournalLine(hdrId, accBankCA, BigDecimal.ZERO, amt, rem);
                     }
-                    em.createNativeQuery("UPDATE fin.cash_bank_trx SET status = 'POSTED' WHERE id = :id").setParameter("id", id).executeUpdate();
+                    em.createNativeQuery("UPDATE fin.cash_bank_trx SET status = 'POSTED' " +
+                            "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                        .setParameter("id", id).setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
                     countCA++;
                 }
             }
@@ -203,7 +237,13 @@ public class UiBatchProcessController {
     }
 
     private Long getCoaIdByCode(String code) {
-        try { return ((Number) em.createNativeQuery("SELECT id FROM fin.chart_of_account WHERE code = :code").setParameter("code", code).getSingleResult()).longValue(); }
+        try {
+            return ((Number) em.createNativeQuery(
+                    "SELECT id FROM fin.chart_of_account " +
+                    "WHERE tenant_id = :tenantId AND company_id = :compId AND code = :code")
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .setParameter("code", code).getSingleResult()).longValue();
+        }
         catch (Exception e) { return null; }
     }
 
@@ -218,16 +258,23 @@ public class UiBatchProcessController {
 	    @PostMapping("/unpost")
     @Transactional
     public String unpostBatchProcess(RedirectAttributes ra) {
+        final Long tenantId = context.tenantId();
+        final Long compId = context.companyId();
+
         // 1. Hitung jurnal OTOMATIS POSTED (ref_type IS NOT NULL)
         Long totalAuto = ((Number) em.createNativeQuery(
             "SELECT COUNT(*) FROM fin.journal_hdr " +
-            "WHERE status = 'POSTED' AND ref_type IS NOT NULL")
+            "WHERE tenant_id = :tenantId AND company_id = :compId " +
+            "AND status = 'POSTED' AND ref_type IS NOT NULL")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId)
             .getSingleResult()).longValue();
 
         // 2. Hitung jurnal MANUAL POSTED (ref_type IS NULL)
         Long totalManual = ((Number) em.createNativeQuery(
             "SELECT COUNT(*) FROM fin.journal_hdr " +
-            "WHERE status = 'POSTED' AND ref_type IS NULL")
+            "WHERE tenant_id = :tenantId AND company_id = :compId " +
+            "AND status = 'POSTED' AND ref_type IS NULL")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId)
             .getSingleResult()).longValue();
 
         if (totalAuto == 0) {
@@ -242,22 +289,28 @@ public class UiBatchProcessController {
         // 3. Void HANYA jurnal otomatis (ref_type IS NOT NULL)
         int voided = em.createNativeQuery(
             "UPDATE fin.journal_hdr SET status = 'VOID' " +
-            "WHERE status = 'POSTED' AND ref_type IS NOT NULL")
+            "WHERE tenant_id = :tenantId AND company_id = :compId " +
+            "AND status = 'POSTED' AND ref_type IS NOT NULL")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId)
             .executeUpdate();
 
         // 4. Reset status transaksi agar bisa di-generate ulang
         em.createNativeQuery(
-            "UPDATE sal.sales_invoice_hdr SET status = 'CONFIRMED' WHERE UPPER(TRIM(status)) = 'POSTED'")
-            .executeUpdate();
+            "UPDATE sal.sales_invoice_hdr SET status = 'CONFIRMED' " +
+            "WHERE tenant_id = :tenantId AND company_id = :compId AND UPPER(TRIM(status)) = 'POSTED'")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
         em.createNativeQuery(
-            "UPDATE pur.purchase_invoice_hdr SET status = 'CONFIRMED' WHERE UPPER(TRIM(status)) = 'POSTED'")
-            .executeUpdate();
+            "UPDATE pur.purchase_invoice_hdr SET status = 'CONFIRMED' " +
+            "WHERE tenant_id = :tenantId AND company_id = :compId AND UPPER(TRIM(status)) = 'POSTED'")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
         em.createNativeQuery(
-            "UPDATE fin.cash_bank_trx SET status = 'CONFIRMED' WHERE UPPER(TRIM(status)) = 'POSTED'")
-            .executeUpdate();
+            "UPDATE fin.cash_bank_trx SET status = 'CONFIRMED' " +
+            "WHERE tenant_id = :tenantId AND company_id = :compId AND UPPER(TRIM(status)) = 'POSTED'")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
         em.createNativeQuery(
-            "UPDATE inv.transaction_header SET status = 'CONFIRMED' WHERE UPPER(TRIM(status)) = 'POSTED'")
-            .executeUpdate();
+            "UPDATE inv.transaction_header SET status = 'CONFIRMED' " +
+            "WHERE tenant_id = :tenantId AND company_id = :compId AND UPPER(TRIM(status)) = 'POSTED'")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
 
         // 5. Notifikasi lengkap
         String msg = "Berhasil UNPOST " + voided + " jurnal otomatis.";
@@ -274,13 +327,20 @@ public class UiBatchProcessController {
         @PostMapping("/delete-journals")
     @Transactional
     public String deleteAllJournals(RedirectAttributes ra) {
+        final Long tenantId = context.tenantId();
+        final Long compId = context.companyId();
+
         // 1. Hitung jurnal otomatis vs manual
         Long totalAuto = ((Number) em.createNativeQuery(
-            "SELECT COUNT(*) FROM fin.journal_hdr WHERE ref_type IS NOT NULL")
+            "SELECT COUNT(*) FROM fin.journal_hdr " +
+            "WHERE tenant_id = :tenantId AND company_id = :compId AND ref_type IS NOT NULL")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId)
             .getSingleResult()).longValue();
 
         Long totalManual = ((Number) em.createNativeQuery(
-            "SELECT COUNT(*) FROM fin.journal_hdr WHERE ref_type IS NULL")
+            "SELECT COUNT(*) FROM fin.journal_hdr " +
+            "WHERE tenant_id = :tenantId AND company_id = :compId AND ref_type IS NULL")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId)
             .getSingleResult()).longValue();
 
         if (totalAuto == 0) {
@@ -295,27 +355,35 @@ public class UiBatchProcessController {
         // 2. Hapus detail jurnal otomatis saja
         em.createNativeQuery(
             "DELETE FROM fin.journal_dtl WHERE header_id IN " +
-            "(SELECT id FROM fin.journal_hdr WHERE ref_type IS NOT NULL)")
+            "(SELECT id FROM fin.journal_hdr WHERE tenant_id = :tenantId AND company_id = :compId " +
+            "AND ref_type IS NOT NULL)")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId)
             .executeUpdate();
 
         // 3. Hapus header jurnal otomatis saja
         int deletedHdr = em.createNativeQuery(
-            "DELETE FROM fin.journal_hdr WHERE ref_type IS NOT NULL")
+            "DELETE FROM fin.journal_hdr WHERE tenant_id = :tenantId AND company_id = :compId " +
+            "AND ref_type IS NOT NULL")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId)
             .executeUpdate();
 
         // 4. Reset status transaksi
         em.createNativeQuery(
-            "UPDATE sal.sales_invoice_hdr SET status = 'CONFIRMED' WHERE UPPER(TRIM(status)) = 'POSTED'")
-            .executeUpdate();
+            "UPDATE sal.sales_invoice_hdr SET status = 'CONFIRMED' " +
+            "WHERE tenant_id = :tenantId AND company_id = :compId AND UPPER(TRIM(status)) = 'POSTED'")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
         em.createNativeQuery(
-            "UPDATE pur.purchase_invoice_hdr SET status = 'CONFIRMED' WHERE UPPER(TRIM(status)) = 'POSTED'")
-            .executeUpdate();
+            "UPDATE pur.purchase_invoice_hdr SET status = 'CONFIRMED' " +
+            "WHERE tenant_id = :tenantId AND company_id = :compId AND UPPER(TRIM(status)) = 'POSTED'")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
         em.createNativeQuery(
-            "UPDATE fin.cash_bank_trx SET status = 'CONFIRMED' WHERE UPPER(TRIM(status)) = 'POSTED'")
-            .executeUpdate();
+            "UPDATE fin.cash_bank_trx SET status = 'CONFIRMED' " +
+            "WHERE tenant_id = :tenantId AND company_id = :compId AND UPPER(TRIM(status)) = 'POSTED'")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
         em.createNativeQuery(
-            "UPDATE inv.transaction_header SET status = 'CONFIRMED' WHERE UPPER(TRIM(status)) = 'POSTED'")
-            .executeUpdate();
+            "UPDATE inv.transaction_header SET status = 'CONFIRMED' " +
+            "WHERE tenant_id = :tenantId AND company_id = :compId AND UPPER(TRIM(status)) = 'POSTED'")
+            .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
 
         String msg = "Berhasil hapus " + deletedHdr + " jurnal otomatis.";
         if (totalManual > 0) {

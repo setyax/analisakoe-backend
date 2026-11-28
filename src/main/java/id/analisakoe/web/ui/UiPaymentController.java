@@ -60,9 +60,12 @@ public class UiPaymentController {
                          "COALESCE(c.ref_no, '-') AS ref_no " +
                          "FROM fin.cash_bank_trx c " +
                          "LEFT JOIN md.customer cu ON cu.id = c.customer_id " +
-                         "WHERE c.trx_type = 'IN' " +
+                         "WHERE c.tenant_id = :tenantId AND c.company_id = :compId AND c.trx_type = 'IN' " +
                          "ORDER BY c.id DESC";
-            List<Object[]> rows = em.createNativeQuery(sql).getResultList();
+            List<Object[]> rows = em.createNativeQuery(sql)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("compId", context.companyId())
+                .getResultList();
             for (Object[] row : rows) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id", row[0]);
@@ -112,7 +115,8 @@ public class UiPaymentController {
         // List Customer
         List<Map<String, Object>> customers = new ArrayList<>();
         for (Object[] row : (List<Object[]>) em.createNativeQuery(
-                "SELECT id, name FROM md.customer WHERE tenant_id = :tenantId ORDER BY name").setParameter("tenantId", context.tenantId()).getResultList()) {
+                "SELECT id, name FROM md.customer WHERE tenant_id = :tenantId AND company_id = :compId ORDER BY name")
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList()) {
             Map<String, Object> m = new HashMap<>();
             m.put("id", row[0]);
             m.put("name", row[1]);
@@ -128,12 +132,15 @@ public class UiPaymentController {
             "si.customer_id, si.invoice_date " +
             "FROM sal.sales_invoice_hdr si " +
             "JOIN md.customer c ON c.id = si.customer_id " +
-            "WHERE si.status IN ('POSTED','PARTIAL','CONFIRMED') " +
+            "WHERE si.tenant_id = :tenantId AND si.company_id = :compId " +
+            "  AND si.status IN ('POSTED','PARTIAL','CONFIRMED') " +
             "  AND (si.total_amount - COALESCE(si.paid_amount, 0)) > 0 ");
         if (customerId != null) invSql.append(" AND si.customer_id = :custId ");
         invSql.append(" ORDER BY si.id DESC");
 
-        var invQuery = em.createNativeQuery(invSql.toString());
+        var invQuery = em.createNativeQuery(invSql.toString())
+            .setParameter("tenantId", context.tenantId())
+            .setParameter("compId", context.companyId());
         if (customerId != null) invQuery.setParameter("custId", customerId);
 
         List<Map<String, Object>> invoices = new ArrayList<>();

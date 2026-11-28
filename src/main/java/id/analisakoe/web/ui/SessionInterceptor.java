@@ -46,6 +46,17 @@ public class SessionInterceptor implements HandlerInterceptor {
             response.sendRedirect(request.getContextPath() + "/ui/login?redirect=" + encoded);
             return false;
         }
+
+        // Akun demo bersifat read-only: semua mutasi via UI ditolak.
+        String method = request.getMethod();
+        if (user.getRoles() != null && user.getRoles().contains("DEMO")
+                && !"GET".equalsIgnoreCase(method)
+                && !"HEAD".equalsIgnoreCase(method)
+                && !"OPTIONS".equalsIgnoreCase(method)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN,
+                    "Akun demo hanya bisa melihat data (read-only).");
+            return false;
+        }
         return true;
     }
 }

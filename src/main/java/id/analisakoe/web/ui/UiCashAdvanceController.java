@@ -87,7 +87,7 @@ public class UiCashAdvanceController {
         model.addAttribute("pageTitle", "New Cash Advance");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         model.addAttribute("employees", empRepo.findByTenantIdAndStatus(context.tenantId(), "ACTIVE"));
-        model.addAttribute("banks", bankRepo.findAllByOrderByNameAsc());
+        model.addAttribute("banks", bankRepo.findByCompanyIdOrderByNameAsc(context.companyId()));
         model.addAttribute("today", LocalDate.now());
         model.addAttribute("isNew", true);
         return "ui/hr/cash_advance_form";
@@ -131,7 +131,7 @@ public class UiCashAdvanceController {
 
         model.addAttribute("ca", ca);
         model.addAttribute("employees", empRepo.findByTenantIdAndStatus(context.tenantId(), "ACTIVE"));
-        model.addAttribute("banks", bankRepo.findAllByOrderByNameAsc());
+        model.addAttribute("banks", bankRepo.findByCompanyIdOrderByNameAsc(context.companyId()));
         model.addAttribute("isNew", false);
         return "ui/hr/cash_advance_form";
     }

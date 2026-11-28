@@ -50,8 +50,11 @@ public class UiJournalController {
         List<Map<String, Object>> journals = new ArrayList<>();
         try {
             String sql = "SELECT id, doc_no, doc_date, journal_type, COALESCE(remarks, ''), COALESCE(status, 'UNKNOWN') " +
-                         "FROM fin.journal_hdr ORDER BY id DESC";
-            List<Object[]> rows = em.createNativeQuery(sql).getResultList();
+                         "FROM fin.journal_hdr WHERE tenant_id = :tenantId AND company_id = :compId ORDER BY id DESC";
+            List<Object[]> rows = em.createNativeQuery(sql)
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("compId", context.companyId())
+                .getResultList();
             for (Object[] row : rows) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id", row[0]);
@@ -177,7 +180,12 @@ public class UiJournalController {
         model.addAttribute("today", LocalDate.now());
         
         List<Map<String,Object>> accounts = new ArrayList<>();
-        for (Object[] row : (List<Object[]>) em.createNativeQuery("SELECT id, code, name FROM fin.chart_of_account ORDER BY code").getResultList()) {
+        for (Object[] row : (List<Object[]>) em.createNativeQuery(
+                "SELECT id, code, name FROM fin.chart_of_account " +
+                "WHERE tenant_id = :tenantId AND company_id = :compId ORDER BY code")
+                .setParameter("tenantId", context.tenantId())
+                .setParameter("compId", context.companyId())
+                .getResultList()) {
             Map<String,Object> m = new HashMap<>();
             m.put("id", row[0]); m.put("code", row[1]); m.put("name", row[2]);
             accounts.add(m);
