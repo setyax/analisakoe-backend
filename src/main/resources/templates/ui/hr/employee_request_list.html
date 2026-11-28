@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="app-layout">
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+    <main class="app-main">
+        <header th:replace="~{fragments/header :: header}"></header>
+        <section class="app-content">
+            <div class="erp-container">
+                <h3 style="margin-top:0; margin-bottom:10px;">[HR &amp; GA] Employee Requests</h3>
+                <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+                <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+
+                <table class="erp-table" style="margin-bottom:15px;">
+                    <thead>
+                        <tr>
+                            <th style="width:150px;">Doc No</th>
+                            <th style="width:110px;">Tanggal</th>
+                            <th>Karyawan</th>
+                            <th>Catatan</th>
+                            <th style="width:110px;">Status</th>
+                            <th style="width:260px; text-align:center;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${#lists.isEmpty(requests)}"><td colspan="6" style="padding:20px; text-align:center;">Belum ada Employee Request.</td></tr>
+                        <tr th:each="r : ${requests}">
+                            <td><strong th:text="${r[1]}"></strong></td>
+                            <td th:text="${r[2]}"></td>
+                            <td th:text="${r[3] + ' - ' + r[4]}"></td>
+                            <td th:text="${r[5] == null ? '-' : r[5]}"></td>
+                            <td><span class="badge" th:text="${r[6]}"></span></td>
+                            <td style="text-align:center; white-space:nowrap;">
+                                <a th:if="${r[6] == 'DRAFT'}" th:href="@{/ui/hr/employee-requests/{id}/edit(id=${r[0]})}" style="background:#f59e0b; color:white; text-decoration:none; padding:3px 7px; font-size:10px;">Edit</a>
+                                <form th:if="${r[6] == 'DRAFT'}" th:action="@{/ui/hr/employee-requests/{id}/status(id=${r[0]},status='SUBMITTED')}" method="post" style="display:inline-block; margin:0;">
+                                    <button type="submit" style="background:#0ea5e9; color:white; border:none; cursor:pointer; padding:3px 7px; font-size:10px; width:auto !important;">Submit</button>
+                                </form>
+                                <form th:if="${r[6] == 'SUBMITTED'}" th:action="@{/ui/hr/employee-requests/{id}/status(id=${r[0]},status='APPROVED')}" method="post" style="display:inline-block; margin:0;">
+                                    <button type="submit" style="background:#10b981; color:white; border:none; cursor:pointer; padding:3px 7px; font-size:10px; width:auto !important;">Approve</button>
+                                </form>
+                                <form th:if="${r[6] == 'SUBMITTED'}" th:action="@{/ui/hr/employee-requests/{id}/status(id=${r[0]},status='REJECTED')}" method="post" style="display:inline-block; margin:0;">
+                                    <button type="submit" style="background:#ef4444; color:white; border:none; cursor:pointer; padding:3px 7px; font-size:10px; width:auto !important;">Reject</button>
+                                </form>
+                                <form th:if="${r[6] == 'DRAFT'}" th:action="@{/ui/hr/employee-requests/{id}/status(id=${r[0]},status='CANCELLED')}" method="post" style="display:inline-block; margin:0;">
+                                    <button type="submit" style="background:#64748b; color:white; border:none; cursor:pointer; padding:3px 7px; font-size:10px; width:auto !important;">Cancel</button>
+                                </form>
+                                <form th:if="${r[6] == 'DRAFT' or r[6] == 'CANCELLED' or r[6] == 'REJECTED'}" th:action="@{/ui/hr/employee-requests/{id}/delete(id=${r[0]})}" method="post" style="display:inline-block; margin:0;"
+                                      onsubmit="return confirm('Hapus Employee Request ini?')">
+                                    <button type="submit" style="background:#b91c1c; color:white; border:none; cursor:pointer; padding:3px 7px; font-size:10px; width:auto !important;">Hapus</button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <a th:href="@{/ui/hr/employee-requests/new}" class="erp-btn-sm" style="text-decoration:none;">+ New Employee Request</a>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>
