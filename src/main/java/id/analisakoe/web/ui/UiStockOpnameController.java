@@ -54,7 +54,8 @@ public class UiStockOpnameController {
 
         String sql = "SELECT h.id, h.doc_no, h.doc_date, w.name, h.status " +
                      "FROM inv.stock_opname_hdr h LEFT JOIN md.warehouse w ON h.warehouse_id = w.id " +
-                     "WHERE h.tenant_id = :tenantId AND h.company_id = :compId " +
+                     "WHERE (h.tenant_id = :tenantId OR h.tenant_id IS NULL) " +
+                     "  AND (h.company_id = :compId OR h.company_id IS NULL) " +
                      "ORDER BY h.id DESC";
         List<Map<String, Object>> list = new ArrayList<>();
         try {
@@ -64,7 +65,8 @@ public class UiStockOpnameController {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", row[0]);
                 map.put("docNo", row[1]);
-                map.put("docDate", row[2]);
+                map.put("docDate", row[2] instanceof java.sql.Date sd ? sd.toLocalDate()
+                        : row[2] instanceof java.time.LocalDate ld ? ld : null);
                 map.put("warehouse", row[3] != null ? row[3] : "-");
                 map.put("status", row[4]);
                 list.add(map);

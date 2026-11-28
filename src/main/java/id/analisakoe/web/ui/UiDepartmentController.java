@@ -80,6 +80,9 @@ public class UiDepartmentController {
             Map<String, Object> c = new HashMap<>();
             c.put("id", row[0]); c.put("code", row[1]); c.put("name", row[2]); c.put("costCenterId", row[3]); c.put("isActive", row[4]);
             model.addAttribute("c", c);
+        } catch (jakarta.persistence.NoResultException e) {
+            // Cross-company access attempt - return 403
+            throw new org.springframework.security.access.AccessDeniedException("Akses lintas company tidak diizinkan");
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Data tidak ditemukan.");
             return "redirect:/ui/master/departments";
