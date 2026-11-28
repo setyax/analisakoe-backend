@@ -47,13 +47,16 @@ public class UiUomSetController {
 
         List<Object[]> sets = em.createNativeQuery(
             "SELECT id, code, name, COALESCE(category,'-'), COALESCE(description,'-'), " +
-            "COALESCE(is_active, true) FROM md.uom_set ORDER BY code").getResultList();
+            "COALESCE(is_active, true) FROM md.uom_set WHERE tenant_id = :tenantId ORDER BY code")
+            .setParameter("tenantId", context.tenantId()).getResultList();
         model.addAttribute("sets", sets);
 
         // Hitung jumlah detail per set
         Map<Long, Long> detailCounts = new HashMap<>();
         List<Object[]> counts = em.createNativeQuery(
-            "SELECT uom_set_id, COUNT(*) FROM md.uom_set_dtl GROUP BY uom_set_id").getResultList();
+            "SELECT d.uom_set_id, COUNT(*) FROM md.uom_set_dtl d "
+            + "JOIN md.uom_set s ON s.id = d.uom_set_id WHERE s.tenant_id = :tenantId "
+            + "GROUP BY d.uom_set_id").setParameter("tenantId", context.tenantId()).getResultList();
         for (Object[] r : counts) {
             detailCounts.put(((Number) r[0]).longValue(), ((Number) r[1]).longValue());
         }
@@ -63,7 +66,9 @@ public class UiUomSetController {
         Map<Long, Long> itemCounts = new HashMap<>();
         try {
             List<Object[]> ic = em.createNativeQuery(
-                "SELECT uom_set_id, COUNT(*) FROM md.item WHERE uom_set_id IS NOT NULL GROUP BY uom_set_id").getResultList();
+                "SELECT uom_set_id, COUNT(*) FROM md.item WHERE tenant_id = :tenantId "
+                + "AND uom_set_id IS NOT NULL GROUP BY uom_set_id")
+                .setParameter("tenantId", context.tenantId()).getResultList();
             for (Object[] r : ic) {
                 itemCounts.put(((Number) r[0]).longValue(), ((Number) r[1]).longValue());
             }
@@ -86,7 +91,8 @@ public class UiUomSetController {
 
         // Dropdown UoM master
         List<Object[]> uoms = em.createNativeQuery(
-            "SELECT id, code, name FROM md.uom ORDER BY code").getResultList();
+            "SELECT id, code, name FROM md.uom WHERE tenant_id = :tenantId ORDER BY code")
+            .setParameter("tenantId", context.tenantId()).getResultList();
         model.addAttribute("uoms", uoms);
 
         return "ui/master/uom_set_form";
@@ -106,8 +112,9 @@ public class UiUomSetController {
         try {
             Object[] hdr = (Object[]) em.createNativeQuery(
                 "SELECT id, code, name, COALESCE(category,''), COALESCE(description,''), COALESCE(is_active, true) " +
-                "FROM md.uom_set WHERE id = :id")
-                .setParameter("id", id).getSingleResult();
+                "FROM md.uom_set WHERE id = :id AND tenant_id = :tenantId")
+                .setParameter("id", id).setParameter("tenantId", context.tenantId())
+                .getSingleResult();
             Map<String, Object> h = new HashMap<>();
             h.put("id", hdr[0]);
             h.put("code", hdr[1]);
@@ -124,13 +131,17 @@ public class UiUomSetController {
                 "FROM md.uom_set_dtl d " +
                 "JOIN md.uom u ON u.id = d.uom_id " +
                 "LEFT JOIN md.uom pu ON pu.id = d.parent_uom_id " +
-                "WHERE d.uom_set_id = :id ORDER BY d.level ASC, d.id ASC")
-                .setParameter("id", id).getResultList();
+                "WHERE d.uom_set_id = :id AND EXISTS (SELECT 1 FROM md.uom_set s "
+                + "WHERE s.id = d.uom_set_id AND s.tenant_id = :tenantId) "
+                + "ORDER BY d.level ASC, d.id ASC")
+                .setParameter("id", id).setParameter("tenantId", context.tenantId())
+                .getResultList();
             model.addAttribute("details", details);
 
             // Semua UoM master
             List<Object[]> uoms = em.createNativeQuery(
-                "SELECT id, code, name FROM md.uom ORDER BY code").getResultList();
+                "SELECT id, code, name FROM md.uom WHERE tenant_id = :tenantId ORDER BY code")
+            .setParameter("tenantId", context.tenantId()).getResultList();
             model.addAttribute("uoms", uoms);
 
         } catch (Exception e) {
@@ -188,14 +199,17 @@ public class UiUomSetController {
             } else {
                 // UPDATE HEADER
                 em.createNativeQuery(
-                    "UPDATE md.uom_set SET code=:code, name=:name, category=:cat, description=:desc, is_active=:act, updated_at=now() WHERE id=:id")
+                    "UPDATE md.uom_set SET code=:code, name=:name, category=:cat, description=:desc, "
+                    + "is_active=:act, updated_at=now() WHERE id=:id AND tenant_id=:tenantId")
                     .setParameter("code", code).setParameter("name", name).setParameter("cat", category)
                     .setParameter("desc", description).setParameter("act", isActive).setParameter("id", id)
-                    .executeUpdate();
+                    .setParameter("tenantId", context.tenantId()).executeUpdate();
                 setId = id;
                 // Hapus detail lama
-                em.createNativeQuery("DELETE FROM md.uom_set_dtl WHERE uom_set_id = :sid")
-                    .setParameter("sid", setId).executeUpdate();
+                em.createNativeQuery("DELETE FROM md.uom_set_dtl WHERE uom_set_id = :sid "
+                    + "AND EXISTS (SELECT 1 FROM md.uom_set s WHERE s.id = :sid AND s.tenant_id = :tenantId)")
+                    .setParameter("sid", setId).setParameter("tenantId", context.tenantId())
+                    .executeUpdate();
             }
 
             // INSERT DETAIL
@@ -262,17 +276,19 @@ public class UiUomSetController {
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         try {
             // Cek apakah set sedang dipakai item
-            Object used = em.createNativeQuery("SELECT COUNT(*) FROM md.item WHERE uom_set_id = :id")
-                .setParameter("id", id).getSingleResult();
+            Object used = em.createNativeQuery("SELECT COUNT(*) FROM md.item "
+                + "WHERE uom_set_id = :id AND tenant_id = :tenantId")
+                .setParameter("id", id).setParameter("tenantId", context.tenantId()).getSingleResult();
             Long usedCount = ((Number) used).longValue();
             if (usedCount > 0) {
                 throw new Exception("Tidak bisa hapus: " + usedCount + " item masih pakai set ini.");
             }
 
-            em.createNativeQuery("DELETE FROM md.uom_set_dtl WHERE uom_set_id = :id")
-                .setParameter("id", id).executeUpdate();
-            em.createNativeQuery("DELETE FROM md.uom_set WHERE id = :id")
-                .setParameter("id", id).executeUpdate();
+            em.createNativeQuery("DELETE FROM md.uom_set_dtl WHERE uom_set_id = :id "
+                + "AND EXISTS (SELECT 1 FROM md.uom_set s WHERE s.id = :id AND s.tenant_id = :tenantId)")
+                .setParameter("id", id).setParameter("tenantId", context.tenantId()).executeUpdate();
+            em.createNativeQuery("DELETE FROM md.uom_set WHERE id = :id AND tenant_id = :tenantId")
+                .setParameter("id", id).setParameter("tenantId", context.tenantId()).executeUpdate();
             ra.addFlashAttribute("success", "UoM Set berhasil dihapus.");
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Gagal hapus: " + e.getMessage());

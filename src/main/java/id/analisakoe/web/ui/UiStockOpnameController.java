@@ -54,12 +54,12 @@ public class UiStockOpnameController {
 
         String sql = "SELECT h.id, h.doc_no, h.doc_date, w.name, h.status " +
                      "FROM inv.stock_opname_hdr h LEFT JOIN md.warehouse w ON h.warehouse_id = w.id " +
-                     "WHERE h.company_id = :compId " +
+                     "WHERE h.tenant_id = :tenantId AND h.company_id = :compId " +
                      "ORDER BY h.id DESC";
         List<Map<String, Object>> list = new ArrayList<>();
         try {
             List<Object[]> results = em.createNativeQuery(sql)
-                    .setParameter("compId", compId).getResultList();
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList();
             for (Object[] row : results) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", row[0]);
@@ -82,9 +82,14 @@ public class UiStockOpnameController {
         model.addAttribute("pageTitle", "New Stock Opname");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         model.addAttribute("today", LocalDate.now());
-        model.addAttribute("items", itemRepo.findAll());
-        model.addAttribute("uoms", uomRepo.findAll());
-        model.addAttribute("warehouses", whRepo.findAll());
+        model.addAttribute("items", itemRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(
+                context.tenantId(), context.companyId(),
+                org.springframework.data.domain.PageRequest.of(0, 1000)).getContent());
+        model.addAttribute("uoms", uomRepo.findByTenantId(context.tenantId(),
+                org.springframework.data.domain.PageRequest.of(0, 1000)).getContent());
+        model.addAttribute("warehouses", whRepo.findByTenantIdAndCompanyId(
+                context.tenantId(), context.companyId(),
+                org.springframework.data.domain.PageRequest.of(0, 1000)).getContent());
         return "ui/inventory/opname_form";
     }
 
@@ -129,15 +134,19 @@ public class UiStockOpnameController {
                 if (diff.compareTo(BigDecimal.ZERO) != 0) {
                     adjCount++;
                     // Cek dulu apakah record stock_balance sudah ada
-                    List<?> existing = em.createNativeQuery("SELECT id FROM inv.stock_balance WHERE item_id = :itemId AND (warehouse_id = :wh OR (:wh IS NULL AND warehouse_id IS NULL))")
+                    List<?> existing = em.createNativeQuery("SELECT id FROM inv.stock_balance WHERE tenant_id = :tenantId AND item_id = :itemId "
+                        + "AND (warehouse_id = :wh OR (:wh IS NULL AND warehouse_id IS NULL))")
+                        .setParameter("tenantId", tenantId)
                         .setParameter("itemId", itemIds.get(i)).setParameter("wh", warehouseId).getResultList();
                     
                     if (existing.isEmpty()) {
                         em.createNativeQuery("INSERT INTO inv.stock_balance (tenant_id, item_id, warehouse_id, qty) VALUES (:tenantId, :itemId, :wh, :physQty)")
                             .setParameter("itemId", itemIds.get(i)).setParameter("wh", warehouseId).setParameter("physQty", physQty).setParameter("tenantId", context.tenantId()).executeUpdate();
                     } else {
-                        em.createNativeQuery("UPDATE inv.stock_balance SET qty = :physQty WHERE item_id = :itemId AND (warehouse_id = :wh OR (:wh IS NULL AND warehouse_id IS NULL))")
-                            .setParameter("physQty", physQty).setParameter("itemId", itemIds.get(i)).setParameter("wh", warehouseId).executeUpdate();
+                        em.createNativeQuery("UPDATE inv.stock_balance SET qty = :physQty WHERE tenant_id = :tenantId AND item_id = :itemId "
+                            + "AND (warehouse_id = :wh OR (:wh IS NULL AND warehouse_id IS NULL))")
+                            .setParameter("physQty", physQty).setParameter("tenantId", tenantId)
+                            .setParameter("itemId", itemIds.get(i)).setParameter("wh", warehouseId).executeUpdate();
                     }
                 }
             }
@@ -154,8 +163,11 @@ public class UiStockOpnameController {
         try {
             transactionTemplate.executeWithoutResult(tx -> {
                 List<?> hdrList = em.createNativeQuery(
-                        "SELECT status, warehouse_id FROM inv.stock_opname_hdr WHERE id = :id")
-                        .setParameter("id", id).getResultList();
+                        "SELECT status, warehouse_id FROM inv.stock_opname_hdr "
+                        + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                        .setParameter("id", id)
+                        .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                        .getResultList();
                 if (hdrList.isEmpty()) throw new IllegalStateException("Opname tidak ditemukan.");
                 Object[] hdrRow = (Object[]) hdrList.get(0);
                 String status = hdrRow[0].toString();
@@ -166,8 +178,12 @@ public class UiStockOpnameController {
                 // Kembalikan stock_balance ke system_qty untuk baris yang punya selisih.
                 // Query dibangun dinamis agar PostgreSQL tidak error 42P18 (:param IS NULL).
                 List<Object[]> details = em.createNativeQuery(
-                        "SELECT item_id, system_qty, diff_qty FROM inv.stock_opname_dtl WHERE header_id = :id")
-                        .setParameter("id", id).getResultList();
+                        "SELECT d.item_id, d.system_qty, d.diff_qty FROM inv.stock_opname_dtl d "
+                        + "JOIN inv.stock_opname_hdr h ON h.id = d.header_id "
+                        + "WHERE d.header_id = :id AND h.tenant_id = :tenantId AND h.company_id = :compId")
+                        .setParameter("id", id)
+                        .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                        .getResultList();
                 int restored = 0;
                 for (Object[] d : details) {
                     Long itemId = ((Number) d[0]).longValue();
@@ -177,19 +193,23 @@ public class UiStockOpnameController {
 
                     if (opnameWhId != null) {
                         em.createNativeQuery("UPDATE inv.stock_balance SET qty = :sysQty, last_updated = NOW() " +
-                                "WHERE item_id = :itemId AND warehouse_id = :wh")
+                                "WHERE tenant_id = :tenantId AND item_id = :itemId AND warehouse_id = :wh")
                             .setParameter("sysQty", systemQty).setParameter("itemId", itemId)
-                            .setParameter("wh", opnameWhId).executeUpdate();
+                            .setParameter("wh", opnameWhId).setParameter("tenantId", context.tenantId()).executeUpdate();
                     } else {
                         em.createNativeQuery("UPDATE inv.stock_balance SET qty = :sysQty, last_updated = NOW() " +
-                                "WHERE item_id = :itemId AND warehouse_id IS NULL")
-                            .setParameter("sysQty", systemQty).setParameter("itemId", itemId).executeUpdate();
+                                "WHERE tenant_id = :tenantId AND item_id = :itemId AND warehouse_id IS NULL")
+                            .setParameter("sysQty", systemQty).setParameter("itemId", itemId)
+                            .setParameter("tenantId", context.tenantId()).executeUpdate();
                     }
                     restored++;
                 }
 
-                em.createNativeQuery("UPDATE inv.stock_opname_hdr SET status = 'VOID' WHERE id = :id")
-                    .setParameter("id", id).executeUpdate();
+                em.createNativeQuery("UPDATE inv.stock_opname_hdr SET status = 'VOID' WHERE id = :id "
+                    + "AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id)
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                    .executeUpdate();
 
                 ra.addFlashAttribute("success", "Opname berhasil di-VOID. " + restored + " item dikembalikan ke system qty.");
             });
@@ -205,8 +225,11 @@ public class UiStockOpnameController {
         try {
             transactionTemplate.executeWithoutResult(tx -> {
                 List<?> hdrList = em.createNativeQuery(
-                        "SELECT status FROM inv.stock_opname_hdr WHERE id = :id")
-                        .setParameter("id", id).getResultList();
+                        "SELECT status FROM inv.stock_opname_hdr "
+                        + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                        .setParameter("id", id)
+                        .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                        .getResultList();
                 if (hdrList.isEmpty()) throw new IllegalStateException("Opname tidak ditemukan.");
                 String status = hdrList.get(0).toString();
                 if (!"VOID".equalsIgnoreCase(status))
@@ -214,8 +237,11 @@ public class UiStockOpnameController {
 
                 em.createNativeQuery("DELETE FROM inv.stock_opname_dtl WHERE header_id = :id")
                     .setParameter("id", id).executeUpdate();
-                em.createNativeQuery("DELETE FROM inv.stock_opname_hdr WHERE id = :id")
-                    .setParameter("id", id).executeUpdate();
+                em.createNativeQuery("DELETE FROM inv.stock_opname_hdr WHERE id = :id "
+                    + "AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id)
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                    .executeUpdate();
             });
             ra.addFlashAttribute("success", "Opname berhasil dihapus.");
         } catch (Exception e) {

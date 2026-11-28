@@ -88,7 +88,7 @@ public class PurchaseInvoiceService {
 
     @Transactional
     public void postInvoice(Long invId) {
-        PurchaseInvoiceHdr hdr = invRepo.findById(invId).orElseThrow(() -> new BusinessException("Invoice tidak ditemukan"));
+        PurchaseInvoiceHdr hdr = invRepo.findByIdAndTenantIdAndCompanyId(invId, context.tenantId(), context.companyId()).orElseThrow(() -> new BusinessException("Invoice tidak ditemukan"));
         if (!"DRAFT".equals(hdr.getStatus())) throw new BusinessException("Hanya Invoice DRAFT yang bisa di-posting.");
 
         journalService.createJournal(hdr.getTenantId(), hdr.getCompanyId(), hdr.getInvoiceDate(), "PURCHASE", "Auto-Journal Purchase Invoice " + hdr.getDocNo(), List.of(
@@ -102,7 +102,7 @@ public class PurchaseInvoiceService {
 
     @Transactional
     public void updateInvoice(Long id, LocalDate dueDate, String remarks) {
-        PurchaseInvoiceHdr hdr = invRepo.findById(id).orElseThrow(() -> new BusinessException("Invoice tidak ditemukan"));
+        PurchaseInvoiceHdr hdr = invRepo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId()).orElseThrow(() -> new BusinessException("Invoice tidak ditemukan"));
         if (!"DRAFT".equals(hdr.getStatus())) throw new BusinessException("Hanya Invoice DRAFT yang bisa diedit.");
         
         hdr.setDueDate(dueDate);
@@ -112,7 +112,7 @@ public class PurchaseInvoiceService {
 
     @Transactional
     public void unpostInvoice(Long id) {
-        PurchaseInvoiceHdr hdr = invRepo.findById(id).orElseThrow(() -> new BusinessException("Invoice tidak ditemukan"));
+        PurchaseInvoiceHdr hdr = invRepo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId()).orElseThrow(() -> new BusinessException("Invoice tidak ditemukan"));
         if (!"POSTED".equals(hdr.getStatus())) throw new BusinessException("Hanya Invoice POSTED yang bisa di-Unpost.");
 
         // Jurnal Pembalik (Reversal)
@@ -126,7 +126,7 @@ public class PurchaseInvoiceService {
     }
     @Transactional
     public void voidInvoice(Long id) {
-        PurchaseInvoiceHdr hdr = invRepo.findById(id).orElseThrow(() -> new BusinessException("Invoice tidak ditemukan"));
+        PurchaseInvoiceHdr hdr = invRepo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId()).orElseThrow(() -> new BusinessException("Invoice tidak ditemukan"));
         if ("VOID".equals(hdr.getStatus())) throw new BusinessException("Invoice sudah VOID.");
 
         // Jika invoice sudah POSTED, buat jurnal pembalik
@@ -143,7 +143,7 @@ public class PurchaseInvoiceService {
 	
 	    @org.springframework.transaction.annotation.Transactional
     public void deleteInvoice(Long id) {
-        PurchaseInvoiceHdr inv = invRepo.findById(id)
+        PurchaseInvoiceHdr inv = invRepo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId())
             .orElseThrow(() -> new BusinessException("Invoice tidak ditemukan"));
         if (!"DRAFT".equals(inv.getStatus())) {
             throw new BusinessException("Hanya Invoice berstatus DRAFT yang bisa dihapus.");

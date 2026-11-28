@@ -69,10 +69,11 @@ public class UiInventoryAdjustmentController {
             String histSql =
                 "SELECT h.id, h.doc_no, h.doc_date, h.doc_type, h.remarks, h.status, w.name " +
                 "FROM inv.transaction_header h LEFT JOIN md.warehouse w ON w.id = h.warehouse_id " +
-                "WHERE h.remarks LIKE 'Adj %' AND h.company_id = :compId " +
+                "WHERE h.remarks LIKE 'Adj %' AND h.tenant_id = :tenantId AND h.company_id = :compId " +
                 "ORDER BY h.id DESC LIMIT 25";
             List<Object[]> histRows = em.createNativeQuery(histSql)
-                    .setParameter("compId", user.getActiveCompanyId()).getResultList();
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                    .getResultList();
             List<java.util.Map<String, Object>> history = new ArrayList<>();
             for (Object[] row : histRows) {
                 java.util.Map<String, Object> m = new java.util.HashMap<>();
@@ -151,8 +152,11 @@ public class UiInventoryAdjustmentController {
             transactionTemplate.executeWithoutResult(tx -> {
                 List<?> hdrList = em.createNativeQuery(
                         "SELECT doc_no, doc_type, status, warehouse_id, remarks, tenant_id, company_id, doc_date " +
-                        "FROM inv.transaction_header WHERE id = :id")
-                        .setParameter("id", id).getResultList();
+                        "FROM inv.transaction_header WHERE id = :id "
+                        + "AND tenant_id = :tenantId AND company_id = :compId")
+                        .setParameter("id", id)
+                        .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                        .getResultList();
                 if (hdrList.isEmpty()) throw new IllegalStateException("Adjustment tidak ditemukan.");
                 Object[] h = (Object[]) hdrList.get(0);
                 String docNo = h[0].toString();
@@ -170,8 +174,12 @@ public class UiInventoryAdjustmentController {
                     throw new IllegalStateException("Dokumen ini bukan adjustment (tipe " + docType + ").");
 
                 List<Object[]> details = em.createNativeQuery(
-                        "SELECT item_id, qty FROM inv.transaction_detail WHERE header_id = :id")
-                        .setParameter("id", id).getResultList();
+                        "SELECT d.item_id, d.qty FROM inv.transaction_detail d "
+                        + "JOIN inv.transaction_header h ON h.id = d.header_id "
+                        + "WHERE d.header_id = :id AND h.tenant_id = :tenantId AND h.company_id = :compId")
+                        .setParameter("id", id)
+                        .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                        .getResultList();
                 if (details.isEmpty()) throw new IllegalStateException("Adjustment tidak memiliki detail item.");
 
                 // 1. Balikkan stok (arah berlawanan)
@@ -226,8 +234,10 @@ public class UiInventoryAdjustmentController {
                         "SELECT c.code, d.debit, d.credit, COALESCE(d.description,'') " +
                         "FROM fin.journal_dtl d JOIN fin.journal_hdr j ON j.id = d.header_id " +
                         "JOIN fin.chart_of_account c ON c.id = d.account_id " +
-                        "WHERE j.journal_type = :jt AND j.remarks = :rm")
-                        .setParameter("jt", jrnlType).setParameter("rm", jrnlRemarks).getResultList();
+                        "WHERE j.journal_type = :jt AND j.remarks = :rm "
+                        + "AND j.tenant_id = :tenantId AND j.company_id = :compId")
+                        .setParameter("jt", jrnlType).setParameter("rm", jrnlRemarks)
+                        .setParameter("tenantId", tenantId).setParameter("compId", compId).getResultList();
                 if (!jrnlLines.isEmpty()) {
                     List<JournalService.JournalLine> reversal = new ArrayList<>();
                     for (Object[] l : jrnlLines) {
@@ -239,8 +249,11 @@ public class UiInventoryAdjustmentController {
                 }
 
                 // 4. Tandai dokumen asli VOID
-                em.createNativeQuery("UPDATE inv.transaction_header SET status = 'VOID' WHERE id = :id")
-                    .setParameter("id", id).executeUpdate();
+                em.createNativeQuery("UPDATE inv.transaction_header SET status = 'VOID' "
+                    + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id)
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                    .executeUpdate();
             });
             ra.addFlashAttribute("success", "Adjustment berhasil di-VOID. Stok & jurnal dibalik.");
         } catch (Exception e) {
@@ -255,8 +268,11 @@ public class UiInventoryAdjustmentController {
         try {
             transactionTemplate.executeWithoutResult(tx -> {
                 List<?> hdrList = em.createNativeQuery(
-                        "SELECT doc_no, status FROM inv.transaction_header WHERE id = :id")
-                        .setParameter("id", id).getResultList();
+                        "SELECT doc_no, status FROM inv.transaction_header WHERE id = :id "
+                        + "AND tenant_id = :tenantId AND company_id = :compId")
+                        .setParameter("id", id)
+                        .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                        .getResultList();
                 if (hdrList.isEmpty()) throw new IllegalStateException("Adjustment tidak ditemukan.");
                 Object[] h = (Object[]) hdrList.get(0);
                 String docNo = h[0].toString();
@@ -266,15 +282,21 @@ public class UiInventoryAdjustmentController {
 
                 // Hapus dokumen asli + dokumen penyeimbangnya
                 List<Integer> pairIds = em.createNativeQuery(
-                        "SELECT id FROM inv.transaction_header WHERE id = :id " +
-                        "OR (doc_no = 'VOID-' || :docNo AND remarks LIKE 'Void dari %')")
-                        .setParameter("id", id).setParameter("docNo", docNo).getResultList();
+                        "SELECT id FROM inv.transaction_header WHERE (id = :id " +
+                        "OR (doc_no = 'VOID-' || :docNo AND remarks LIKE 'Void dari %')) "
+                        + "AND tenant_id = :tenantId AND company_id = :compId")
+                        .setParameter("id", id).setParameter("docNo", docNo)
+                        .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                        .getResultList();
                 for (Object pid : pairIds) {
                     Long pidL = ((Number) pid).longValue();
                     em.createNativeQuery("DELETE FROM inv.transaction_detail WHERE header_id = :hid")
                         .setParameter("hid", pidL).executeUpdate();
-                    em.createNativeQuery("DELETE FROM inv.transaction_header WHERE id = :hid")
-                        .setParameter("hid", pidL).executeUpdate();
+                    em.createNativeQuery("DELETE FROM inv.transaction_header WHERE id = :hid "
+                        + "AND tenant_id = :tenantId AND company_id = :compId")
+                        .setParameter("hid", pidL)
+                        .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                        .executeUpdate();
                 }
             });
             ra.addFlashAttribute("success", "Adjustment berhasil dihapus.");

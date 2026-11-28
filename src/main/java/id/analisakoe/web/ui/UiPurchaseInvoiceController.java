@@ -312,7 +312,10 @@ public class UiPurchaseInvoiceController {
                 "SELECT h.doc_no, h.invoice_date, h.due_date, s.name, h.currency, h.total_amount, " +
                 "h.tax_amount, h.remarks, h.status, h.supplier_invoice_no, COALESCE(h.tax_type, 'NO_TAX') " +
                 "FROM pur.purchase_invoice_hdr h LEFT JOIN md.supplier s ON s.id = h.supplier_id " +
-                "WHERE h.id = :id").setParameter("id", id).getResultList();
+                "WHERE h.id = :id AND h.tenant_id = :tenantId AND h.company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
             if (hdrRaw.isEmpty()) {
                 ra.addFlashAttribute("error", "Invoice tidak ditemukan.");
                 return "redirect:/ui/purchasing/invoices";
@@ -377,7 +380,10 @@ public class UiPurchaseInvoiceController {
         try {
             List<Object[]> hdrRaw = em.createNativeQuery(
                 "SELECT doc_no, supplier_invoice_no, invoice_date, due_date, grn_id, remarks, status, tax_type, tax_amount " +
-                "FROM pur.purchase_invoice_hdr WHERE id = :id").setParameter("id", id).getResultList();
+                "FROM pur.purchase_invoice_hdr WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
             
             if (hdrRaw.isEmpty()) {
                 ra.addFlashAttribute("error", "Invoice tidak ditemukan.");
@@ -446,7 +452,11 @@ public class UiPurchaseInvoiceController {
                          @RequestParam(required = false) String remarks,
                          RedirectAttributes ra) {
         try {
-            List<?> statusList = em.createNativeQuery("SELECT status FROM pur.purchase_invoice_hdr WHERE id = :id").setParameter("id", id).getResultList();
+            List<?> statusList = em.createNativeQuery("SELECT status FROM pur.purchase_invoice_hdr "
+                + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
             String status = statusList.isEmpty() ? "" : statusList.get(0).toString();
             if (!"DRAFT".equals(status)) {
                 ra.addFlashAttribute("error", "Hanya DRAFT yang bisa diubah.");
@@ -454,8 +464,11 @@ public class UiPurchaseInvoiceController {
             }
 
             Object[] grn = (Object[]) em.createNativeQuery(
-                "SELECT po.supplier_id, po.tax_type FROM pur.grn_hdr g JOIN pur.purchase_order_hdr po ON po.id = g.po_id WHERE g.id = :id")
-                .setParameter("id", grnId).getSingleResult();
+                "SELECT po.supplier_id, po.tax_type FROM pur.grn_hdr g JOIN pur.purchase_order_hdr po ON po.id = g.po_id "
+                + "WHERE g.id = :id AND g.tenant_id = :tenantId AND g.company_id = :compId")
+                .setParameter("id", grnId)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getSingleResult();
             String taxType = grn[1] != null ? grn[1].toString() : "NO_TAX";
 
             List<Object[]> grnDetails = em.createNativeQuery(
@@ -487,12 +500,15 @@ public class UiPurchaseInvoiceController {
             }
 
             em.createNativeQuery("UPDATE pur.purchase_invoice_hdr SET grn_id = :grn, supplier_invoice_no = :sin, " +
-                                 "invoice_date = :inv, due_date = :due, remarks = :rem, total_amount = :total, tax_type = :taxType, tax_amount = :taxAmt WHERE id = :id")
+                                 "invoice_date = :inv, due_date = :due, remarks = :rem, total_amount = :total, tax_type = :taxType, tax_amount = :taxAmt "
+                                 + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
                 .setParameter("grn", grnId).setParameter("sin", supplierInvoiceNo)
                 .setParameter("inv", java.sql.Date.valueOf(invoiceDate)).setParameter("due", java.sql.Date.valueOf(dueDate))
                 .setParameter("rem", remarks).setParameter("total", grandTotal)
                 .setParameter("taxType", taxType).setParameter("taxAmt", totalTax)
-                .setParameter("id", id).executeUpdate();
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
 
             em.createNativeQuery("DELETE FROM pur.purchase_invoice_dtl WHERE header_id = :id").setParameter("id", id).executeUpdate();
 
@@ -561,8 +577,11 @@ public class UiPurchaseInvoiceController {
         try {
             transactionTemplate.executeWithoutResult(tx -> invoiceService.postInvoice(id));
             ra.addFlashAttribute("success", "Purchase Invoice berhasil di-post. Hutang Usaha telah diakui (jurnal dibuat).");
-            List<?> dn = em.createNativeQuery("SELECT doc_no FROM pur.purchase_invoice_hdr WHERE id = :id")
-                .setParameter("id", id).getResultList();
+            List<?> dn = em.createNativeQuery("SELECT doc_no FROM pur.purchase_invoice_hdr "
+                + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
             String docNo = dn.isEmpty() ? "INV#" + id : dn.get(0).toString();
             notif(notifUser, "INV", "Invoice " + docNo + " di-post",
                 "Purchase Invoice " + docNo + " telah di-post, hutang usaha diakui.",
@@ -590,8 +609,11 @@ public class UiPurchaseInvoiceController {
         try {
             // 1. Cek status invoice
             List<?> statusList = em.createNativeQuery(
-                "SELECT status, paid_amount, doc_no, tenant_id, company_id FROM pur.purchase_invoice_hdr WHERE id = :id")
-                .setParameter("id", id).getResultList();
+                "SELECT status, paid_amount, doc_no, tenant_id, company_id FROM pur.purchase_invoice_hdr "
+                + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
 
             if (statusList.isEmpty()) {
                 throw new RuntimeException("Invoice tidak ditemukan.");
@@ -641,14 +663,20 @@ public class UiPurchaseInvoiceController {
 
             // 5. Lakukan void
             em.createNativeQuery(
-                "UPDATE pur.purchase_invoice_hdr SET status = 'VOID' WHERE id = :id")
-                .setParameter("id", id).executeUpdate();
+                "UPDATE pur.purchase_invoice_hdr SET status = 'VOID' WHERE id = :id "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
 
             // 6. Reverse jurnal PURCHASE
             try {
                 Object[] jvInfo = (Object[]) em.createNativeQuery(
-                    "SELECT id FROM fin.journal_hdr WHERE ref_type = 'PURCHASE_INVOICE' AND ref_id = :id AND status = 'POSTED'")
-                    .setParameter("id", id).getSingleResult();
+                    "SELECT id FROM fin.journal_hdr WHERE ref_type = 'PURCHASE_INVOICE' AND ref_id = :id AND status = 'POSTED' "
+                    + "AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id)
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                    .getSingleResult();
 
                 Long origJvId = ((Number) jvInfo[0]).longValue();
                 List<Object[]> jvLines = em.createNativeQuery(
@@ -692,14 +720,22 @@ public class UiPurchaseInvoiceController {
     @Transactional
     public String deleteInv(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            List<?> statusList = em.createNativeQuery("SELECT status FROM pur.purchase_invoice_hdr WHERE id = :id").setParameter("id", id).getResultList();
+            List<?> statusList = em.createNativeQuery("SELECT status FROM pur.purchase_invoice_hdr "
+                + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
             String status = statusList.isEmpty() ? "" : statusList.get(0).toString();
             if (!"DRAFT".equals(status)) {
                 ra.addFlashAttribute("error", "Hanya Invoice DRAFT yang bisa dihapus. Status: " + status);
                 return "redirect:/ui/purchasing/invoices";
             }
             em.createNativeQuery("DELETE FROM pur.purchase_invoice_dtl WHERE header_id = :id").setParameter("id", id).executeUpdate();
-            em.createNativeQuery("DELETE FROM pur.purchase_invoice_hdr WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("DELETE FROM pur.purchase_invoice_hdr WHERE id = :id "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute("success", "Purchase Invoice berhasil dihapus.");
         } catch (Exception e) { ra.addFlashAttribute("error", "Gagal: " + e.getMessage()); }
         return "redirect:/ui/purchasing/invoices";

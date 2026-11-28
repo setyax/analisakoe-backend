@@ -292,7 +292,9 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
         try {
             Object[] hdr = (Object[]) em.createNativeQuery(
                 "SELECT doc_no, doc_date, due_date, remarks, status, total_level, current_level, recommended_supplier_id, recommended_amount " +
-                "FROM pur.rfq_hdr WHERE id = :id AND tenant_id = :tenant").setParameter("id", id).setParameter("tenant", approvalTenantId(user)).getSingleResult();
+                "FROM pur.rfq_hdr WHERE id = :id AND tenant_id = :tenant AND company_id = :company")
+                .setParameter("id", id).setParameter("tenant", approvalTenantId(user))
+                .setParameter("company", context.companyId()).getSingleResult();
             
             model.addAttribute("rfqDocNo", hdr[0]);
             model.addAttribute("rfqDate", hdr[1]);
@@ -390,7 +392,10 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
             // 1. Header RFQ
             Object[] hdr = (Object[]) em.createNativeQuery(
                 "SELECT doc_no, doc_date, due_date, remarks, status, recommended_supplier_id " +
-                "FROM pur.rfq_hdr WHERE id = :id").setParameter("id", id).getSingleResult();
+                "FROM pur.rfq_hdr WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getSingleResult();
             model.addAttribute("rfqDocNo", hdr[0]);
             model.addAttribute("rfqDate", hdr[1]);
             model.addAttribute("rfqDueDate", hdr[2]);
@@ -492,7 +497,10 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
             List<?> hdrList = em.createNativeQuery(
                 "SELECT doc_no, doc_date, due_date, remarks, status, " +
                 "COALESCE(recommended_supplier_id, 0), COALESCE(recommended_amount, 0) " +
-                "FROM pur.rfq_hdr WHERE id = :id").setParameter("id", id).getResultList();
+                "FROM pur.rfq_hdr WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
             
             if (hdrList.isEmpty()) {
                 ra.addFlashAttribute("error", "RFQ tidak ditemukan.");
@@ -660,7 +668,11 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
                         .setParameter("rsId", rsId).setParameter("dtlId", dtlId).setParameter("price", price).executeUpdate();
                 }
             }
-            em.createNativeQuery("UPDATE pur.rfq_hdr SET status = 'QUOTED' WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("UPDATE pur.rfq_hdr SET status = 'QUOTED' WHERE id = :id "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute("success", "Harga supplier berhasil disimpan.");
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Gagal simpan: " + e.getMessage());
@@ -689,8 +701,10 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
             }
 
             Object statusObj = em.createNativeQuery(
-                    "SELECT status FROM pur.rfq_hdr WHERE id = :id AND tenant_id = :tenant FOR UPDATE")
-                    .setParameter("id", id).setParameter("tenant", tenantId).getSingleResult();
+                    "SELECT status FROM pur.rfq_hdr WHERE id = :id AND tenant_id = :tenant "
+                    + "AND company_id = :company FOR UPDATE")
+                    .setParameter("id", id).setParameter("tenant", tenantId)
+                    .setParameter("company", context.companyId()).getSingleResult();
             String status = statusObj != null ? statusObj.toString() : "";
             if (!"QUOTED".equalsIgnoreCase(status)) {
                 throw new RuntimeException("RFQ harus berstatus QUOTED sebelum diajukan untuk approval. Status sekarang: " + status);
@@ -700,8 +714,10 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
                     "SELECT COUNT(*) FROM pur.rfq_response rr " +
                     "JOIN pur.rfq_supplier rs ON rs.id = rr.rfq_supplier_id " +
                     "JOIN pur.rfq_hdr rh ON rh.id = rs.rfq_id " +
-                    "WHERE rs.rfq_id = :id AND rh.tenant_id = :tenant AND rr.unit_price > 0")
-                    .setParameter("id", id).setParameter("tenant", tenantId).getSingleResult()).longValue();
+                    "WHERE rs.rfq_id = :id AND rh.tenant_id = :tenant AND rh.company_id = :company "
+                    + "AND rr.unit_price > 0")
+                    .setParameter("id", id).setParameter("tenant", tenantId)
+                    .setParameter("company", context.companyId()).getSingleResult()).longValue();
             if (responseCount == 0) throw new RuntimeException("Belum ada harga supplier yang diinput.");
 
             Long supplierCount = ((Number) em.createNativeQuery(
@@ -718,11 +734,12 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
                     "UPDATE pur.rfq_hdr SET status = 'PENDING_APPROVAL', " +
                     "recommended_supplier_id = :supplierId, recommended_amount = :amount, " +
                     "current_level = :level, total_level = :level " +
-                    "WHERE id = :id AND tenant_id = :tenant")
+                    "WHERE id = :id AND tenant_id = :tenant AND company_id = :company")
                     .setParameter("supplierId", recommendedSupplierId)
                     .setParameter("amount", recommendedAmount)
                     .setParameter("level", approvalLevel)
-                    .setParameter("id", id).setParameter("tenant", tenantId).executeUpdate();
+                    .setParameter("id", id).setParameter("tenant", tenantId)
+                     .setParameter("company", context.companyId()).executeUpdate();
 
             em.createNativeQuery(
                     "INSERT INTO core.approval_log " +
@@ -759,8 +776,10 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
 
             Object[] hdr = (Object[]) em.createNativeQuery(
                     "SELECT status, current_level, total_level, recommended_amount " +
-                    "FROM pur.rfq_hdr WHERE id = :id AND tenant_id = :tenant FOR UPDATE")
-                    .setParameter("id", id).setParameter("tenant", tenantId).getSingleResult();
+                    "FROM pur.rfq_hdr WHERE id = :id AND tenant_id = :tenant "
+                    + "AND company_id = :company FOR UPDATE")
+                    .setParameter("id", id).setParameter("tenant", tenantId)
+                    .setParameter("company", context.companyId()).getSingleResult();
             String status = hdr[0] != null ? hdr[0].toString() : "";
             if (!"PENDING_APPROVAL".equalsIgnoreCase(status)) {
                 throw new RuntimeException("RFQ tidak dalam status PENDING_APPROVAL.");
@@ -788,8 +807,10 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
 
             em.createNativeQuery(
                     "UPDATE pur.rfq_hdr SET status = 'APPROVED', current_level = :level, total_level = :level " +
-                    "WHERE id = :id AND tenant_id = :tenant AND status = 'PENDING_APPROVAL'")
-                    .setParameter("level", matrixLevel).setParameter("id", id).setParameter("tenant", tenantId).executeUpdate();
+                    "WHERE id = :id AND tenant_id = :tenant AND company_id = :company "
+                     + "AND status = 'PENDING_APPROVAL'")
+                    .setParameter("level", matrixLevel).setParameter("id", id).setParameter("tenant", tenantId)
+                     .setParameter("company", context.companyId()).executeUpdate();
             ra.addFlashAttribute("success", "RFQ berhasil disetujui oleh role " + requiredRole + ".");
         } catch (Exception e) {
             Throwable root = e;
@@ -815,8 +836,9 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
 
             Object[] hdr = (Object[]) em.createNativeQuery(
                     "SELECT status, recommended_amount FROM pur.rfq_hdr " +
-                    "WHERE id = :id AND tenant_id = :tenant FOR UPDATE")
-                    .setParameter("id", id).setParameter("tenant", tenantId).getSingleResult();
+                    "WHERE id = :id AND tenant_id = :tenant AND company_id = :company FOR UPDATE")
+                    .setParameter("id", id).setParameter("tenant", tenantId)
+                    .setParameter("company", context.companyId()).getSingleResult();
             String status = hdr[0] != null ? hdr[0].toString() : "";
             if (!"PENDING_APPROVAL".equalsIgnoreCase(status)) {
                 throw new RuntimeException("Hanya RFQ PENDING_APPROVAL yang dapat ditolak.");
@@ -843,8 +865,10 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
 
             em.createNativeQuery(
                     "UPDATE pur.rfq_hdr SET status = 'QUOTED', current_level = 0, total_level = 0 " +
-                    "WHERE id = :id AND tenant_id = :tenant AND status = 'PENDING_APPROVAL'")
-                    .setParameter("id", id).setParameter("tenant", tenantId).executeUpdate();
+                    "WHERE id = :id AND tenant_id = :tenant AND company_id = :company "
+                     + "AND status = 'PENDING_APPROVAL'")
+                    .setParameter("id", id).setParameter("tenant", tenantId)
+                     .setParameter("company", context.companyId()).executeUpdate();
             ra.addFlashAttribute("warning", "RFQ ditolak oleh role " + requiredRole + " dan dikembalikan ke status QUOTED.");
         } catch (Exception e) {
             Throwable root = e;
@@ -932,8 +956,12 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
             // UPDATE STATUS PR MENJADI PO_CREATED
             // Kita gunakan sub-query untuk mencari PR ID dari RFQ ini
             try {
-                em.createNativeQuery("UPDATE pur.purchase_request_hdr SET status = 'PO_CREATED' WHERE id IN (SELECT pr_id FROM pur.rfq_hdr WHERE id = :rfqId)")
+                em.createNativeQuery("UPDATE pur.purchase_request_hdr SET status = 'PO_CREATED' "
+                  + "WHERE tenant_id = :tenantId AND company_id = :compId "
+                  + "AND id IN (SELECT pr_id FROM pur.rfq_hdr WHERE id = :rfqId "
+                  + "AND tenant_id = :tenantId AND company_id = :compId)")
                   .setParameter("rfqId", id)
+                  .setParameter("tenantId", tenantId).setParameter("compId", compId)
                   .executeUpdate();
             } catch (Exception e) {
                 System.err.println("Gagal update status PR: " + e.getMessage());
@@ -970,10 +998,15 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
                     .setParameter("amount", price).executeUpdate();
             }
 
-            em.createNativeQuery("UPDATE pur.purchase_order_hdr SET total_amount = :total, tax_amount = :taxAmt WHERE id = :id")
-                .setParameter("total", grandTotal).setParameter("taxAmt", totalTax).setParameter("id", poId).executeUpdate();
+            em.createNativeQuery("UPDATE pur.purchase_order_hdr SET total_amount = :total, tax_amount = :taxAmt "
+                + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("total", grandTotal).setParameter("taxAmt", totalTax).setParameter("id", poId)
+                .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
 
-            em.createNativeQuery("UPDATE pur.rfq_hdr SET status = 'CLOSED' WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("UPDATE pur.rfq_hdr SET status = 'CLOSED' WHERE id = :id "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
             em.createNativeQuery("UPDATE pur.rfq_supplier SET status = 'WON' WHERE rfq_id = :rfqId AND supplier_id = :supId").setParameter("rfqId", id).setParameter("supId", winningSupplierId).executeUpdate();
             em.createNativeQuery("UPDATE pur.rfq_supplier SET status = 'LOST' WHERE rfq_id = :rfqId AND supplier_id <> :supId").setParameter("rfqId", id).setParameter("supId", winningSupplierId).executeUpdate();
 
@@ -989,7 +1022,11 @@ String sqlPr = "SELECT h.id, h.doc_no, h.doc_date FROM pur.purchase_request_hdr 
     @Transactional
     public String voidRfq(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("UPDATE pur.rfq_hdr SET status = 'VOID' WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("UPDATE pur.rfq_hdr SET status = 'VOID' WHERE id = :id "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute("success", "RFQ berhasil di-void.");
         } catch (Exception e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/ui/purchasing/rfq";

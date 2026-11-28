@@ -40,7 +40,9 @@ public class UiPaymentTermController {
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "Payment Terms");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        List<Object[]> items = em.createNativeQuery("SELECT id, code, name, days, COALESCE(description,'-'), is_active FROM md.payment_term ORDER BY days").getResultList();
+        List<Object[]> items = em.createNativeQuery("SELECT id, code, name, days, COALESCE(description,'-'), is_active FROM md.payment_term "
+                + "WHERE tenant_id = :tenantId ORDER BY days")
+                .setParameter("tenantId", context.tenantId()).getResultList();
         model.addAttribute("items", items);
         return "ui/master/payment_term_list";
     }
@@ -63,8 +65,9 @@ public class UiPaymentTermController {
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         model.addAttribute("isNew", false);
         try {
-            Object[] row = (Object[]) em.createNativeQuery("SELECT id, code, name, days, COALESCE(description,''), is_active FROM md.payment_term WHERE id = :id")
-                .setParameter("id", id).getSingleResult();
+            Object[] row = (Object[]) em.createNativeQuery("SELECT id, code, name, days, COALESCE(description,''), is_active FROM md.payment_term "
+                + "WHERE id = :id AND tenant_id = :tenantId")
+                .setParameter("id", id).setParameter("tenantId", context.tenantId()).getSingleResult();
             Map<String, Object> c = new HashMap<>();
             c.put("id", row[0]); c.put("code", row[1]); c.put("name", row[2]); c.put("days", row[3]);
             c.put("description", row[4]); c.put("isActive", row[5]);
@@ -91,9 +94,11 @@ public class UiPaymentTermController {
                   .setParameter("desc", description).setParameter("active", isActive).setParameter("tenantId", context.tenantId()).executeUpdate();
                 ra.addFlashAttribute("success", "Payment Term berhasil ditambahkan.");
             } else {
-                em.createNativeQuery("UPDATE md.payment_term SET code=:code, name=:name, days=:days, description=:desc, is_active=:active WHERE id=:id")
+                em.createNativeQuery("UPDATE md.payment_term SET code=:code, name=:name, days=:days, description=:desc, "
+                  + "is_active=:active WHERE id=:id AND tenant_id=:tenantId")
                   .setParameter("code", code).setParameter("name", name).setParameter("days", days)
-                  .setParameter("desc", description).setParameter("active", isActive).setParameter("id", id).executeUpdate();
+                  .setParameter("desc", description).setParameter("active", isActive)
+                  .setParameter("id", id).setParameter("tenantId", context.tenantId()).executeUpdate();
                 ra.addFlashAttribute("success", "Payment Term berhasil diupdate.");
             }
         } catch (Exception e) {
@@ -106,7 +111,8 @@ public class UiPaymentTermController {
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("DELETE FROM md.payment_term WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("DELETE FROM md.payment_term WHERE id = :id AND tenant_id = :tenantId")
+                .setParameter("id", id).setParameter("tenantId", context.tenantId()).executeUpdate();
             ra.addFlashAttribute("success", "Payment Term berhasil dihapus.");
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Gagal hapus: " + e.getMessage());

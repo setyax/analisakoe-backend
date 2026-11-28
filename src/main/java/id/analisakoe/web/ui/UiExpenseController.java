@@ -55,10 +55,10 @@ public class UiExpenseController {
             // Hanya expense milik cabang aktif
             String sql = "SELECT c.id, c.doc_no, c.doc_date, c.amount, COALESCE(c.remarks,''), COALESCE(c.status,'-') " +
                          "FROM fin.cash_bank_trx c WHERE c.trx_type = 'OUT' AND c.remarks LIKE 'EXPENSE:%' " +
-                         "AND c.company_id = :compId " +
+                         "AND c.tenant_id = :tenantId AND c.company_id = :compId " +
                          "ORDER BY c.id DESC";
             List<Object[]> rows = em.createNativeQuery(sql)
-                    .setParameter("compId", compId).getResultList();
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId()).getResultList();
             for (Object[] row : rows) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id", row[0]);
@@ -96,7 +96,10 @@ public class UiExpenseController {
 
         List<Map<String, Object>> accounts = new ArrayList<>();
         for (Object[] row : (List<Object[]>) em.createNativeQuery(
-            "SELECT id, code, name FROM fin.chart_of_account WHERE code LIKE '6%' AND account_type = 'EXPENSE' ORDER BY code").getResultList()) {
+            "SELECT id, code, name FROM fin.chart_of_account WHERE tenant_id = :tenantId "
+            + "AND company_id = :compId AND code LIKE '6%' AND account_type = 'EXPENSE' ORDER BY code")
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+            .getResultList()) {
             Map<String, Object> m = new HashMap<>();
             m.put("id", row[0]); m.put("code", row[1]); m.put("name", row[2]);
             accounts.add(m);
@@ -104,7 +107,10 @@ public class UiExpenseController {
         model.addAttribute("accounts", accounts);
 
         List<Map<String, Object>> banks = new ArrayList<>();
-        for (Object[] row : (List<Object[]>) em.createNativeQuery("SELECT id, name FROM fin.bank_account ORDER BY name").getResultList()) {
+        for (Object[] row : (List<Object[]>) em.createNativeQuery("SELECT id, name FROM fin.bank_account WHERE tenant_id = :tenantId "
+                + "AND company_id = :compId ORDER BY name")
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList()) {
             Map<String, Object> m = new HashMap<>();
             m.put("id", row[0]); m.put("name", row[1]);
             banks.add(m);
@@ -129,7 +135,10 @@ public class UiExpenseController {
                 if (amount.compareTo(BigDecimal.ZERO) <= 0)
                     throw new IllegalArgumentException("Nominal harus lebih dari 0.");
 
-                Long accBankId = ((Number) em.createNativeQuery("SELECT id FROM fin.chart_of_account WHERE code = '1102'").getSingleResult()).longValue();
+                Long accBankId = ((Number) em.createNativeQuery("SELECT id FROM fin.chart_of_account WHERE code = '1102' "
+                        + "AND tenant_id = :tenantId AND company_id = :compId")
+                        .setParameter("tenantId", tenantId).setParameter("compId", compId)
+                        .getSingleResult()).longValue();
 
                 String docNo = "EXP-" + System.currentTimeMillis();
                 String remarksDb = "EXPENSE: " + description;
@@ -170,8 +179,11 @@ public class UiExpenseController {
             transactionTemplate.executeWithoutResult(tx -> {
                 Object[] trx = (Object[]) em.createNativeQuery(
                         "SELECT doc_no, status, amount, remarks, tenant_id, company_id FROM fin.cash_bank_trx " +
-                        "WHERE id = :id AND trx_type = 'OUT'")
-                        .setParameter("id", id).getSingleResult();
+                        "WHERE id = :id AND trx_type = 'OUT' "
+                        + "AND tenant_id = :tenantId AND company_id = :compId")
+                        .setParameter("id", id)
+                        .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                        .getSingleResult();
                 String docNo = trx[0].toString();
                 String status = trx[1].toString();
                 BigDecimal amount = new BigDecimal(trx[2].toString());
@@ -186,8 +198,11 @@ public class UiExpenseController {
                 Long origJvId = null;
                 try {
                     origJvId = ((Number) em.createNativeQuery(
-                            "SELECT id FROM fin.journal_hdr WHERE ref_type = 'EXPENSE' AND ref_id = :id AND status = 'POSTED'")
-                            .setParameter("id", id).getSingleResult()).longValue();
+                            "SELECT id FROM fin.journal_hdr WHERE ref_type = 'EXPENSE' AND ref_id = :id "
+                            + "AND status = 'POSTED' AND tenant_id = :tenantId AND company_id = :compId")
+                            .setParameter("id", id)
+                            .setParameter("tenantId", tenantId).setParameter("compId", compId)
+                            .getSingleResult()).longValue();
                 } catch (Exception ignore) { }
 
                 // Jurnal pembalik (mengikuti company & tenant dokumen asal)
@@ -220,12 +235,17 @@ public class UiExpenseController {
                     em.createNativeQuery(
                             "INSERT INTO fin.journal_dtl (header_id, account_id, debit, credit, description) " +
                             "SELECT :hdr, bank.coa_id, :amount, 0, 'Void: ' FROM fin.bank_account bank WHERE bank.id = " +
-                            "(SELECT bank_id FROM fin.cash_bank_trx WHERE id = :id)")
-                        .setParameter("hdr", revJvId).setParameter("amount", amount).setParameter("id", id).executeUpdate();
+                            "(SELECT bank_id FROM fin.cash_bank_trx WHERE id = :id "
+                             + "AND tenant_id = :tenantId AND company_id = :compId)")
+                        .setParameter("hdr", revJvId).setParameter("amount", amount).setParameter("id", id)
+                        .setParameter("tenantId", tenantId).setParameter("compId", compId).executeUpdate();
                 }
 
-                em.createNativeQuery("UPDATE fin.cash_bank_trx SET status = 'VOID' WHERE id = :id")
-                    .setParameter("id", id).executeUpdate();
+                em.createNativeQuery("UPDATE fin.cash_bank_trx SET status = 'VOID' WHERE id = :id "
+                    + "AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id)
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                    .executeUpdate();
             });
             ra.addFlashAttribute("success", "Expense berhasil di-VOID (jurnal dibalik).");
         } catch (Exception e) {
@@ -240,8 +260,11 @@ public class UiExpenseController {
         try {
             transactionTemplate.executeWithoutResult(tx -> {
                 Object[] trx = (Object[]) em.createNativeQuery(
-                        "SELECT doc_no, status FROM fin.cash_bank_trx WHERE id = :id AND trx_type = 'OUT'")
-                        .setParameter("id", id).getSingleResult();
+                        "SELECT doc_no, status FROM fin.cash_bank_trx WHERE id = :id AND trx_type = 'OUT' "
+                        + "AND tenant_id = :tenantId AND company_id = :compId")
+                        .setParameter("id", id)
+                        .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                        .getSingleResult();
                 String docNo = trx[0].toString();
                 String status = trx[1].toString();
 
@@ -251,8 +274,11 @@ public class UiExpenseController {
 
                 // Hapus jurnal pembalik dan jurnal asli yang terhubung ke trx ini
                 List<Integer> hdrIds = em.createNativeQuery(
-                        "SELECT id FROM fin.journal_hdr WHERE (ref_type IN ('EXPENSE','EXPENSE_VOID') AND ref_id = :id)")
-                        .setParameter("id", id).getResultList();
+                        "SELECT id FROM fin.journal_hdr WHERE (ref_type IN ('EXPENSE','EXPENSE_VOID') AND ref_id = :id) "
+                        + "AND tenant_id = :tenantId AND company_id = :compId")
+                        .setParameter("id", id)
+                        .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                        .getResultList();
                 for (Object hdrId : hdrIds) {
                     em.createNativeQuery("DELETE FROM fin.journal_dtl WHERE header_id = :hdr")
                         .setParameter("hdr", ((Number) hdrId).longValue()).executeUpdate();
@@ -260,8 +286,11 @@ public class UiExpenseController {
                         .setParameter("hdr", ((Number) hdrId).longValue()).executeUpdate();
                 }
 
-                em.createNativeQuery("DELETE FROM fin.cash_bank_trx WHERE id = :id")
-                    .setParameter("id", id).executeUpdate();
+                em.createNativeQuery("DELETE FROM fin.cash_bank_trx WHERE id = :id "
+                    + "AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id)
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                    .executeUpdate();
             });
             ra.addFlashAttribute("success", "Expense berhasil dihapus.");
         } catch (Exception e) {

@@ -40,7 +40,9 @@ public class UiPaymentMethodController {
         model.addAttribute("user", user);
         model.addAttribute("pageTitle", "Payment Methods");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
-        List<Object[]> items = em.createNativeQuery("SELECT id, code, name, is_active FROM fin.payment_method ORDER BY code").getResultList();
+        List<Object[]> items = em.createNativeQuery("SELECT id, code, name, is_active FROM fin.payment_method "
+                + "WHERE tenant_id = :tenantId ORDER BY code")
+                .setParameter("tenantId", context.tenantId()).getResultList();
         model.addAttribute("items", items);
         return "ui/master/payment_method_list";
     }
@@ -63,8 +65,9 @@ public class UiPaymentMethodController {
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
         model.addAttribute("isNew", false);
         try {
-            Object[] row = (Object[]) em.createNativeQuery("SELECT id, code, name, is_active FROM fin.payment_method WHERE id = :id")
-                .setParameter("id", id).getSingleResult();
+            Object[] row = (Object[]) em.createNativeQuery("SELECT id, code, name, is_active FROM fin.payment_method "
+                + "WHERE id = :id AND tenant_id = :tenantId")
+                .setParameter("id", id).setParameter("tenantId", context.tenantId()).getSingleResult();
             Map<String, Object> c = new HashMap<>();
             c.put("id", row[0]); c.put("code", row[1]); c.put("name", row[2]); c.put("isActive", row[3]);
             model.addAttribute("c", c);
@@ -87,8 +90,10 @@ public class UiPaymentMethodController {
                   .setParameter("code", code).setParameter("name", name).setParameter("active", isActive).setParameter("tenantId", context.tenantId()).executeUpdate();
                 ra.addFlashAttribute("success", "Payment Method berhasil ditambahkan.");
             } else {
-                em.createNativeQuery("UPDATE fin.payment_method SET code=:code, name=:name, is_active=:active WHERE id=:id")
-                  .setParameter("code", code).setParameter("name", name).setParameter("active", isActive).setParameter("id", id).executeUpdate();
+                em.createNativeQuery("UPDATE fin.payment_method SET code=:code, name=:name, is_active=:active "
+                  + "WHERE id=:id AND tenant_id=:tenantId")
+                  .setParameter("code", code).setParameter("name", name).setParameter("active", isActive)
+                  .setParameter("id", id).setParameter("tenantId", context.tenantId()).executeUpdate();
                 ra.addFlashAttribute("success", "Payment Method berhasil diupdate.");
             }
         } catch (Exception e) {
@@ -101,7 +106,8 @@ public class UiPaymentMethodController {
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         try {
-            em.createNativeQuery("DELETE FROM fin.payment_method WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("DELETE FROM fin.payment_method WHERE id = :id AND tenant_id = :tenantId")
+                .setParameter("id", id).setParameter("tenantId", context.tenantId()).executeUpdate();
             ra.addFlashAttribute("success", "Payment Method berhasil dihapus.");
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Gagal hapus: " + e.getMessage());

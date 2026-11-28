@@ -171,14 +171,18 @@ public class UiGrnController {
         model.addAttribute("pageTitle", "View GRN");
         model.addAttribute("menus", menuService.buildTreeForUser(user.getPermissions()));
 
-        var grn = repo.findById(id).orElseThrow();
+        var grn = repo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId())
+                .orElseThrow();
         model.addAttribute("grn", grn);
 
-        Map<Long, String> itemMap = itemRepo.findAll().stream()
+        Map<Long, String> itemMap = itemRepo.findByTenantIdAndCompanyIdAndDeletedAtIsNull(
+                context.tenantId(), context.companyId(),
+                org.springframework.data.domain.PageRequest.of(0, 1000)).getContent().stream()
                 .collect(Collectors.toMap(Item::getId, Item::getName));
         model.addAttribute("itemMap", itemMap);
 
-        Map<Long, String> uomMap = uomRepo.findAll().stream()
+        Map<Long, String> uomMap = uomRepo.findByTenantId(context.tenantId(),
+                org.springframework.data.domain.PageRequest.of(0, 1000)).getContent().stream()
                 .collect(Collectors.toMap(u -> u.getId(), u -> u.getCode()));
         model.addAttribute("uomMap", uomMap);
 
@@ -203,7 +207,8 @@ public class UiGrnController {
         model.addAttribute("detailRows", details);
 
         if (grn.getPoId() != null) {
-            poRepo.findById(grn.getPoId()).ifPresent(po -> model.addAttribute("refPoNo", po.getDocNo()));
+            poRepo.findByIdAndTenantIdAndCompanyId(grn.getPoId(), context.tenantId(), context.companyId())
+                    .ifPresent(po -> model.addAttribute("refPoNo", po.getDocNo()));
         }
         return "ui/purchasing/grn_view";
     }
@@ -218,8 +223,11 @@ public class UiGrnController {
             transactionTemplate.executeWithoutResult(tx -> {
             // === 1. Ambil data GRN SEBELUM confirm (untuk diproses inventory & journal) ===
             Object[] hdr = (Object[]) em.createNativeQuery(
-                "SELECT doc_no, doc_date, status, tenant_id, company_id FROM pur.grn_hdr WHERE id = :id")
-                .setParameter("id", id).getSingleResult();
+                "SELECT doc_no, doc_date, status, tenant_id, company_id FROM pur.grn_hdr "
+                + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getSingleResult();
 
             String grnNo = hdr[0].toString();
             LocalDate grnDate = ((java.sql.Date) hdr[1]).toLocalDate();
@@ -260,8 +268,11 @@ public class UiGrnController {
 
                 // Ambil PO ID dari GRN header
                 Long poId = ((Number) em.createNativeQuery(
-                    "SELECT po_id FROM pur.grn_hdr WHERE id = :id")
-                    .setParameter("id", id).getSingleResult()).longValue();
+                    "SELECT po_id FROM pur.grn_hdr WHERE id = :id "
+                    + "AND tenant_id = :tenantId AND company_id = :compId")
+                    .setParameter("id", id)
+                    .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                    .getSingleResult()).longValue();
 
                 // Total qty PO untuk item ini
                 List<?> poQtyList = em.createNativeQuery(
@@ -345,8 +356,11 @@ public class UiGrnController {
             transactionTemplate.executeWithoutResult(tx -> {
 
         Object[] hdr = (Object[]) em.createNativeQuery(
-            "SELECT doc_no, doc_date, status, tenant_id, company_id FROM pur.grn_hdr WHERE id = :id"
-        ).setParameter("id", id).getSingleResult();
+            "SELECT doc_no, doc_date, status, tenant_id, company_id FROM pur.grn_hdr "
+            + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId"
+        ).setParameter("id", id)
+         .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+         .getSingleResult();
 
         String grnNo = hdr[0].toString();
         LocalDate grnDate = ((java.sql.Date) hdr[1]).toLocalDate();
@@ -362,8 +376,11 @@ public class UiGrnController {
 
         Long piCount = ((Number) em.createNativeQuery(
             "SELECT COUNT(*) FROM pur.purchase_invoice_hdr " +
-            "WHERE grn_id = :id AND status <> 'VOID'"
-        ).setParameter("id", id).getSingleResult()).longValue();
+            "WHERE grn_id = :id AND status <> 'VOID' "
+            + "AND tenant_id = :tenantId AND company_id = :compId"
+        ).setParameter("id", id)
+         .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+         .getSingleResult()).longValue();
 
         if (piCount > 0) {
             ra.addFlashAttribute("error",
@@ -461,8 +478,11 @@ public String voidGrn(@PathVariable Long id, RedirectAttributes ra) {
     try {
         transactionTemplate.executeWithoutResult(tx -> {
         Object[] hdr = (Object[]) em.createNativeQuery(
-            "SELECT doc_no, doc_date, status, tenant_id, company_id FROM pur.grn_hdr WHERE id = :id")
-            .setParameter("id", id).getSingleResult();
+            "SELECT doc_no, doc_date, status, tenant_id, company_id FROM pur.grn_hdr "
+            + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+            .setParameter("id", id)
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+            .getSingleResult();
         String grnNo = hdr[0].toString();
         LocalDate grnDate = ((java.sql.Date) hdr[1]).toLocalDate();
         String status = hdr[2] != null ? hdr[2].toString() : "";
@@ -477,8 +497,11 @@ public String voidGrn(@PathVariable Long id, RedirectAttributes ra) {
         // CEK: Apakah ada PI aktif?
         Long piCount = ((Number) em.createNativeQuery(
             "SELECT COUNT(*) FROM pur.purchase_invoice_hdr " +
-            "WHERE grn_id = :id AND status <> 'VOID'")
-            .setParameter("id", id).getSingleResult()).longValue();
+            "WHERE grn_id = :id AND status <> 'VOID' "
+            + "AND tenant_id = :tenantId AND company_id = :compId")
+            .setParameter("id", id)
+            .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+            .getSingleResult()).longValue();
 
         if (piCount > 0) {
             ra.addFlashAttribute("error",
@@ -523,7 +546,8 @@ public String voidGrn(@PathVariable Long id, RedirectAttributes ra) {
         }
 
         // Set VOID
-        GrnHdr grn = repo.findById(id).orElseThrow();
+        GrnHdr grn = repo.findByIdAndTenantIdAndCompanyId(id, context.tenantId(), context.companyId())
+            .orElseThrow();
         grn.setStatus("VOID");
         repo.save(grn);
 
@@ -541,8 +565,11 @@ public String voidGrn(@PathVariable Long id, RedirectAttributes ra) {
     public String deleteGrn(@PathVariable Long id, RedirectAttributes ra) {
         try {
             transactionTemplate.executeWithoutResult(tx -> {
-            List<?> statusList = em.createNativeQuery("SELECT status FROM pur.grn_hdr WHERE id = :id")
-                .setParameter("id", id).getResultList();
+            List<?> statusList = em.createNativeQuery("SELECT status FROM pur.grn_hdr "
+                + "WHERE id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
             String status = statusList.isEmpty() ? "" : statusList.get(0).toString();
 
             if (!"DRAFT".equals(status)) {
@@ -550,15 +577,22 @@ public String voidGrn(@PathVariable Long id, RedirectAttributes ra) {
                 return;
             }
 
-            List<?> piRef = em.createNativeQuery("SELECT id FROM pur.purchase_invoice_hdr WHERE grn_id = :id")
-                .setParameter("id", id).getResultList();
+            List<?> piRef = em.createNativeQuery("SELECT id FROM pur.purchase_invoice_hdr "
+                + "WHERE grn_id = :id AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
             if (!piRef.isEmpty()) {
                 ra.addFlashAttribute("error", "GRN tidak bisa dihapus karena sudah memiliki Invoice.");
                 return;
             }
 
             em.createNativeQuery("DELETE FROM pur.grn_dtl WHERE header_id = :id").setParameter("id", id).executeUpdate();
-            em.createNativeQuery("DELETE FROM pur.grn_hdr WHERE id = :id").setParameter("id", id).executeUpdate();
+            em.createNativeQuery("DELETE FROM pur.grn_hdr WHERE id = :id "
+                + "AND tenant_id = :tenantId AND company_id = :compId")
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .executeUpdate();
             ra.addFlashAttribute("success", "GRN berhasil dihapus.");
             });
         } catch (Exception e) { ra.addFlashAttribute("error", "Gagal: " + rootMessage(e)); }
@@ -602,13 +636,18 @@ public String voidGrn(@PathVariable Long id, RedirectAttributes ra) {
             String sql = "SELECT d.id, d.item_id, i.code, i.name, d.qty, d.uom_id, u.code AS uom_code, " +
                          "COALESCE((SELECT SUM(g.qty_received) FROM pur.grn_dtl g " +
                          "  JOIN pur.grn_hdr gh ON gh.id = g.header_id " +
-                         "  WHERE g.item_id = d.item_id AND gh.po_id = :id AND gh.status <> 'VOID'), 0) AS qty_received " +
+                         "  WHERE g.item_id = d.item_id AND gh.po_id = :id AND gh.status <> 'VOID' "
+                          + "  AND gh.tenant_id = :tenantId AND gh.company_id = :compId), 0) AS qty_received " +
                          "FROM pur.purchase_order_dtl d " +
                          "LEFT JOIN md.item i ON i.id = d.item_id " +
                          "LEFT JOIN md.uom u ON u.id = d.uom_id " +
-                         "WHERE d.header_id = :id ORDER BY d.id";
+                         "WHERE d.header_id = :id AND EXISTS (SELECT 1 FROM pur.purchase_order_hdr h "
+                          + "WHERE h.id = d.header_id AND h.tenant_id = :tenantId AND h.company_id = :compId) "
+                          + "ORDER BY d.id";
             java.util.List<Object[]> rows = em.createNativeQuery(sql)
-                .setParameter("id", id).getResultList();
+                .setParameter("id", id)
+                .setParameter("tenantId", context.tenantId()).setParameter("compId", context.companyId())
+                .getResultList();
             for (Object[] row : rows) {
                 java.util.Map<String, Object> map = new java.util.HashMap<>();
                 map.put("poDetailId", row[0]);
