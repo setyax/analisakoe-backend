@@ -3,6 +3,7 @@ package id.analisakoe.config;
 import id.analisakoe.auth.jwt.JwtAuthFilter;
 import id.analisakoe.context.ContextFilter;
 import id.analisakoe.ratelimit.RateLimitFilter;
+import id.analisakoe.security.DemoReadOnlyFilter;
 import id.analisakoe.security.UserDetailsServiceImpl;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -30,14 +31,17 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final ContextFilter contextFilter;
     private final RateLimitFilter rateLimitFilter;
+    private final DemoReadOnlyFilter demoReadOnlyFilter;
     private final UserDetailsServiceImpl userDetailsService;
 
     public SecurityConfig(JwtAuthFilter jwtAuthFilter, ContextFilter contextFilter,
                           RateLimitFilter rateLimitFilter,
+                          DemoReadOnlyFilter demoReadOnlyFilter,
                           UserDetailsServiceImpl userDetailsService) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.contextFilter = contextFilter;
         this.rateLimitFilter = rateLimitFilter;
+        this.demoReadOnlyFilter = demoReadOnlyFilter;
         this.userDetailsService = userDetailsService;
     }
 
@@ -136,7 +140,8 @@ public class SecurityConfig {
             )
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(contextFilter, JwtAuthFilter.class)
+            .addFilterAfter(demoReadOnlyFilter, JwtAuthFilter.class)
+            .addFilterAfter(contextFilter, DemoReadOnlyFilter.class)
             .addFilterAfter(rateLimitFilter, ContextFilter.class);
 
         http.headers(headers -> headers
